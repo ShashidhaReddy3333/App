@@ -102,17 +102,57 @@ Copy `.env.example` to `.env` and set:
 
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
+DIRECT_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
 SESSION_SECRET="replace-with-a-long-random-string"
 APP_URL="http://localhost:3000"
 DEMO_MODE="true"
 ```
 
 `DATABASE_URL` must point to a running PostgreSQL server. The seed script and Playwright smoke tests require a reachable database.
+`DIRECT_URL` is used by Prisma for migrations and seed operations. In local Docker setup it can match `DATABASE_URL`.
 
 For the included Docker setup, keep the default URL:
 
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
+DIRECT_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
+```
+
+## Supabase + Vercel
+
+This repo works with Supabase as its PostgreSQL database.
+
+Recommended setup:
+
+- `DATABASE_URL`
+  - use the Supabase pooled connection string for app runtime on Vercel
+- `DIRECT_URL`
+  - use the direct database connection string for Prisma migrations and seed
+- `SESSION_SECRET`
+  - long random secret for cookie-backed sessions
+- `APP_URL`
+  - your deployed Vercel URL or custom domain
+- `DEMO_MODE`
+  - set to `false` in production
+
+Typical deployment flow:
+
+1. Create a Supabase project.
+2. In Supabase, copy:
+   - pooled connection string for `DATABASE_URL`
+   - direct connection string for `DIRECT_URL`
+3. Add those values in Vercel Project Settings -> Environment Variables.
+4. Set `SESSION_SECRET`, `APP_URL`, and `DEMO_MODE=false` in Vercel.
+5. Run Prisma migrations against Supabase before first use:
+
+```bash
+corepack pnpm prisma:migrate:deploy
+```
+
+6. Optionally seed demo data once:
+
+```bash
+corepack pnpm prisma:seed
 ```
 
 ## Scripts

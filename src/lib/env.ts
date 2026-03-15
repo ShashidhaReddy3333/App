@@ -1,15 +1,33 @@
 import { z } from "zod";
 
-const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
-  SESSION_SECRET: z.string().min(16),
-  APP_URL: z.string().url(),
-  DEMO_MODE: z.enum(["true", "false"]).default("false")
-});
+const demoModeSchema = z.enum(["true", "false"]).default("false");
+const databaseUrlSchema = z.string().min(1, "DATABASE_URL is required.");
+const sessionSecretSchema = z.string().min(16, "SESSION_SECRET must be at least 16 characters.");
+const appUrlSchema = z.string().url("APP_URL must be a valid absolute URL.");
 
-export const env = envSchema.parse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  SESSION_SECRET: process.env.SESSION_SECRET,
-  APP_URL: process.env.APP_URL,
-  DEMO_MODE: process.env.DEMO_MODE ?? "false"
-});
+function resolveAppUrlValue() {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+export const env = {
+  get DATABASE_URL() {
+    return databaseUrlSchema.parse(process.env.DATABASE_URL);
+  },
+  get SESSION_SECRET() {
+    return sessionSecretSchema.parse(process.env.SESSION_SECRET);
+  },
+  get APP_URL() {
+    return appUrlSchema.parse(resolveAppUrlValue());
+  },
+  get DEMO_MODE() {
+    return demoModeSchema.parse(process.env.DEMO_MODE ?? "false");
+  }
+} as const;
