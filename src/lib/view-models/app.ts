@@ -1,0 +1,99 @@
+import { decimalToNumber } from "@/lib/money";
+
+type CatalogData = Awaited<ReturnType<typeof import("@/lib/services/catalog-query-service").listCatalogData>>;
+type DashboardMetrics = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getDashboardMetrics>>;
+type ReportsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getReportsSnapshot>>;
+type SalesList = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").listSales>>;
+type SaleDetail = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").getSaleDetail>>;
+type StaffList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listStaff>>;
+type SessionList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listBusinessSessions>>;
+
+export function toProductTableRows(products: CatalogData["products"]) {
+  return products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    sku: product.sku,
+    sellingPrice: decimalToNumber(product.sellingPrice),
+    availableQuantity: product.availableQuantity,
+    reorderQuantity: product.reorderQuantity,
+    supplierName: product.supplier?.name ?? "Unassigned"
+  }));
+}
+
+export function toCheckoutProductOptions(products: CatalogData["products"]) {
+  return products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    sellingPrice: decimalToNumber(product.sellingPrice)
+  }));
+}
+
+export function toProductOptions(products: CatalogData["products"]) {
+  return products.map((product) => ({
+    id: product.id,
+    name: product.name
+  }));
+}
+
+export function toSupplierOptions(suppliers: CatalogData["suppliers"]) {
+  return suppliers.map((supplier) => ({
+    id: supplier.id,
+    name: supplier.name
+  }));
+}
+
+export function toSalesListItems(sales: SalesList) {
+  return sales.map((sale) => ({
+    id: sale.id,
+    receiptNumber: sale.receiptNumber ?? sale.id.slice(0, 8),
+    statusLabel: sale.status.replaceAll("_", " "),
+    totalAmount: sale.totalAmount.toString(),
+    amountPaid: sale.amountPaid.toString(),
+    cashierName: sale.cashier.fullName,
+    completedAtLabel: sale.completedAt ? new Date(sale.completedAt).toLocaleString() : "Pending completion"
+  }));
+}
+
+export function toRefundItemOptions(items: SaleDetail["items"]) {
+  return items.map((item) => ({
+    id: item.id,
+    label: `${item.product.name} (${item.quantity.toString()})`
+  }));
+}
+
+export function toStaffCards(staff: StaffList) {
+  return staff.map((user) => ({
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    roleLabel: user.role.replaceAll("_", " "),
+    status: user.status
+  }));
+}
+
+export function toSessionCards(sessions: SessionList) {
+  return sessions.map((session) => ({
+    id: session.id,
+    userName: session.user.fullName,
+    deviceName: session.deviceName,
+    lastSeenLabel: session.lastSeenAt ? new Date(session.lastSeenAt).toLocaleString() : "Never"
+  }));
+}
+
+export function toDashboardCards(metrics: DashboardMetrics) {
+  return [
+    { title: "Today's sales", value: `$${metrics.salesToday.toFixed(2)}` },
+    { title: "Orders", value: metrics.totalOrders.toString() },
+    { title: "Low-stock alerts", value: metrics.lowStockAlerts.toString() },
+    { title: "Pending payments", value: metrics.pendingPayments.toString() }
+  ];
+}
+
+export function toReportCards(report: ReportsSnapshot) {
+  return [
+    { title: "Daily revenue", value: `$${report.dailyRevenue.toFixed(2)}` },
+    { title: "Monthly revenue", value: `$${report.monthlyRevenue.toFixed(2)}` },
+    { title: "Transactions", value: report.transactionCount.toString() }
+  ];
+}

@@ -1,0 +1,54 @@
+import { z } from "zod";
+
+export const signUpSchema = z.object({
+  ownerName: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8),
+  businessName: z.string().min(2).max(100),
+  businessType: z.enum([
+    "retail_store",
+    "grocery",
+    "clothing",
+    "pharmacy",
+    "convenience",
+    "online_seller",
+    "wholesale",
+    "service_with_products"
+  ]),
+  primaryCountry: z.string().min(2).max(2),
+  timezone: z.string().min(1),
+  currency: z.string().length(3),
+  taxMode: z.enum(["no_tax", "inclusive_tax", "exclusive_tax"]),
+  addressLine1: z.string().min(3),
+  city: z.string().min(2),
+  provinceOrState: z.string().min(2),
+  postalCode: z.string().min(3),
+  defaultTaxName: z.string().max(30).optional().or(z.literal("")),
+  defaultTaxRate: z.coerce.number().min(0).max(100).optional()
+});
+
+export const signInSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  token: z.string().min(10),
+  password: z.string().min(8)
+});
+
+export const inviteStaffSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["manager", "cashier", "inventory_staff"])
+});
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(10),
+  fullName: z.string().min(2).max(100),
+  password: z.string().min(8)
+});

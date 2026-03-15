@@ -1,0 +1,13 @@
+.next
+node_modules
+.pnpm-store
+.tsbuildinfo
+tsconfig.tsbuildinfo
+.env
+.env.local
+dist
+coverage
+playwright-report
+test-results
+*.log
+prisma/dev.db
