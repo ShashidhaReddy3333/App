@@ -32,6 +32,21 @@ export const signInSchema = z.object({
   password: z.string().min(8)
 });
 
+export const customerSignUpSchema = z.object({
+  fullName: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
+export const supplierSignUpSchema = z.object({
+  fullName: z.string().min(2).max(100),
+  businessName: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8),
+  phone: z.string().min(7).max(30).optional().or(z.literal("")),
+  notes: z.string().max(240).optional().or(z.literal(""))
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email()
 });

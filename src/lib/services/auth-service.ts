@@ -1,15 +1,28 @@
 import { BusinessType, TaxMode, UserRole, UserStatus } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
+import { sendPasswordResetEmail, sendStaffInviteEmail } from "@/lib/auth/mailer";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { forgotPasswordSchema, inviteStaffSchema, resetPasswordSchema, signInSchema, signUpSchema } from "@/lib/schemas/auth";
+import {
+  customerSignUpSchema,
+  forgotPasswordSchema,
+  inviteStaffSchema,
+  resetPasswordSchema,
+  signInSchema,
+  signUpSchema,
+  supplierSignUpSchema
+} from "@/lib/schemas/auth";
 
 const LOGIN_WINDOW_MINUTES = 15;
 const LOGIN_ATTEMPT_LIMIT = 5;
+const PASSWORD_RESET_WINDOW_MINUTES = 30;
+const PASSWORD_RESET_LIMIT = 3;
+const STAFF_INVITE_WINDOW_MINUTES = 60;
+const STAFF_INVITE_LIMIT = 10;
 
 async function assertLoginNotBlocked(email: string, ipAddress: string | null) {
   const throttleIpAddress = ipAddress ?? "unknown";
@@ -75,6 +88,43 @@ async function clearLoginFailures(email: string, ipAddress: string | null) {
   });
 }
 
+async function assertPasswordResetNotThrottled(userId: string) {
+  const windowStart = new Date(Date.now() - PASSWORD_RESET_WINDOW_MINUTES * 60 * 1000);
+  const recentCount = await db.passwordResetToken.count({
+    where: {
+      userId,
+      createdAt: { gte: windowStart }
+    }
+  });
+
+  if (recentCount >= PASSWORD_RESET_LIMIT) {
+    throw conflictError("Too many password reset requests. Please try again later.");
+  }
+}
+
+async function assertInviteNotThrottled(businessId: string, email: string) {
+  const windowStart = new Date(Date.now() - STAFF_INVITE_WINDOW_MINUTES * 60 * 1000);
+  const recentCount = await db.staffInviteToken.count({
+    where: {
+      businessId,
+      email,
+      createdAt: { gte: windowStart }
+    }
+  });
+
+  if (recentCount >= STAFF_INVITE_LIMIT) {
+    throw conflictError("Too many invites were sent to this address recently. Please try again later.");
+  }
+}
+
+function duplicateEmailError() {
+  return validationError("An account with this email already exists.", {
+    fieldErrors: {
+      email: ["An account with this email already exists."]
+    }
+  });
+}
+
 export async function registerOwner(input: unknown) {
   const values = signUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
@@ -83,11 +133,7 @@ export async function registerOwner(input: unknown) {
   });
 
   if (existingUser) {
-    throw validationError("An account with this email already exists.", {
-      fieldErrors: {
-        email: ["An account with this email already exists."]
-      }
-    });
+    throw duplicateEmailError();
   }
 
   const passwordHash = await hashPassword(values.password);
@@ -99,7 +145,10 @@ export async function registerOwner(input: unknown) {
         email: normalizedEmail,
         passwordHash,
         status: UserStatus.active,
-        role: UserRole.owner
+        role: UserRole.owner,
+        notificationPreference: {
+          create: {}
+        }
       }
     });
 
@@ -165,6 +214,100 @@ export async function registerOwner(input: unknown) {
   });
 }
 
+export async function registerCustomer(input: unknown) {
+  const values = customerSignUpSchema.parse(input);
+  const normalizedEmail = values.email.toLowerCase();
+  const existingUser = await db.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (existingUser) {
+    throw duplicateEmailError();
+  }
+
+  const passwordHash = await hashPassword(values.password);
+  const user = await db.user.create({
+    data: {
+      fullName: values.fullName,
+      email: normalizedEmail,
+      passwordHash,
+      status: UserStatus.active,
+      role: UserRole.customer,
+      customerProfile: {
+        create: {}
+      },
+      notificationPreference: {
+        create: {}
+      }
+    }
+  });
+
+  return user;
+}
+
+export async function registerSupplierUser(input: unknown) {
+  const values = supplierSignUpSchema.parse(input);
+  const normalizedEmail = values.email.toLowerCase();
+  const existingUser = await db.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (existingUser) {
+    throw duplicateEmailError();
+  }
+
+  const business = await db.business.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "asc" }
+  });
+
+  if (!business) {
+    throw notFoundError("An active retailer business is required before supplier onboarding.");
+  }
+
+  const passwordHash = await hashPassword(values.password);
+
+  return db.$transaction(async (tx) => {
+    const supplier = await tx.supplier.create({
+      data: {
+        businessId: business.id,
+        name: values.businessName,
+        contactName: values.fullName,
+        email: normalizedEmail,
+        phone: values.phone || null,
+        notes: values.notes || null
+      }
+    });
+
+    const user = await tx.user.create({
+      data: {
+        businessId: business.id,
+        supplierId: supplier.id,
+        fullName: values.fullName,
+        email: normalizedEmail,
+        passwordHash,
+        status: UserStatus.active,
+        role: UserRole.supplier,
+        notificationPreference: {
+          create: {}
+        }
+      }
+    });
+
+    await logAudit({
+      tx,
+      businessId: business.id,
+      actorUserId: user.id,
+      action: "supplier_portal_onboarded",
+      resourceType: "supplier",
+      resourceId: supplier.id,
+      metadata: { supplierName: supplier.name }
+    });
+
+    return user;
+  });
+}
+
 export async function authenticateUser(input: unknown, ipAddress: string | null) {
   const values = signInSchema.parse(input);
   const email = values.email.toLowerCase();
@@ -209,7 +352,7 @@ export async function authenticateUser(input: unknown, ipAddress: string | null)
   return user;
 }
 
-export async function beginPasswordReset(input: unknown) {
+export async function beginPasswordReset(input: unknown, ipAddress: string | null) {
   const values = forgotPasswordSchema.parse(input);
   const email = values.email.toLowerCase();
   const user = await db.user.findUnique({ where: { email } });
@@ -218,8 +361,10 @@ export async function beginPasswordReset(input: unknown) {
     return { ok: true, devToken: null };
   }
 
+  await assertPasswordResetNotThrottled(user.id);
+
   const rawToken = createOpaqueToken();
-  await db.passwordResetToken.create({
+  const resetToken = await db.passwordResetToken.create({
     data: {
       userId: user.id,
       tokenHash: hashToken(rawToken),
@@ -227,14 +372,26 @@ export async function beginPasswordReset(input: unknown) {
     }
   });
 
+  if (env.DEMO_MODE !== "true") {
+    try {
+      await sendPasswordResetEmail(email, rawToken);
+    } catch (error) {
+      await db.passwordResetToken.delete({
+        where: { id: resetToken.id }
+      });
+      throw error;
+    }
+  }
+
   if (user.businessId) {
     await logAudit({
       businessId: user.businessId,
       actorUserId: user.id,
-      action: "password_reset",
+      action: "password_reset_requested",
       resourceType: "password_reset",
       resourceId: user.id,
-      metadata: {}
+      metadata: {},
+      ipAddress
     });
   }
 
@@ -291,7 +448,7 @@ export async function completePasswordReset(input: unknown) {
   return { ok: true };
 }
 
-export async function inviteStaff(actorUserId: string, input: unknown) {
+export async function inviteStaff(actorUserId: string, input: unknown, ipAddress: string | null) {
   const values = inviteStaffSchema.parse(input);
   const actor = await db.user.findUnique({
     where: { id: actorUserId }
@@ -304,8 +461,9 @@ export async function inviteStaff(actorUserId: string, input: unknown) {
   const businessId = actor.businessId;
   const token = createOpaqueToken();
   const normalizedEmail = values.email.toLowerCase();
+  await assertInviteNotThrottled(businessId, normalizedEmail);
 
-  return db.$transaction(async (tx) => {
+  const invite = await db.$transaction(async (tx) => {
     const existingUser = await tx.user.findUnique({
       where: { email: normalizedEmail }
     });
@@ -339,21 +497,35 @@ export async function inviteStaff(actorUserId: string, input: unknown) {
       }
     });
 
-    await logAudit({
-      tx,
-      businessId,
-      actorUserId,
-      action: "invite_sent",
-      resourceType: "staff_invite",
-      resourceId: invite.id,
-      metadata: { email: normalizedEmail, role: values.role }
-    });
-
-    return {
-      invite,
-      token: env.DEMO_MODE === "true" ? token : null
-    };
+    return invite;
   });
+
+  if (env.DEMO_MODE !== "true") {
+    try {
+      await sendStaffInviteEmail(normalizedEmail, token);
+    } catch (error) {
+      await db.staffInviteToken.update({
+        where: { id: invite.id },
+        data: { revokedAt: new Date() }
+      });
+      throw error;
+    }
+  }
+
+  await logAudit({
+    businessId,
+    actorUserId,
+    action: "invite_sent",
+    resourceType: "staff_invite",
+    resourceId: invite.id,
+    metadata: { email: normalizedEmail, role: values.role },
+    ipAddress
+  });
+
+  return {
+    invite,
+    token: env.DEMO_MODE === "true" ? token : null
+  };
 }
 
 export async function acceptInvite(token: string, fullName: string, password: string) {
@@ -391,7 +563,10 @@ export async function acceptInvite(token: string, fullName: string, password: st
         email: invite.email,
         passwordHash,
         role: invite.role,
-        status: UserStatus.active
+        status: UserStatus.active,
+        notificationPreference: {
+          create: {}
+        }
       }
     });
 

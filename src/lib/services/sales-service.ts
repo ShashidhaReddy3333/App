@@ -1,4 +1,4 @@
-import { InventoryMovementType, PaymentStatus, Prisma, RefundStatus, RestockAction, SaleStatus } from "@prisma/client";
+import { InventoryMovementType, PaymentStatus, Prisma, PurchaseOrderStatus, RefundStatus, RestockAction, SaleStatus } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -26,7 +26,7 @@ function taxRateCategories(value: Prisma.JsonValue | null) {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-async function releaseExpiredReservations(tx: Prisma.TransactionClient, businessId: string) {
+export async function releaseExpiredReservations(tx: Prisma.TransactionClient, businessId: string) {
   const expiredSales = await tx.sale.findMany({
     where: {
       businessId,
@@ -58,6 +58,26 @@ async function releaseExpiredReservations(tx: Prisma.TransactionClient, business
       }
     });
   }
+}
+
+export async function cleanupExpiredReservations(businessId?: string) {
+  return db.$transaction(
+    async (tx) => {
+      const businesses = businessId
+        ? [{ id: businessId }]
+        : await tx.business.findMany({
+            where: { isActive: true },
+            select: { id: true }
+          });
+
+      for (const business of businesses) {
+        await releaseExpiredReservations(tx, business.id);
+      }
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+    }
+  );
 }
 
 export async function createCheckoutDraft(actorUserId: string, businessId: string, input: unknown) {
@@ -504,12 +524,19 @@ export async function getDashboardMetrics(businessId: string) {
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const { start, end } = getBusinessDayRange(business.timezone);
 
-  const [sales, balances, pendingPayments, topProducts, recentActivity] = await Promise.all([
+  const [sales, onlineOrders, balances, pendingPayments, topProducts, recentActivity, openPurchaseOrders, supplierProducts] = await Promise.all([
     db.sale.findMany({
       where: {
         businessId,
         completedAt: { gte: start, lte: end },
         status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
+      }
+    }),
+    db.order.findMany({
+      where: {
+        businessId,
+        createdAt: { gte: start, lte: end },
+        status: { not: "cancelled" }
       }
     }),
     db.inventoryBalance.findMany({
@@ -542,6 +569,20 @@ export async function getDashboardMetrics(businessId: string) {
       where: { businessId },
       orderBy: { createdAt: "desc" },
       take: 5
+    }),
+    db.purchaseOrder.count({
+      where: {
+        businessId,
+        status: { in: [PurchaseOrderStatus.draft, PurchaseOrderStatus.sent, PurchaseOrderStatus.accepted, PurchaseOrderStatus.ordered, PurchaseOrderStatus.partially_received] }
+      }
+    }),
+    db.supplierProduct.count({
+      where: {
+        supplier: {
+          businessId
+        },
+        isActive: true
+      }
     })
   ]);
 
@@ -560,10 +601,15 @@ export async function getDashboardMetrics(businessId: string) {
     }));
 
   return {
-    salesToday: roundMoney(sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)),
-    totalOrders: sales.length,
+    salesToday: roundMoney(
+      sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + onlineOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+    ),
+    totalOrders: sales.length + onlineOrders.length,
+    onlineOrdersToday: onlineOrders.length,
     lowStockAlerts: lowStockItems.length,
     pendingPayments,
+    openPurchaseOrders,
+    supplierCatalogCount: supplierProducts,
     topSellingProducts: topProducts.map((entry) => ({
       productId: entry.productId,
       name: productMap.get(entry.productId) ?? "Unknown",
@@ -579,7 +625,7 @@ export async function getReportsSnapshot(businessId: string) {
   const { start, end, parts } = getBusinessDayRange(business.timezone);
   const monthStart = zonedDateTimeToUtc(business.timezone, parts.year, parts.month, 1, 0, 0, 0);
 
-  const [dailySales, monthlySales, paymentBreakdown] = await Promise.all([
+  const [dailySales, monthlySales, dailyOrders, monthlyOrders, paymentBreakdown, orderPaymentBreakdown, openPurchaseOrders] = await Promise.all([
     db.sale.findMany({
       where: {
         businessId,
@@ -594,6 +640,20 @@ export async function getReportsSnapshot(businessId: string) {
         status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
       }
     }),
+    db.order.findMany({
+      where: {
+        businessId,
+        createdAt: { gte: start, lte: end },
+        status: { not: "cancelled" }
+      }
+    }),
+    db.order.findMany({
+      where: {
+        businessId,
+        createdAt: { gte: monthStart },
+        status: { not: "cancelled" }
+      }
+    }),
     db.payment.groupBy({
       by: ["method"],
       _sum: { amount: true },
@@ -603,16 +663,46 @@ export async function getReportsSnapshot(businessId: string) {
           in: [PaymentStatus.authorized, PaymentStatus.captured, PaymentStatus.settled, PaymentStatus.refunded_partial, PaymentStatus.refunded_full]
         }
       }
+    }),
+    db.orderPayment.groupBy({
+      by: ["method"],
+      _sum: { amount: true },
+      where: {
+        order: { businessId },
+        status: {
+          in: [PaymentStatus.authorized, PaymentStatus.captured, PaymentStatus.settled, PaymentStatus.refunded_partial, PaymentStatus.refunded_full]
+        }
+      }
+    }),
+    db.purchaseOrder.count({
+      where: {
+        businessId,
+        status: { in: [PurchaseOrderStatus.draft, PurchaseOrderStatus.sent, PurchaseOrderStatus.accepted, PurchaseOrderStatus.ordered, PurchaseOrderStatus.partially_received] }
+      }
     })
   ]);
 
+  const paymentTotals = new Map<string, number>();
+  for (const entry of paymentBreakdown) {
+    paymentTotals.set(entry.method, Number(entry._sum.amount ?? 0));
+  }
+  for (const entry of orderPaymentBreakdown) {
+    paymentTotals.set(entry.method, Number(entry._sum.amount ?? 0) + (paymentTotals.get(entry.method) ?? 0));
+  }
+
   return {
-    dailyRevenue: roundMoney(dailySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)),
-    monthlyRevenue: roundMoney(monthlySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)),
-    transactionCount: monthlySales.length,
-    paymentBreakdown: paymentBreakdown.map((entry) => ({
-      method: entry.method,
-      amount: Number(entry._sum.amount ?? 0)
+    dailyRevenue: roundMoney(
+      dailySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + dailyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+    ),
+    monthlyRevenue: roundMoney(
+      monthlySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + monthlyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+    ),
+    transactionCount: monthlySales.length + monthlyOrders.length,
+    onlineOrderCount: monthlyOrders.length,
+    openPurchaseOrders,
+    paymentBreakdown: [...paymentTotals.entries()].map(([method, amount]) => ({
+      method,
+      amount
     })),
     generatedAt: formatBusinessDateStamp(business.timezone)
   };

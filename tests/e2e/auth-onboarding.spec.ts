@@ -17,9 +17,18 @@ test("owner can sign in, reach products, and create a product", async ({ page, b
   const uniqueSuffix = Date.now().toString();
   const productName = `Demo Product ${uniqueSuffix}`;
   const sku = `DEMO-${uniqueSuffix}`;
+  const supplierName = `Demo Supplier ${uniqueSuffix}`;
   const inviteEmail = `staff-${uniqueSuffix}@demo.local`;
 
   await signInAndOpenDashboard(page, "owner@demo.local", "DemoPass!123");
+  await expect(page.getByRole("link", { name: "Suppliers" })).toBeVisible();
+  await page.getByRole("link", { name: "Suppliers" }).click();
+  await expect(page.getByRole("heading", { name: "Suppliers" })).toBeVisible();
+  await page.getByLabel("Name", { exact: true }).fill(supplierName);
+  await page.getByRole("button", { name: "Save supplier" }).click();
+  await expect(page.getByText("Supplier created.")).toBeVisible();
+  await expect(page.getByText(supplierName)).toBeVisible();
+
   await page.getByRole("link", { name: "Products" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
 

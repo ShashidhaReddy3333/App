@@ -27,7 +27,7 @@ export function toCheckoutProductOptions(products: CatalogData["products"]) {
   return products.map((product) => ({
     id: product.id,
     name: product.name,
-    label: `${product.name} · ${product.sku}`,
+    label: `${product.name} - ${product.sku}`,
     sellingPrice: decimalToNumber(product.sellingPrice)
   }));
 }
@@ -36,7 +36,7 @@ export function toProductOptions(products: CatalogData["products"]) {
   return products.map((product) => ({
     id: product.id,
     name: product.name,
-    label: `${product.name} · ${product.sku}`
+    label: `${product.name} - ${product.sku}`
   }));
 }
 
@@ -101,8 +101,11 @@ export function toDashboardCards(metrics: DashboardMetrics) {
   return [
     { title: "Today's sales", value: `$${metrics.salesToday.toFixed(2)}` },
     { title: "Orders", value: metrics.totalOrders.toString() },
+    { title: "Online orders", value: metrics.onlineOrdersToday.toString() },
     { title: "Low-stock alerts", value: metrics.lowStockAlerts.toString() },
-    { title: "Pending payments", value: metrics.pendingPayments.toString() }
+    { title: "Pending payments", value: metrics.pendingPayments.toString() },
+    { title: "Open purchase orders", value: metrics.openPurchaseOrders.toString() },
+    { title: "Supplier SKUs", value: metrics.supplierCatalogCount.toString() }
   ];
 }
 
@@ -110,6 +113,8 @@ export function toReportCards(report: ReportsSnapshot) {
   return [
     { title: "Daily revenue", value: `$${report.dailyRevenue.toFixed(2)}` },
     { title: "Monthly revenue", value: `$${report.monthlyRevenue.toFixed(2)}` },
-    { title: "Transactions", value: report.transactionCount.toString() }
+    { title: "Transactions", value: report.transactionCount.toString() },
+    { title: "Online orders", value: report.onlineOrderCount.toString() },
+    { title: "Open purchase orders", value: report.openPurchaseOrders.toString() }
   ];
 }

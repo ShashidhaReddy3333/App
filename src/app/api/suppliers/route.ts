@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const { businessId } = await requireApiAccess("products");
+    const { businessId } = await requireApiAccess("suppliers");
     const data = await listCatalogData(businessId);
     return apiSuccess({ suppliers: data.suppliers, location: data.location });
   } catch (error) {
@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess("products");
+    const { session, businessId } = await requireApiAccess("suppliers");
     const payload = await request.json();
     const supplier = await createSupplier(session.user.id, businessId, payload);
     return apiSuccess({ supplier }, { status: 201, message: "Supplier created." });

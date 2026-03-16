@@ -1,100 +1,127 @@
-# Business Management App
+# Commerce Operating System
 
-Production-ready MVP for small shops built with Next.js App Router, TypeScript, Prisma, PostgreSQL, Tailwind, React Hook Form, Zod, TanStack Table, Recharts, Vitest, and Playwright.
+Phase 1 expansion of the original Business Management App into a single-retailer commerce platform built with Next.js App Router, TypeScript, Prisma, PostgreSQL, Tailwind, React Hook Form, Zod, TanStack Table, Recharts, Vitest, and Playwright.
 
-## Scope
+## Phase 1 scope
 
-This app covers the requested MVP only:
+This repo now supports five working product surfaces in one codebase:
 
-- owner and staff authentication
-- business onboarding
-- product and supplier management
-- authoritative inventory balances and movement ledger
-- checkout draft and sale completion
-- split payments
-- refunds
-- reorder list
-- dashboard and reports
-- staff roles and session management
-- audit logging
-- receipt generation and retrieval
+- Customer web storefront
+  - browse products
+  - add to cart
+  - checkout
+  - order history and order detail
+- Retail operations app
+  - dashboard
+  - products and suppliers
+  - POS checkout and sale completion
+  - refunds
+  - reorder list
+  - reports
+  - staff and sessions
+- Manager procurement
+  - supplier-backed wholesale catalog
+  - purchase order creation
+  - goods receiving
+- Supplier portal
+  - supplier sign-up and sign-in
+  - wholesale catalog management
+  - retailer purchase order inbox
+  - fulfillment status updates
+- Shared platform foundations
+  - email/password auth
+  - role-based access control
+  - authoritative inventory balances
+  - inventory movement ledger
+  - audit logging
+  - transactional write flows
 
-## Production hardening included
+## Roles
 
-The current codebase has been hardened without changing product scope:
+- `customer`
+- `cashier`
+- `manager`
+- `supplier`
+- `owner`
+- legacy support kept for `inventory_staff`
 
-- route-level `loading.tsx` and `error.tsx` coverage for public and protected areas
-- shared empty and error states instead of page-specific placeholders
-- consistent client form handling with disabled submit states, request envelopes, and server validation surfacing
-- centralized API access guard with correct `401` vs `403` behavior
-- centralized RBAC permission map used by pages, navigation, and route handlers
-- transaction-safe helpers for reservations, sale commit, refund restock, idempotency, receipt sequencing, and owned-resource validation
-- in-transaction audit logging for critical committed writes
-- query and command service entry points for cleaner UI and API boundaries
-- view-model mapping helpers so pages do not shape raw service data inline
-- stable API response contract: success responses return `{ data, message }`, failures return `{ message, code, issues }`
+`platform_admin` is reserved in schema and permissions for later expansion, but not exposed as a live app surface in Phase 1.
 
 ## Architecture
 
-### App structure
+### Route surfaces
 
 - `src/app`
-  - App Router pages and route handlers
-- `src/components`
-  - reusable UI primitives, forms, layout, and state components
-- `src/lib/auth`
-  - session handling, API guards, page guards, and permission definitions
-- `src/lib/domain`
-  - pricing, inventory, sales, and timezone rules
-- `src/lib/services`
-  - command and query entry points over persistence and business workflows
-- `src/lib/view-models`
-  - page-facing mapping helpers
-- `prisma`
-  - schema, migration, and seed script
-- `tests`
-  - unit, integration-style, and Playwright smoke coverage
+  - public landing and auth pages
+- `src/app/shop`, `src/app/cart`, `src/app/orders`
+  - customer storefront and order account
+- `src/app/app`
+  - POS, manager, and owner operations
+- `src/app/supplier`
+  - supplier portal
 
-### Key design decisions
+### Service domains
 
-- `InventoryBalance` is authoritative for availability. `Product` does not hold authoritative stock.
-- Every stock-changing operation records an `InventoryMovement`.
-- Critical writes use serializable transactions where required.
-- Checkout reserves stock before payment completion.
-- Receipt numbers are allocated from `Business.nextReceiptNumber` inside the same transaction as sale completion.
-- Business-day reporting is based on business timezone helpers, not raw UTC grouping.
-- API routes use a single auth guard and a single error envelope.
+- `src/lib/services/auth-*`
+  - account creation, session flows, invites, password reset
+- `src/lib/services/catalog-*`
+  - retailer catalog and suppliers
+- `src/lib/services/customer-commerce-*`
+  - storefront, cart, customer checkout, customer order history
+- `src/lib/services/sales-*`
+  - POS checkout, sale completion, refunds, receipts
+- `src/lib/services/procurement-*`
+  - supplier products, purchase orders, goods receiving, supplier portal
+- `src/lib/services/reporting-*`
+  - dashboard and reporting snapshots
 
-## Main modules
+### Data and transaction decisions
 
-- Authentication and sessions
-  - sign up, sign in, sign out, forgot password, reset password
-  - per-device sessions
-  - owner session revocation
-  - login throttling by email and IP bucket
-- Onboarding
-  - owner account + business + default `Main Location`
-  - timezone, currency, country, tax mode, default tax rule
-- Catalog and inventory
-  - supplier creation
-  - product creation with opening stock
-  - inventory adjustments with idempotency
-  - low-stock and reorder calculations from `availableQuantity`
-- Sales
-  - checkout draft creation
-  - reservation-based stock hold
-  - split payments
-  - receipt generation
-  - sales history and sale detail
-- Refunds
-  - partial refund flow
-  - refundable quantity tracking
-  - payment reversal allocation
-  - explicit restock handling
-- Reporting
-  - dashboard summary cards
-  - recent activity
-  - payment breakdown chart
+- `InventoryBalance` remains authoritative for stock.
+- `InventoryMovement` records every stock-changing operation.
+- POS sales and online customer orders share the same inventory ledger.
+- Customer checkout and procurement writes are idempotent.
+- Receipt, online order, and purchase-order numbers are allocated from transactional business counters.
+- Customer web checkout uses the same pricing, tax, and stock reservation patterns as the POS flow.
+
+## Main models added in Phase 1
+
+The original schema was extended with:
+
+- `CustomerProfile`
+- `Address`
+- `Cart`
+- `CartItem`
+- `Order`
+- `OrderItem`
+- `OrderStatusHistory`
+- `OrderFulfillment`
+- `OrderPayment`
+- `POSRegister`
+- `RegisterSession`
+- `SupplierProduct`
+- `Notification`
+- `NotificationPreference`
+
+The commerce expansion migration is checked in at:
+
+- `prisma/migrations/0002_commerce_phase1/migration.sql`
+- `prisma/migrations/0003_production_indexes/migration.sql`
+
+## Production hardening in this repo
+
+Beyond the Phase 1 feature set, the repo now includes:
+
+- tiered runtime env validation via `pnpm env:check`
+- middleware-based request IDs and security headers
+- liveness and readiness endpoints:
+  - `/api/health`
+  - `/api/readiness`
+- throttling on sign-in, forgot-password, and invite flows
+- operational repair scripts for expired reservations and inventory consistency
+- queued notification processing infrastructure
+- GitHub Actions CI for verify and Playwright smoke coverage
+- support and launch runbooks under `docs/`
 
 ## Environment
 
@@ -106,79 +133,56 @@ DIRECT_URL="postgresql://postgres:postgres@localhost:5432/business_management_ap
 SESSION_SECRET="replace-with-a-long-random-string"
 APP_URL="http://localhost:3000"
 DEMO_MODE="true"
+RESEND_API_KEY=""
+MAIL_FROM="Commerce Operating System <noreply@example.com>"
+MAIL_REPLY_TO=""
 ```
 
-`DATABASE_URL` must point to a running PostgreSQL server. The seed script and Playwright smoke tests require a reachable database.
-`DIRECT_URL` is used by Prisma for migrations and seed operations. In local Docker setup it can match `DATABASE_URL`.
+Notes:
 
-For the included Docker setup, keep the default URL:
-
-```bash
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
-DIRECT_URL="postgresql://postgres:postgres@localhost:5432/business_management_app?schema=public"
-```
-
-## Supabase + Vercel
-
-This repo works with Supabase as its PostgreSQL database.
-
-Recommended setup:
-
-- `DATABASE_URL`
-  - use the Supabase pooled connection string for app runtime on Vercel
-- `DIRECT_URL`
-  - use the direct database connection string for Prisma migrations and seed
-- `SESSION_SECRET`
-  - long random secret for cookie-backed sessions
-- `APP_URL`
-  - your deployed Vercel URL or custom domain
-- `DEMO_MODE`
-  - set to `false` in production
-
-Typical deployment flow:
-
-1. Create a Supabase project.
-2. In Supabase, copy:
-   - pooled connection string for `DATABASE_URL`
-   - direct connection string for `DIRECT_URL`
-3. Add those values in Vercel Project Settings -> Environment Variables.
-4. Set `SESSION_SECRET`, `APP_URL`, and `DEMO_MODE=false` in Vercel.
-5. Run Prisma migrations against Supabase before first use:
-
-```bash
-corepack pnpm prisma:migrate:deploy
-```
-
-6. Optionally seed demo data once:
-
-```bash
-corepack pnpm prisma:seed
-```
+- `DATABASE_URL` is used by the app runtime.
+- `DIRECT_URL` is used by Prisma migrations.
+- `DEMO_MODE=true` keeps forgot-password and staff-invite flows deterministic by surfacing tokens in the UI instead of requiring live email delivery.
+- `DEMO_MODE=false` requires Resend configuration for password reset and staff invite emails.
 
 ## Scripts
 
 - `corepack pnpm db:up`
-  - start PostgreSQL with Docker Compose
-- `corepack pnpm db:health`
-  - wait for and verify database connectivity
+  - start local PostgreSQL with Docker
 - `corepack pnpm db:down`
-  - stop the local PostgreSQL container
+  - stop local PostgreSQL
+- `corepack pnpm db:health`
+  - verify database connectivity
+- `corepack pnpm env:check`
+  - validate runtime configuration and production-critical environment values
+- `corepack pnpm prisma:generate`
+  - regenerate Prisma client
 - `corepack pnpm prisma:migrate:deploy`
-  - apply the checked-in Prisma migration
+  - apply checked-in migrations to a fresh or migration-managed database
+- `corepack pnpm prisma:reset`
+  - reset a local development database and reapply migrations without seeding
 - `corepack pnpm prisma:seed`
-  - reset and seed the demo database
+  - reset demo data contents and seed all Phase 1 roles and flows
 - `corepack pnpm demo:setup`
-  - run DB health, Prisma generate, migration deploy, and seed in one command
+  - local demo setup: DB health, Prisma generate, Prisma reset, seed
+- `corepack pnpm ops:cleanup-reservations`
+  - release expired POS reservations and cancel expired pending-payment carts
+- `corepack pnpm ops:check-data`
+  - validate inventory availability math and detect broken balances
+- `corepack pnpm notifications:process`
+  - dispatch queued notifications
 - `corepack pnpm dev`
-  - start the local app
+  - start Next.js in development
 - `corepack pnpm build`
-  - create a clean production build; this now clears stale `.next` artifacts before building
+  - create a production build
+- `corepack pnpm test:unit`
+  - run unit and lightweight integration tests
 - `corepack pnpm test:e2e`
-  - run Playwright smoke tests against a production server; this now auto-runs DB health, migration deploy, seed, and build first
+  - run Playwright smoke tests against a seeded production build
 
-## Local demo setup
+## Local setup
 
-Startup order on a fresh machine:
+Fresh machine:
 
 1. Install dependencies.
 
@@ -192,15 +196,15 @@ corepack pnpm install
 corepack pnpm db:up
 ```
 
-3. Create `.env` from `.env.example`.
+3. Copy `.env.example` to `.env`.
 
-4. Generate the Prisma client.
+4. Generate Prisma client.
 
 ```bash
-corepack pnpm prisma generate
+corepack pnpm prisma:generate
 ```
 
-5. Apply the migration.
+5. Apply migrations to an empty or migration-managed database.
 
 ```bash
 corepack pnpm prisma:migrate:deploy
@@ -218,21 +222,13 @@ corepack pnpm prisma:seed
 corepack pnpm dev
 ```
 
-8. Verify app and DB health.
-
-Open [http://localhost:3000/api/health](http://localhost:3000/api/health)
-
-9. Stop any running local app server, then run the Playwright smoke suite.
-
-```bash
-corepack pnpm test:e2e
-```
-
-If you want the setup path in one command after the database is up:
+For a repeatable local demo database, use:
 
 ```bash
 corepack pnpm demo:setup
 ```
+
+This intentionally resets the local development database before seeding.
 
 ## Demo credentials
 
@@ -240,76 +236,81 @@ corepack pnpm demo:setup
 - Manager: `manager@demo.local` / `DemoPass!123`
 - Cashier: `cashier@demo.local` / `DemoPass!123`
 - Inventory staff: `inventory@demo.local` / `DemoPass!123`
+- Customer: `customer@demo.local` / `DemoPass!123`
+- Supplier: `supplier@demo.local` / `DemoPass!123`
 
-## Testing
+## Test coverage
 
-### Required checks
+Current automated coverage includes:
+
+- unit tests for pricing, inventory, timezone grouping, session-cookie policy, mailer behavior, idempotency helpers, permissions, and new commerce identifiers
+- smoke tests for:
+  - owner sign-in, supplier creation, product creation, staff invite, session revoke
+  - cashier split-payment checkout
+  - manager refund flow
+  - inventory staff reorder access and supplier/checkout blocking
+  - customer storefront -> cart -> checkout -> order detail
+  - manager procurement
+  - supplier catalog and supplier order status update
+
+Run the main verification set:
 
 ```bash
+corepack pnpm env:check
 corepack pnpm typecheck
 corepack pnpm test:unit
 corepack pnpm build
 corepack pnpm exec prisma validate
 ```
 
-### Playwright smoke tests
-
-These tests expect PostgreSQL to be running and `APP_URL` to be free before the run starts. The Playwright global setup now performs:
-
-- `db:health`
-- `prisma:migrate:deploy`
-- `prisma:seed`
-- `build`
-
-Then it starts `next start` and runs the smoke suite:
+Run browser smoke coverage:
 
 ```bash
 corepack pnpm test:e2e
 ```
 
-Current smoke coverage includes:
+The Playwright global setup now runs:
 
-- owner sign-in and product creation
-- cashier checkout reservation and split-payment completion
-- manager refund creation from seeded sale history
-- inventory staff access to reorder tools and direct-route blocking from checkout
+- `db:health`
+- `prisma:reset`
+- `prisma:seed`
+- `build`
 
-## What was verified in this workspace
+before starting the production server.
 
-Verified here:
+## Operations and launch
 
-- `corepack pnpm db:up`
-- `corepack pnpm db:health`
-- `corepack pnpm prisma:migrate:deploy`
-- `corepack pnpm prisma:seed`
-- `corepack pnpm typecheck`
-- `corepack pnpm test:unit`
-- `corepack pnpm build`
-- `corepack pnpm exec prisma validate`
-- `corepack pnpm test:e2e`
+Useful endpoints:
 
-## Important implementation files
+- `/api/health`
+  - app + database liveness
+- `/api/readiness`
+  - readiness for traffic, including runtime config checks
+
+Useful production docs:
+
+- `docs/PRODUCTION_RUNBOOK.md`
+- `docs/DATA_RETENTION.md`
+- `docs/LAUNCH_CHECKLIST.md`
+
+## Important files
 
 - `prisma/schema.prisma`
+- `prisma/migrations/0002_commerce_phase1/migration.sql`
 - `prisma/seed.ts`
-- `src/lib/auth/api-guard.ts`
 - `src/lib/auth/permissions.ts`
-- `src/lib/errors.ts`
-- `src/lib/http.ts`
+- `src/lib/auth/guards.ts`
+- `src/lib/services/customer-commerce-service.ts`
+- `src/lib/services/procurement-service.ts`
+- `src/lib/services/sales-service.ts`
 - `src/lib/services/command-helpers.ts`
-- `src/lib/services/catalog-command-service.ts`
-- `src/lib/services/catalog-query-service.ts`
-- `src/lib/services/sales-command-service.ts`
-- `src/lib/services/sales-query-service.ts`
-- `src/lib/services/reporting-query-service.ts`
 - `src/lib/view-models/app.ts`
 
-## Future improvements
+## Deferred beyond Phase 1
 
-- product edit and archive flows
-- purchase order UI and receiving
-- resend and revoke staff invites
-- richer cashier checkout interactions and barcode-first input
-- receipt PDF export
-- CI-backed PostgreSQL integration and Playwright runs
-- real email delivery for invites and password resets
+- true multi-retailer marketplace discovery
+- native mobile apps
+- full platform-admin portal
+- Redis-backed jobs and notification queues
+- object storage for receipt PDFs and product media
+- external payment gateway integration beyond current internal/manual wiring

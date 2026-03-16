@@ -3,7 +3,7 @@ import { InventoryMovementType, Prisma, type UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
 import { computeAvailableQuantity } from "@/lib/domain/inventory";
-import { formatReceiptNumber } from "@/lib/domain/sales";
+import { formatOrderNumber, formatPurchaseOrderNumber, formatReceiptNumber } from "@/lib/domain/sales";
 import { toDecimal } from "@/lib/money";
 
 export async function getOwnedLocation(tx: Prisma.TransactionClient, businessId: string, locationId: string) {
@@ -110,6 +110,30 @@ export async function allocateReceiptNumber(tx: Prisma.TransactionClient, busine
   return receiptNumber;
 }
 
+export async function allocateOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
+  const business = await tx.business.findUniqueOrThrow({
+    where: { id: businessId }
+  });
+  const orderNumber = formatOrderNumber(business.nextOrderNumber);
+  await tx.business.update({
+    where: { id: businessId },
+    data: { nextOrderNumber: { increment: 1 } }
+  });
+  return orderNumber;
+}
+
+export async function allocatePurchaseOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
+  const business = await tx.business.findUniqueOrThrow({
+    where: { id: businessId }
+  });
+  const poNumber = formatPurchaseOrderNumber(business.nextPurchaseOrderNumber);
+  await tx.business.update({
+    where: { id: businessId },
+    data: { nextPurchaseOrderNumber: { increment: 1 } }
+  });
+  return poNumber;
+}
+
 export async function reserveInventory(
   tx: Prisma.TransactionClient,
   input: {
@@ -119,6 +143,8 @@ export async function reserveInventory(
     allowOversell: boolean;
     referenceId: string;
     createdById: string;
+    referenceType?: string;
+    reason?: string;
   }
 ) {
   const balance = await tx.inventoryBalance.findUniqueOrThrow({
@@ -177,9 +203,9 @@ export async function reserveInventory(
       locationId: input.locationId,
       movementType: InventoryMovementType.reservation_hold,
       quantityDelta: toDecimal(input.quantity),
-      referenceType: "sale",
+      referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
-      reason: "checkout_reservation",
+      reason: input.reason ?? "checkout_reservation",
       createdById: input.createdById
     }
   });
@@ -196,6 +222,7 @@ export async function releaseReservation(
     referenceId: string;
     createdById: string;
     reason: string;
+    referenceType?: string;
   }
 ) {
   const balance = await tx.inventoryBalance.findUniqueOrThrow({
@@ -227,7 +254,7 @@ export async function releaseReservation(
       locationId: input.locationId,
       movementType: InventoryMovementType.reservation_release,
       quantityDelta: toDecimal(-input.quantity),
-      referenceType: "sale",
+      referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
       reason: input.reason,
       createdById: input.createdById
@@ -243,6 +270,8 @@ export async function commitReservedInventory(
     quantity: number;
     referenceId: string;
     createdById: string;
+    referenceType?: string;
+    reason?: string;
   }
 ) {
   const balance = await tx.inventoryBalance.findUniqueOrThrow({
@@ -280,9 +309,9 @@ export async function commitReservedInventory(
       locationId: input.locationId,
       movementType: InventoryMovementType.sale_commit,
       quantityDelta: toDecimal(-input.quantity),
-      referenceType: "sale",
+      referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
-      reason: "sale_completed",
+      reason: input.reason ?? "sale_completed",
       createdById: input.createdById
     }
   });

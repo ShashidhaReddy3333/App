@@ -13,6 +13,7 @@ test("inventory staff sees reorder tools and is blocked from checkout", async ({
   await expect(page).toHaveURL(/\/app\/dashboard/);
   await expect(page.getByRole("link", { name: "Reorder" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Checkout" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Suppliers" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Sessions" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Reorder" }).click();
@@ -20,6 +21,10 @@ test("inventory staff sees reorder tools and is blocked from checkout", async ({
   await expect(page.getByText("Cooking Oil")).toBeVisible();
 
   await page.goto("/app/checkout");
+  await expect(page).toHaveURL(/\/app\/forbidden/);
+  await expect(page.getByText("Access restricted")).toBeVisible();
+
+  await page.goto("/app/suppliers");
   await expect(page).toHaveURL(/\/app\/forbidden/);
   await expect(page.getByText("Access restricted")).toBeVisible();
 });

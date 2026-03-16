@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/auth/guards";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
 
 export default async function SuppliersPage() {
-  const session = await requirePermission("products");
+  const session = await requirePermission("suppliers");
   const { suppliers } = await listCatalogData(session.user.businessId!);
 
   return (

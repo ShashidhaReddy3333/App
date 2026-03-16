@@ -14,11 +14,11 @@ export default async function DashboardPage() {
       <div className="space-y-1">
         <h1 className="text-3xl font-semibold">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {session.user.fullName}. Your live operational metrics are calculated from completed sales, pending
-          payments, inventory balances, and recent audit events.
+          Welcome back, {session.user.fullName}. Your live operational metrics are calculated from POS sales, customer web orders,
+          inventory balances, procurement activity, and recent audit events.
         </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {summaryCards.map((card) => (
           <Card key={card.title} className="gradient-panel">
             <CardHeader>

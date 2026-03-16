@@ -13,8 +13,11 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Reports" description="Daily and monthly performance summaries use the business timezone for all cutoffs." />
-      <div className="grid gap-4 md:grid-cols-3">
+      <PageHeader
+        title="Reports"
+        description="Daily and monthly performance summaries combine POS and online ordering, and use the business timezone for all cutoffs."
+      />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <Card key={card.title} className="gradient-panel">
             <CardHeader>

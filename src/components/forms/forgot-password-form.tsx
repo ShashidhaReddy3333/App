@@ -25,6 +25,7 @@ export function ForgotPasswordForm() {
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
+    setDevToken(null);
     setServerError(null);
     setSuccessMessage(null);
     try {
@@ -35,8 +36,11 @@ export function ForgotPasswordForm() {
       });
 
       setDevToken(payload.devToken ?? null);
-      setSuccessMessage("If the account exists, a reset link is ready. Use the demo token below when DEMO_MODE is enabled.");
-      toast.success("If the account exists, a reset link is ready.");
+      const message = payload.devToken
+        ? "If the account exists, reset instructions are ready. In demo mode, use the token shown below."
+        : "If the account exists, we will send reset instructions to that email address.";
+      setSuccessMessage(message);
+      toast.success(message);
     } catch (error) {
       if (error instanceof ApiClientError) {
         applyFormIssues(form, error.issues);
@@ -53,7 +57,7 @@ export function ForgotPasswordForm() {
     <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Forgot password</CardTitle>
-        <CardDescription>Generate a one-time reset token for the owner or staff account.</CardDescription>
+        <CardDescription>Send a password reset email in production. Demo mode shows the reset token inline.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form className="space-y-4" onSubmit={onSubmit}>

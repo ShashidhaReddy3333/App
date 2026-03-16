@@ -6,7 +6,7 @@ export default async function globalSetup() {
     env: process.env
   });
 
-  execSync("corepack pnpm prisma:migrate:deploy", {
+  execSync("corepack pnpm prisma:reset", {
     stdio: "inherit",
     env: process.env
   });

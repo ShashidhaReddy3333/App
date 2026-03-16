@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-test("forgot password shows a visible success state", async ({ page }) => {
+test("forgot password exposes the demo token in demo mode", async ({ page }) => {
   await page.goto("/forgot-password");
   await page.getByLabel("Email").fill("owner@demo.local");
   await page.getByRole("button", { name: "Send reset link" }).click();
 
-  await expect(page.locator("p.text-sm.text-primary")).toContainText("If the account exists, a reset link is ready.");
+  await expect(page.locator("p.text-sm.text-primary")).toContainText("In demo mode");
+  await expect(page.getByText("Demo reset token:")).toBeVisible();
 });

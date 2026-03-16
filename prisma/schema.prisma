@@ -15,10 +15,13 @@ enum UserStatus {
 }
 
 enum UserRole {
+  customer
   owner
   manager
   cashier
   inventory_staff
+  supplier
+  platform_admin
 }
 
 enum BusinessType {
@@ -106,14 +109,69 @@ enum RestockAction {
 enum PurchaseOrderStatus {
   draft
   ordered
+  sent
+  accepted
+  rejected
   partially_received
   received
+  closed
   cancelled
+}
+
+enum CartStatus {
+  active
+  checked_out
+  abandoned
+}
+
+enum OrderType {
+  online
+  pos
+  call_order
+}
+
+enum OrderStatus {
+  pending_payment
+  confirmed
+  preparing
+  ready_for_pickup
+  out_for_delivery
+  completed
+  cancelled
+}
+
+enum FulfillmentType {
+  pickup
+  delivery
+  dine_in
+}
+
+enum FulfillmentStatus {
+  pending
+  scheduled
+  ready
+  in_transit
+  completed
+}
+
+enum NotificationChannel {
+  email
+  sms
+  push
+  in_app
+}
+
+enum NotificationStatus {
+  queued
+  sent
+  failed
+  read
 }
 
 model User {
   id               String             @id @default(cuid())
   businessId       String?
+  supplierId       String?            @unique
   fullName         String
   email            String             @unique
   passwordHash     String?
@@ -123,6 +181,7 @@ model User {
   updatedAt        DateTime           @updatedAt
   lastLoginAt      DateTime?
   business         Business?          @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  managedSupplier  Supplier?          @relation("SupplierPortalAccount", fields: [supplierId], references: [id], onDelete: SetNull)
   ownedBusinesses  Business[]         @relation("BusinessOwner")
   sessions         Session[]
   passwordResetTokens PasswordResetToken[]
@@ -131,6 +190,15 @@ model User {
   cashSales        Sale[]             @relation("SaleCashier")
   createdRefunds   Refund[]
   movements        InventoryMovement[] @relation("InventoryMovementActor")
+  customerProfile  CustomerProfile?
+  addresses        Address[]
+  carts            Cart[]
+  customerOrders   Order[]            @relation("CustomerOrders")
+  createdOrders    Order[]            @relation("OrderCreator")
+  registerSessions RegisterSession[]
+  createdPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreator")
+  notifications    Notification[]
+  notificationPreference NotificationPreference?
 }
 
 model Session {
@@ -157,6 +225,8 @@ model PasswordResetToken {
   usedAt     DateTime?
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt, usedAt])
 }
 
 model StaffInviteToken {
@@ -174,6 +244,7 @@ model StaffInviteToken {
   invitedBy       User      @relation("InviteSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
 
   @@index([businessId, email])
+  @@index([businessId, revokedAt, expiresAt])
 }
 
 model Business {
@@ -189,6 +260,8 @@ model Business {
   weekStartsOn               Int               @default(1)
   isActive                   Boolean           @default(true)
   nextReceiptNumber          Int               @default(1)
+  nextOrderNumber            Int               @default(1)
+  nextPurchaseOrderNumber    Int               @default(1)
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   owner                      User              @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Restrict)
@@ -198,6 +271,9 @@ model Business {
   staffInviteTokens          StaffInviteToken[]
   suppliers                  Supplier[]
   products                   Product[]
+  carts                      Cart[]
+  orders                     Order[]
+  posRegisters               POSRegister[]
   sales                      Sale[]
   refunds                    Refund[]
   purchaseOrders             PurchaseOrder[]
@@ -221,6 +297,10 @@ model Location {
   business        Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   inventoryBalances InventoryBalance[]
   inventoryMovements InventoryMovement[]
+  carts           Cart[]
+  orders          Order[]
+  posRegisters    POSRegister[]
+  preferredCustomers CustomerProfile[]
   sales           Sale[]
   purchaseOrders  PurchaseOrder[]
 
@@ -253,7 +333,9 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  portalAccount User?  @relation("SupplierPortalAccount")
   products    Product[]
+  supplierProducts SupplierProduct[]
   purchaseOrders PurchaseOrder[]
 
   @@index([businessId])
@@ -263,9 +345,11 @@ model Product {
   id             String    @id @default(cuid())
   businessId     String
   name           String
+  description    String?
   category       String
   sku            String
   barcode        String?
+  imageUrl       String?
   supplierId     String?
   unitType       String
   purchasePrice  Decimal   @db.Decimal(12, 2)
@@ -281,10 +365,213 @@ model Product {
   inventoryBalances InventoryBalance[]
   inventoryMovements InventoryMovement[]
   saleItems      SaleItem[]
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+  supplierProducts SupplierProduct[]
   purchaseOrderItems PurchaseOrderItem[]
 
   @@unique([businessId, sku])
   @@index([businessId, category])
+}
+
+model CustomerProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  loyaltyPoints    Int      @default(0)
+  preferredStoreId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredStore   Location? @relation(fields: [preferredStoreId], references: [id], onDelete: SetNull)
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  line1       String
+  line2       String?
+  city        String
+  province    String
+  postalCode  String
+  country     String
+  latitude    Decimal? @db.Decimal(10, 7)
+  longitude   Decimal? @db.Decimal(10, 7)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fulfillments OrderFulfillment[]
+
+  @@index([userId])
+}
+
+model Cart {
+  id          String     @id @default(cuid())
+  customerId  String
+  businessId  String
+  locationId  String
+  status      CartStatus @default(active)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  customer    User       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  business    Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  location    Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  items       CartItem[]
+
+  @@index([customerId, status])
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  cartId     String
+  productId  String
+  quantity   Decimal  @db.Decimal(12, 3)
+  unitPrice  Decimal  @db.Decimal(12, 2)
+  totalPrice Decimal  @db.Decimal(12, 2)
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([cartId])
+}
+
+model Order {
+  id               String          @id @default(cuid())
+  businessId       String
+  locationId       String
+  orderNumber      String
+  orderType        OrderType
+  customerId       String?
+  createdByUserId  String?
+  status           OrderStatus
+  subtotalAmount   Decimal         @db.Decimal(12, 2)
+  taxAmount        Decimal         @db.Decimal(12, 2)
+  discountAmount   Decimal         @db.Decimal(12, 2)
+  deliveryFee      Decimal         @db.Decimal(12, 2) @default(0)
+  totalAmount      Decimal         @db.Decimal(12, 2)
+  paymentStatus    String
+  fulfillmentType  FulfillmentType
+  notes            String?
+  createdAt        DateTime        @default(now())
+  completedAt      DateTime?
+  business         Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  location         Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  customer         User?           @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
+  createdByUser    User?           @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  fulfillment      OrderFulfillment?
+  payments         OrderPayment[]
+
+  @@unique([businessId, orderNumber])
+  @@index([businessId, status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Decimal  @db.Decimal(12, 3)
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  discountAmount Decimal  @db.Decimal(12, 2)
+  taxAmount      Decimal  @db.Decimal(12, 2)
+  totalAmount    Decimal  @db.Decimal(12, 2)
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id              String      @id @default(cuid())
+  orderId         String
+  oldStatus       OrderStatus?
+  newStatus       OrderStatus
+  changedByUserId String?
+  changedAt       DateTime    @default(now())
+  notes           String?
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, changedAt])
+}
+
+model OrderFulfillment {
+  id                String            @id @default(cuid())
+  orderId           String            @unique
+  status            FulfillmentStatus @default(pending)
+  deliveryAddressId String?
+  scheduledFor      DateTime?
+  notes             String?
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryAddress   Address?          @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
+}
+
+model OrderPayment {
+  id                String          @id @default(cuid())
+  orderId           String
+  method            PaymentMethod
+  provider          PaymentProvider?
+  amount            Decimal         @db.Decimal(12, 2)
+  status            PaymentStatus
+  externalReference String?
+  paidAt            DateTime        @default(now())
+  failureReason     String?
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+}
+
+model POSRegister {
+  id               String   @id @default(cuid())
+  businessId       String
+  locationId       String
+  name             String
+  deviceIdentifier String
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  location         Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  sessions         RegisterSession[]
+
+  @@index([businessId, locationId])
+}
+
+model RegisterSession {
+  id             String      @id @default(cuid())
+  registerId     String
+  cashierUserId  String
+  openedAt       DateTime    @default(now())
+  closedAt       DateTime?
+  openingBalance Decimal     @db.Decimal(12, 2)
+  closingBalance Decimal?    @db.Decimal(12, 2)
+  register       POSRegister @relation(fields: [registerId], references: [id], onDelete: Cascade)
+  cashier        User        @relation(fields: [cashierUserId], references: [id], onDelete: Restrict)
+
+  @@index([registerId, openedAt])
+}
+
+model SupplierProduct {
+  id                    String   @id @default(cuid())
+  supplierId            String
+  mappedProductId       String?
+  name                  String
+  description           String?
+  minimumOrderQuantity  Decimal  @db.Decimal(12, 3)
+  casePackSize          Int?
+  wholesalePrice        Decimal  @db.Decimal(12, 2)
+  leadTimeDays          Int      @default(0)
+  deliveryFee           Decimal? @db.Decimal(12, 2)
+  serviceArea           String?
+  imageUrl              String?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  supplier              Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  mappedProduct         Product? @relation(fields: [mappedProductId], references: [id], onDelete: SetNull)
+  purchaseOrderItems    PurchaseOrderItem[]
+
+  @@index([supplierId, isActive])
 }
 
 model InventoryBalance {
@@ -434,29 +721,69 @@ model PurchaseOrder {
   businessId  String
   supplierId  String
   locationId  String
+  poNumber    String?
+  createdByManagerId String?
   status      PurchaseOrderStatus @default(draft)
+  subtotalAmount Decimal          @db.Decimal(12, 2) @default(0)
+  taxAmount   Decimal             @db.Decimal(12, 2) @default(0)
+  shippingAmount Decimal          @db.Decimal(12, 2) @default(0)
   totalCost   Decimal             @db.Decimal(12, 2)
+  expectedDeliveryDate DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   business    Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
   supplier    Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   location    Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdByManager User?          @relation("PurchaseOrderCreator", fields: [createdByManagerId], references: [id], onDelete: SetNull)
   items       PurchaseOrderItem[]
 
   @@index([businessId, status])
+  @@unique([businessId, poNumber])
+  @@index([supplierId, businessId, status])
 }
 
 model PurchaseOrderItem {
   id               String        @id @default(cuid())
   purchaseOrderId  String
+  supplierProductId String?
   productId        String
   orderedQuantity  Decimal       @db.Decimal(12, 3)
   receivedQuantity Decimal       @db.Decimal(12, 3) @default(0)
   unitCost         Decimal       @db.Decimal(12, 2)
   purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  supplierProduct  SupplierProduct? @relation(fields: [supplierProductId], references: [id], onDelete: SetNull)
   product          Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([purchaseOrderId])
+}
+
+model NotificationPreference {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  emailEnabled     Boolean  @default(true)
+  smsEnabled       Boolean  @default(false)
+  pushEnabled      Boolean  @default(true)
+  marketingEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  channel   NotificationChannel
+  status    NotificationStatus @default(queued)
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, channel, createdAt])
 }
 
 model AuditLog {

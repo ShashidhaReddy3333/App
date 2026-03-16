@@ -12,12 +12,26 @@ const money = (value: number) => new Prisma.Decimal(value.toFixed(2));
 const quantity = (value: number) => new Prisma.Decimal(value.toFixed(3));
 
 async function resetDatabase() {
+  await prisma.notification.deleteMany();
+  await prisma.notificationPreference.deleteMany();
+  await prisma.orderPayment.deleteMany();
+  await prisma.orderStatusHistory.deleteMany();
+  await prisma.orderFulfillment.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.cartItem.deleteMany();
+  await prisma.cart.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.customerProfile.deleteMany();
+  await prisma.registerSession.deleteMany();
+  await prisma.pOSRegister.deleteMany();
   await prisma.refundPayment.deleteMany();
   await prisma.refundItem.deleteMany();
   await prisma.refund.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.saleItem.deleteMany();
   await prisma.sale.deleteMany();
+  await prisma.supplierProduct.deleteMany();
   await prisma.inventoryMovement.deleteMany();
   await prisma.inventoryBalance.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
@@ -152,6 +166,40 @@ async function main() {
     ]
   });
 
+  const [supplierUser, customer] = await Promise.all([
+    prisma.user.create({
+      data: {
+        businessId: business.id,
+        supplierId: suppliers[0]!.id,
+        fullName: "Nora Supplier",
+        email: "supplier@demo.local",
+        passwordHash,
+        role: UserRole.supplier,
+        status: UserStatus.active,
+        notificationPreference: {
+          create: {}
+        }
+      }
+    }),
+    prisma.user.create({
+      data: {
+        fullName: "Chloe Customer",
+        email: "customer@demo.local",
+        passwordHash,
+        role: UserRole.customer,
+        status: UserStatus.active,
+        customerProfile: {
+          create: {
+            preferredStoreId: location.id
+          }
+        },
+        notificationPreference: {
+          create: {}
+        }
+      }
+    })
+  ]);
+
   const catalog = [
     ["Rice Bag", "grocery", "RICE-001", 9.5, 15, 40, 48],
     ["Milk Carton", "dairy", "MILK-001", 2.1, 3.99, 30, 22],
@@ -219,6 +267,61 @@ async function main() {
   const rice = createdProducts[0]!;
   const milk = createdProducts[1]!;
   const oil = createdProducts[4]!;
+  const soap = createdProducts[7]!;
+
+  await prisma.pOSRegister.create({
+    data: {
+      businessId: business.id,
+      locationId: location.id,
+      name: "Front Counter",
+      deviceIdentifier: "POS-001",
+      status: "active",
+      sessions: {
+        create: {
+          cashierUserId: cashier.id,
+          openingBalance: money(200)
+        }
+      }
+    }
+  });
+
+  const supplierCatalog = await prisma.supplierProduct.createManyAndReturn({
+    data: [
+      {
+        supplierId: suppliers[0]!.id,
+        mappedProductId: rice.id,
+        name: "Rice Bag Wholesale Case",
+        minimumOrderQuantity: quantity(10),
+        casePackSize: 10,
+        wholesalePrice: money(12.5),
+        leadTimeDays: 3,
+        deliveryFee: money(18),
+        serviceArea: "Greater Toronto Area"
+      },
+      {
+        supplierId: suppliers[0]!.id,
+        mappedProductId: oil.id,
+        name: "Cooking Oil Wholesale Pack",
+        minimumOrderQuantity: quantity(6),
+        casePackSize: 6,
+        wholesalePrice: money(8.25),
+        leadTimeDays: 2,
+        deliveryFee: money(18),
+        serviceArea: "Greater Toronto Area"
+      },
+      {
+        supplierId: suppliers[1]!.id,
+        mappedProductId: createdProducts[12]!.id,
+        name: "Black T-Shirt Bulk Bundle",
+        minimumOrderQuantity: quantity(8),
+        casePackSize: 8,
+        wholesalePrice: money(15.5),
+        leadTimeDays: 5,
+        deliveryFee: money(22),
+        serviceArea: "Ontario"
+      }
+    ]
+  });
 
   const saleOne = await prisma.sale.create({
     data: {
@@ -341,7 +444,7 @@ async function main() {
   await prisma.saleItem.create({
     data: {
       saleId: saleThree.id,
-      productId: createdProducts[7]!.id,
+      productId: soap.id,
       quantity: quantity(1),
       unitPrice: money(7.49),
       subtotal: money(7.49),
@@ -365,7 +468,7 @@ async function main() {
     data: { onHandQuantity: quantity(6), availableQuantity: quantity(6) }
   });
   await prisma.inventoryBalance.update({
-    where: { productId_locationId: { productId: createdProducts[7]!.id, locationId: location.id } },
+    where: { productId_locationId: { productId: soap.id, locationId: location.id } },
     data: { reservedQuantity: quantity(1), availableQuantity: quantity(6) }
   });
 
@@ -402,7 +505,7 @@ async function main() {
         createdById: cashier.id
       },
       {
-        productId: createdProducts[7]!.id,
+        productId: soap.id,
         locationId: location.id,
         movementType: "reservation_hold",
         quantityDelta: quantity(1),
@@ -410,6 +513,152 @@ async function main() {
         referenceId: saleThree.id,
         reason: "checkout_reservation",
         createdById: cashier.id
+      }
+    ]
+  });
+
+  const customerAddress = await prisma.address.create({
+    data: {
+      userId: customer.id,
+      label: "Home",
+      line1: "456 Queen Street",
+      city: "Toronto",
+      province: "ON",
+      postalCode: "M5V 1E3",
+      country: "CA"
+    }
+  });
+
+  const onlineOrder = await prisma.order.create({
+    data: {
+      businessId: business.id,
+      locationId: location.id,
+      orderNumber: "ORD-000001",
+      orderType: "online",
+      customerId: customer.id,
+      createdByUserId: customer.id,
+      status: "confirmed",
+      subtotalAmount: money(18.98),
+      taxAmount: money(2.47),
+      discountAmount: money(0),
+      deliveryFee: money(0),
+      totalAmount: money(21.45),
+      paymentStatus: "paid",
+      fulfillmentType: "delivery"
+    }
+  });
+  await prisma.orderItem.createMany({
+    data: [
+      {
+        orderId: onlineOrder.id,
+        productId: milk.id,
+        quantity: quantity(2),
+        unitPrice: money(3.99),
+        discountAmount: money(0),
+        taxAmount: money(1.04),
+        totalAmount: money(9.02)
+      },
+      {
+        orderId: onlineOrder.id,
+        productId: soap.id,
+        quantity: quantity(1),
+        unitPrice: money(7.49),
+        discountAmount: money(0),
+        taxAmount: money(0.97),
+        totalAmount: money(8.46)
+      }
+    ]
+  });
+  await prisma.orderPayment.create({
+    data: {
+      orderId: onlineOrder.id,
+      method: "credit_card",
+      provider: "stripe",
+      amount: money(21.45),
+      status: "settled"
+    }
+  });
+  await prisma.orderStatusHistory.create({
+    data: {
+      orderId: onlineOrder.id,
+      newStatus: "confirmed",
+      changedByUserId: customer.id,
+      notes: "Seeded storefront checkout"
+    }
+  });
+  await prisma.orderFulfillment.create({
+    data: {
+      orderId: onlineOrder.id,
+      status: "in_transit",
+      deliveryAddressId: customerAddress.id
+    }
+  });
+
+  await prisma.inventoryBalance.update({
+    where: { productId_locationId: { productId: milk.id, locationId: location.id } },
+    data: { onHandQuantity: quantity(19), availableQuantity: quantity(19) }
+  });
+  await prisma.inventoryBalance.update({
+    where: { productId_locationId: { productId: soap.id, locationId: location.id } },
+    data: { onHandQuantity: quantity(6), reservedQuantity: quantity(1), availableQuantity: quantity(5) }
+  });
+  await prisma.inventoryMovement.createMany({
+    data: [
+      {
+        productId: milk.id,
+        locationId: location.id,
+        movementType: "sale_commit",
+        quantityDelta: quantity(-2),
+        referenceType: "order",
+        referenceId: onlineOrder.id,
+        reason: "online_order_completed",
+        createdById: customer.id
+      },
+      {
+        productId: soap.id,
+        locationId: location.id,
+        movementType: "sale_commit",
+        quantityDelta: quantity(-1),
+        referenceType: "order",
+        referenceId: onlineOrder.id,
+        reason: "online_order_completed",
+        createdById: customer.id
+      }
+    ]
+  });
+
+  const purchaseOrder = await prisma.purchaseOrder.create({
+    data: {
+      businessId: business.id,
+      supplierId: suppliers[0]!.id,
+      locationId: location.id,
+      poNumber: "PO-000001",
+      createdByManagerId: manager.id,
+      status: "sent",
+      subtotalAmount: money(174),
+      taxAmount: money(0),
+      shippingAmount: money(18),
+      totalCost: money(192),
+      expectedDeliveryDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
+    }
+  });
+  await prisma.purchaseOrderItem.createMany({
+    data: [
+      {
+        purchaseOrderId: purchaseOrder.id,
+        supplierProductId: supplierCatalog[0]!.id,
+        productId: rice.id,
+        orderedQuantity: quantity(10),
+        receivedQuantity: quantity(0),
+        unitCost: money(12.5)
+      },
+      {
+        purchaseOrderId: purchaseOrder.id,
+        supplierProductId: supplierCatalog[1]!.id,
+        productId: oil.id,
+        orderedQuantity: quantity(6),
+        receivedQuantity: quantity(0),
+        unitCost: money(8.25)
       }
     ]
   });
@@ -470,7 +719,9 @@ async function main() {
   await prisma.business.update({
     where: { id: business.id },
     data: {
-      nextReceiptNumber: 3
+      nextReceiptNumber: 3,
+      nextOrderNumber: 2,
+      nextPurchaseOrderNumber: 2
     }
   });
 
@@ -499,6 +750,22 @@ async function main() {
         resourceType: "inventory_movement",
         resourceId: "seed",
         metadata: {}
+      },
+      {
+        businessId: business.id,
+        actorUserId: customer.id,
+        action: "customer_order_created",
+        resourceType: "order",
+        resourceId: onlineOrder.id,
+        metadata: {}
+      },
+      {
+        businessId: business.id,
+        actorUserId: supplierUser.id,
+        action: "supplier_portal_onboarded",
+        resourceType: "supplier",
+        resourceId: suppliers[0]!.id,
+        metadata: {}
       }
     ]
   });
@@ -510,6 +777,8 @@ async function main() {
   console.log("Manager: manager@demo.local / DemoPass!123");
   console.log("Cashier: cashier@demo.local / DemoPass!123");
   console.log("Inventory: inventory@demo.local / DemoPass!123");
+  console.log("Customer: customer@demo.local / DemoPass!123");
+  console.log("Supplier: supplier@demo.local / DemoPass!123");
 }
 
 main()

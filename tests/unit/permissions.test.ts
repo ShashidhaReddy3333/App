@@ -13,12 +13,24 @@ describe("permission matrix", () => {
     expect(hasPermission("inventory_staff", "products")).toBe(true);
     expect(hasPermission("inventory_staff", "inventory")).toBe(true);
     expect(hasPermission("inventory_staff", "reorder")).toBe(true);
+    expect(hasPermission("inventory_staff", "suppliers")).toBe(false);
     expect(hasPermission("inventory_staff", "sales")).toBe(false);
   });
 
   it("allows managers to operate but not manage staff", () => {
     expect(hasPermission("manager", "sales")).toBe(true);
     expect(hasPermission("manager", "reports")).toBe(true);
+    expect(hasPermission("manager", "suppliers")).toBe(true);
     expect(hasPermission("manager", "staff")).toBe(false);
+  });
+
+  it("splits customer and supplier access cleanly from operations roles", () => {
+    expect(hasPermission("customer", "storefront")).toBe(true);
+    expect(hasPermission("customer", "customer_account")).toBe(true);
+    expect(hasPermission("customer", "sales")).toBe(false);
+
+    expect(hasPermission("supplier", "supplier_portal")).toBe(true);
+    expect(hasPermission("supplier", "products")).toBe(false);
+    expect(hasPermission("supplier", "procurement")).toBe(false);
   });
 });

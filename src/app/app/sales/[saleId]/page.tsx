@@ -48,7 +48,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
                     <div>${item.lineTotal.toString()}</div>
                   </div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Qty {item.quantity.toString()} · Unit ${item.unitPrice.toString()} · Discount ${item.lineDiscountAmount.toString()} · Tax $
+                    Qty {item.quantity.toString()} - Unit ${item.unitPrice.toString()} - Discount ${item.lineDiscountAmount.toString()} - Tax $
                     {item.taxAmount.toString()}
                   </div>
                 </div>

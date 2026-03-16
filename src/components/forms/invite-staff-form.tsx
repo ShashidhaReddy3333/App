@@ -30,6 +30,7 @@ export function InviteStaffForm() {
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
+    setDemoToken(null);
     setServerError(null);
     try {
       const payload = await requestJson<{ invite: { id: string }; demoToken: string | null }>("/api/staff/invite", {
@@ -38,7 +39,7 @@ export function InviteStaffForm() {
         body: JSON.stringify(values)
       });
       setDemoToken(payload.demoToken ?? null);
-      toast.success("Invite created.");
+      toast.success(payload.demoToken ? "Invite created. Demo mode shows the invite token below." : "Invite created and emailed.");
       form.reset();
       router.refresh();
     } catch (error) {
@@ -57,7 +58,7 @@ export function InviteStaffForm() {
     <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Invite staff</CardTitle>
-        <CardDescription>Create a pending staff account for a manager, cashier, or inventory staff member.</CardDescription>
+        <CardDescription>Send an invite email in production. Demo mode shows the invite token inline for guided testing.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form className="space-y-4" onSubmit={onSubmit}>

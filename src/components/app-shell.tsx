@@ -1,22 +1,25 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { UserRole } from "@prisma/client";
-import { BarChart3, ClipboardList, LayoutDashboard, Package, RotateCcw, ShieldCheck, ShoppingCart, Truck, Users, Boxes } from "lucide-react";
+import { BarChart3, ClipboardList, LayoutDashboard, Package, RotateCcw, ShieldCheck, ShoppingCart, Truck, Users, Boxes, ClipboardCheck, Store } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { hasPermission } from "@/lib/rbac";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navItems = [
-  { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "sales" },
-  { href: "/app/products", label: "Products", icon: Package, permission: "products" },
-  { href: "/app/suppliers", label: "Suppliers", icon: Boxes, permission: "products" },
-  { href: "/app/checkout", label: "Checkout", icon: ShoppingCart, permission: "sales" },
-  { href: "/app/sales", label: "Sales", icon: ClipboardList, permission: "sales" },
-  { href: "/app/refunds", label: "Refunds", icon: RotateCcw, permission: "refunds" },
-  { href: "/app/reorder", label: "Reorder", icon: Truck, permission: "reorder" },
-  { href: "/app/reports", label: "Reports", icon: BarChart3, permission: "reports" },
-  { href: "/app/staff", label: "Staff", icon: Users, permission: "staff" },
-  { href: "/app/sessions", label: "Sessions", icon: ShieldCheck, permission: "sessions" }
+  { href: "/app/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard, permission: "sales" },
+  { href: "/app/products" as Route, label: "Products", icon: Package, permission: "products" },
+  { href: "/app/suppliers" as Route, label: "Suppliers", icon: Boxes, permission: "suppliers" },
+  { href: "/app/checkout" as Route, label: "Checkout", icon: ShoppingCart, permission: "sales" },
+  { href: "/app/sales" as Route, label: "Sales", icon: ClipboardList, permission: "sales" },
+  { href: "/app/orders" as Route, label: "Online Orders", icon: Store, permission: "sales" },
+  { href: "/app/refunds" as Route, label: "Refunds", icon: RotateCcw, permission: "refunds" },
+  { href: "/app/reorder" as Route, label: "Reorder", icon: Truck, permission: "reorder" },
+  { href: "/app/procurement" as Route, label: "Procurement", icon: ClipboardCheck, permission: "procurement" },
+  { href: "/app/reports" as Route, label: "Reports", icon: BarChart3, permission: "reports" },
+  { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff" },
+  { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions" }
 ] as const;
 
 export function AppShell({

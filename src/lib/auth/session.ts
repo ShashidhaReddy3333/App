@@ -2,8 +2,8 @@ import { cookies, headers } from "next/headers";
 
 import { unauthorizedError } from "@/lib/errors";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
+import { shouldUseSecureSessionCookie } from "@/lib/auth/session-cookie";
 
 const SESSION_COOKIE = "bma_session";
 
@@ -30,7 +30,7 @@ export async function createSession(userId: string) {
   cookieStore.set(SESSION_COOKIE, `${session.id}.${token}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: env.APP_URL.startsWith("https://"),
+    secure: shouldUseSecureSessionCookie(),
     path: "/",
     expires: session.expiresAt
   });
