@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:app-alpha-ten-48.vercel.app)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://app-alpha-ten-48.vercel.app/api/health)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://app-alpha-ten-48.vercel.app/api/readiness)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" https://app-alpha-ten-48.vercel.app/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://app-alpha-ten-48.vercel.app/)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm install:*)",
+      "WebFetch(domain:resend.com)",
+      "Read(//c/Users/Owner/Desktop/SRJ/App/**)",
+      "Bash(gh api:*)"
+    ]
+  }
+}
