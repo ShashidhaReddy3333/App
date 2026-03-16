@@ -31,7 +31,7 @@ export function FailedNotificationsList({ notifications }: { notifications: Fail
           <CardHeader>
             <CardTitle>{notification.title}</CardTitle>
             <CardDescription>
-              {notification.userName} · {notification.userEmail}
+              {notification.userName} - {notification.userEmail}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">

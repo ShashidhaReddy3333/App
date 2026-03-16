@@ -6,9 +6,12 @@ import { sendStaffInviteEmail } from "@/lib/auth/mailer";
 import { db } from "@/lib/db";
 import { env, getRuntimeCheckIssues } from "@/lib/env";
 import { conflictError, notFoundError } from "@/lib/errors";
+import { logError } from "@/lib/observability";
 
 const PASSWORD_RESET_RETENTION_DAYS = 7;
 const STAFF_INVITE_RETENTION_DAYS = 30;
+const STAFF_INVITE_WINDOW_MINUTES = 60;
+const STAFF_INVITE_LIMIT = 10;
 const SESSION_RETENTION_DAYS = 30;
 const AUTH_THROTTLE_RETENTION_DAYS = 30;
 const SENT_NOTIFICATION_RETENTION_DAYS = 90;
@@ -16,6 +19,21 @@ const FAILED_NOTIFICATION_RETENTION_DAYS = 30;
 
 function subtractDays(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+async function assertInviteResendNotThrottled(businessId: string, email: string) {
+  const windowStart = new Date(Date.now() - STAFF_INVITE_WINDOW_MINUTES * 60 * 1000);
+  const recentCount = await db.staffInviteToken.count({
+    where: {
+      businessId,
+      email,
+      createdAt: { gte: windowStart }
+    }
+  });
+
+  if (recentCount >= STAFF_INVITE_LIMIT) {
+    throw conflictError("Too many invites were sent to this address recently. Please try again later.");
+  }
 }
 
 export async function getOperationsSnapshot(businessId: string) {
@@ -130,7 +148,15 @@ export async function cleanupOperationalData() {
   const sentNotificationCutoff = subtractDays(SENT_NOTIFICATION_RETENTION_DAYS);
   const failedNotificationCutoff = subtractDays(FAILED_NOTIFICATION_RETENTION_DAYS);
 
-  const [passwordResetTokensDeleted, staffInvitesDeleted, sessionsDeleted, authThrottleRowsDeleted, sentNotificationsDeleted, failedNotificationsDeleted] =
+  const [
+    passwordResetTokensDeleted,
+    staffInvitesDeleted,
+    sessionsDeleted,
+    authThrottleRowsDeleted,
+    sentNotificationsDeleted,
+    readNotificationsDeleted,
+    failedNotificationsDeleted
+  ] =
     await db.$transaction([
       db.passwordResetToken.deleteMany({
         where: {
@@ -164,6 +190,12 @@ export async function cleanupOperationalData() {
       }),
       db.notification.deleteMany({
         where: {
+          status: NotificationStatus.read,
+          readAt: { lt: sentNotificationCutoff }
+        }
+      }),
+      db.notification.deleteMany({
+        where: {
           status: NotificationStatus.failed,
           createdAt: { lt: failedNotificationCutoff }
         }
@@ -176,6 +208,7 @@ export async function cleanupOperationalData() {
     sessionsDeleted: sessionsDeleted.count,
     authThrottleRowsDeleted: authThrottleRowsDeleted.count,
     sentNotificationsDeleted: sentNotificationsDeleted.count,
+    readNotificationsDeleted: readNotificationsDeleted.count,
     failedNotificationsDeleted: failedNotificationsDeleted.count
   };
 }
@@ -200,24 +233,18 @@ export async function resendPendingInvite(actorUserId: string, businessId: strin
     throw conflictError("This invite has already been revoked.");
   }
 
+  await assertInviteResendNotThrottled(businessId, existingInvite.email);
+
   const token = createOpaqueToken();
-
-  const invite = await db.$transaction(async (tx) => {
-    await tx.staffInviteToken.update({
-      where: { id: existingInvite.id },
-      data: { revokedAt: new Date() }
-    });
-
-    return tx.staffInviteToken.create({
-      data: {
-        businessId,
-        email: existingInvite.email,
-        role: existingInvite.role,
-        tokenHash: hashToken(token),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-        invitedByUserId: actorUserId
-      }
-    });
+  const invite = await db.staffInviteToken.create({
+    data: {
+      businessId,
+      email: existingInvite.email,
+      role: existingInvite.role,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      invitedByUserId: actorUserId
+    }
   });
 
   if (env.DEMO_MODE !== "true") {
@@ -230,6 +257,25 @@ export async function resendPendingInvite(actorUserId: string, businessId: strin
       });
       throw error;
     }
+  }
+
+  try {
+    await db.staffInviteToken.updateMany({
+      where: {
+        businessId,
+        email: existingInvite.email,
+        acceptedAt: null,
+        revokedAt: null,
+        id: { not: invite.id }
+      },
+      data: { revokedAt: new Date() }
+    });
+  } catch (error) {
+    logError("invite_resend_revoke_previous_failed", error, {
+      businessId,
+      inviteId: invite.id,
+      previousInviteId: existingInvite.id
+    });
   }
 
   await logAudit({

@@ -116,7 +116,7 @@ export function toAuditActivityCards(entries: OperationsSnapshot["recentAudit"])
   return entries.map((entry) => ({
     id: entry.id,
     actionLabel: entry.action.replaceAll("_", " "),
-    resourceLabel: `${entry.resourceType} · ${entry.resourceId}`,
+    resourceLabel: `${entry.resourceType} - ${entry.resourceId}`,
     createdAtLabel: formatDateTime(entry.createdAt)
   }));
 }
