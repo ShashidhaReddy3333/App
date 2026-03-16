@@ -51,7 +51,7 @@ export function SignInForm() {
     <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>Access your business dashboard and checkout operations.</CardDescription>
+        <CardDescription>Access your business dashboard and checkout operations. Passwords must be at least 8 characters long.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>

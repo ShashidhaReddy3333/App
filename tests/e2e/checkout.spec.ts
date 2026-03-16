@@ -25,6 +25,7 @@ test("cashier can reserve a cart and complete a split-payment sale", async ({ pa
   await signInAndOpenDashboard(page, "cashier@demo.local", "DemoPass!123");
   await page.getByRole("link", { name: "Checkout" }).click();
   await expect(page.getByRole("heading", { name: "Checkout", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Product").first()).toContainText("Rice Bag");
 
   await page.getByRole("button", { name: "Reserve cart" }).click();
   await expect(page).toHaveURL(/saleId=/);
@@ -37,6 +38,9 @@ test("cashier can reserve a cart and complete a split-payment sale", async ({ pa
 
   await page.getByLabel("Amount").first().fill(firstPaymentAmount.toFixed(2));
   await page.getByRole("button", { name: "Add payment" }).click();
+  await page.getByLabel("Method").nth(1).selectOption("credit_card");
+  await page.getByLabel("Provider").nth(1).selectOption("manual");
+  await page.getByLabel("Amount").nth(1).fill("0");
   await page.getByLabel("Amount").nth(1).fill(secondPaymentAmount.toFixed(2));
 
   await page.getByRole("button", { name: "Complete sale" }).click();
@@ -51,4 +55,5 @@ test("cashier can reserve a cart and complete a split-payment sale", async ({ pa
   await expect(page).toHaveURL(/\/app\/sales\//);
   await expect(page.getByRole("heading", { name: "Receipt" })).toBeVisible();
   await expect(page.getByText("Payments")).toBeVisible();
+  await expect(page.getByText("credit card")).toBeVisible();
 });

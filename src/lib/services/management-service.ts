@@ -14,6 +14,7 @@ export async function listStaff(businessId: string) {
 export async function listBusinessSessions(businessId: string) {
   return db.session.findMany({
     where: {
+      revokedAt: null,
       user: {
         businessId
       }
@@ -24,6 +25,18 @@ export async function listBusinessSessions(businessId: string) {
     orderBy: {
       lastSeenAt: "desc"
     }
+  });
+}
+
+export async function listPendingInvites(businessId: string) {
+  return db.staffInviteToken.findMany({
+    where: {
+      businessId,
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: new Date() }
+    },
+    orderBy: { createdAt: "desc" }
   });
 }
 

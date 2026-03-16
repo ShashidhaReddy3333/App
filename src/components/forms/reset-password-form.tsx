@@ -55,13 +55,14 @@ export function ResetPasswordForm({ email, token }: { email: string; token: stri
     <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Reset password</CardTitle>
-        <CardDescription>Use the one-time token to set a new password.</CardDescription>
+        <CardDescription>Use the one-time token to set a new password. New passwords must be at least 8 characters long.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
+            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="token">Reset token</Label>

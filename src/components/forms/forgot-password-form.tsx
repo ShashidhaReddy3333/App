@@ -18,6 +18,7 @@ type Values = z.infer<typeof forgotPasswordSchema>;
 export function ForgotPasswordForm() {
   const [devToken, setDevToken] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: "" }
@@ -25,6 +26,7 @@ export function ForgotPasswordForm() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
+    setSuccessMessage(null);
     try {
       const payload = await requestJson<{ ok: boolean; devToken: string | null }>("/api/auth/forgot-password", {
         method: "POST",
@@ -33,6 +35,7 @@ export function ForgotPasswordForm() {
       });
 
       setDevToken(payload.devToken ?? null);
+      setSuccessMessage("If the account exists, a reset link is ready. Use the demo token below when DEMO_MODE is enabled.");
       toast.success("If the account exists, a reset link is ready.");
     } catch (error) {
       if (error instanceof ApiClientError) {
@@ -59,6 +62,7 @@ export function ForgotPasswordForm() {
             <Input id="email" type="email" {...form.register("email")} />
             {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
           </div>
+          {successMessage ? <p className="text-sm text-primary">{successMessage}</p> : null}
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Sending..." : "Send reset link"}

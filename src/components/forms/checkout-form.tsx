@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof checkoutSchema>;
@@ -21,7 +22,7 @@ export function CheckoutForm({
   products
 }: {
   locationId: string;
-  products: Array<{ id: string; name: string; sellingPrice: number }>;
+  products: Array<{ id: string; name: string; label: string; sellingPrice: number }>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -42,6 +43,14 @@ export function CheckoutForm({
     control: form.control,
     name: "items"
   });
+
+  const updateProduct = (index: number, productId: string) => {
+    const product = products.find((entry) => entry.id === productId);
+    form.setValue(`items.${index}.productId`, productId, { shouldDirty: true, shouldValidate: true });
+    if (product) {
+      form.setValue(`items.${index}.unitPrice`, product.sellingPrice, { shouldDirty: true, shouldValidate: true });
+    }
+  };
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
@@ -78,8 +87,18 @@ export function CheckoutForm({
           {items.fields.map((field, index) => (
             <div key={field.id} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor={`items.${index}.productId`}>Product ID</Label>
-                <Input id={`items.${index}.productId`} list="checkout-products" {...form.register(`items.${index}.productId`)} />
+                <Label htmlFor={`items.${index}.productId`}>Product</Label>
+                <Select
+                  id={`items.${index}.productId`}
+                  value={form.watch(`items.${index}.productId`)}
+                  onChange={(event) => updateProduct(index, event.target.value)}
+                >
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`items.${index}.quantity`}>Qty</Label>
@@ -91,13 +110,6 @@ export function CheckoutForm({
               </div>
             </div>
           ))}
-          <datalist id="checkout-products">
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </datalist>
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
           <div className="flex gap-3">
             <Button

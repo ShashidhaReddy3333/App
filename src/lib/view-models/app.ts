@@ -1,4 +1,5 @@
 import { decimalToNumber } from "@/lib/money";
+import { formatDateTime } from "@/lib/utils";
 
 type CatalogData = Awaited<ReturnType<typeof import("@/lib/services/catalog-query-service").listCatalogData>>;
 type DashboardMetrics = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getDashboardMetrics>>;
@@ -6,6 +7,7 @@ type ReportsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/reportin
 type SalesList = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").listSales>>;
 type SaleDetail = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").getSaleDetail>>;
 type StaffList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listStaff>>;
+type PendingInviteList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listPendingInvites>>;
 type SessionList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listBusinessSessions>>;
 
 export function toProductTableRows(products: CatalogData["products"]) {
@@ -25,6 +27,7 @@ export function toCheckoutProductOptions(products: CatalogData["products"]) {
   return products.map((product) => ({
     id: product.id,
     name: product.name,
+    label: `${product.name} · ${product.sku}`,
     sellingPrice: decimalToNumber(product.sellingPrice)
   }));
 }
@@ -32,14 +35,16 @@ export function toCheckoutProductOptions(products: CatalogData["products"]) {
 export function toProductOptions(products: CatalogData["products"]) {
   return products.map((product) => ({
     id: product.id,
-    name: product.name
+    name: product.name,
+    label: `${product.name} · ${product.sku}`
   }));
 }
 
 export function toSupplierOptions(suppliers: CatalogData["suppliers"]) {
   return suppliers.map((supplier) => ({
     id: supplier.id,
-    name: supplier.name
+    name: supplier.name,
+    label: supplier.name
   }));
 }
 
@@ -72,12 +77,23 @@ export function toStaffCards(staff: StaffList) {
   }));
 }
 
+export function toPendingInviteCards(invites: PendingInviteList) {
+  return invites.map((invite) => ({
+    id: invite.id,
+    email: invite.email,
+    roleLabel: invite.role.replaceAll("_", " "),
+    statusLabel: "pending",
+    createdAtLabel: formatDateTime(invite.createdAt),
+    expiresAtLabel: formatDateTime(invite.expiresAt)
+  }));
+}
+
 export function toSessionCards(sessions: SessionList) {
   return sessions.map((session) => ({
     id: session.id,
     userName: session.user.fullName,
     deviceName: session.deviceName,
-    lastSeenLabel: session.lastSeenAt ? new Date(session.lastSeenAt).toLocaleString() : "Never"
+    lastSeenLabel: session.lastSeenAt ? formatDateTime(session.lastSeenAt) : "Never"
   }));
 }
 

@@ -21,10 +21,14 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
 
   const canRefund = hasPermission(session.user.role, "refunds") && (sale.status === "completed" || sale.status === "refunded_partially");
   const refundItems = toRefundItemOptions(sale.items);
+  const pageDescription =
+    sale.completedAt && sale.status !== "pending_payment"
+      ? `Completed by ${sale.cashier.fullName} at ${sale.location.name}.`
+      : `Reserved by ${sale.cashier.fullName} at ${sale.location.name}.`;
 
   return (
     <div className="space-y-6">
-      <PageHeader title={sale.receiptNumber ?? "Sale receipt"} description={`Completed by ${sale.cashier.fullName} at ${sale.location.name}.`} />
+      <PageHeader title={sale.receiptNumber ?? "Sale receipt"} description={pageDescription} />
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="gradient-panel">
           <CardHeader>

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof inventoryAdjustmentSchema>;
@@ -21,7 +22,7 @@ export function InventoryAdjustmentForm({
   products
 }: {
   locationId: string;
-  products: Array<{ id: string; name: string }>;
+  products: Array<{ id: string; name: string; label: string }>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -69,15 +70,15 @@ export function InventoryAdjustmentForm({
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <input type="hidden" {...form.register("locationId")} />
           <div className="space-y-2">
-            <Label htmlFor="productId">Product ID</Label>
-            <Input id="productId" list="product-options" {...form.register("productId")} />
-            <datalist id="product-options">
+            <Label htmlFor="productId">Product</Label>
+            <Select id="productId" {...form.register("productId")}>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.name}
+                  {product.label}
                 </option>
               ))}
-            </datalist>
+            </Select>
+            {form.formState.errors.productId ? <p className="text-sm text-destructive">{form.formState.errors.productId.message}</p> : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="quantityDelta">Quantity delta</Label>
@@ -87,6 +88,7 @@ export function InventoryAdjustmentForm({
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="reason">Reason</Label>
             <Input id="reason" {...form.register("reason")} />
+            {form.formState.errors.reason ? <p className="text-sm text-destructive">{form.formState.errors.reason.message}</p> : null}
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="idempotencyKey">Idempotency key</Label>

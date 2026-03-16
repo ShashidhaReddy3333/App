@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof inviteStaffSchema>;
@@ -67,7 +68,11 @@ export function InviteStaffForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Input id="role" {...form.register("role")} />
+            <Select id="role" {...form.register("role")}>
+              <option value="manager">manager</option>
+              <option value="cashier">cashier</option>
+              <option value="inventory_staff">inventory staff</option>
+            </Select>
             {form.formState.errors.role ? <p className="text-sm text-destructive">{form.formState.errors.role.message}</p> : null}
           </div>
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}

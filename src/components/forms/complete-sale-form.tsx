@@ -3,61 +3,64 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 
-import { ApiClientError, applyFormIssues, requestJson } from "@/lib/client/api";
-import { completeSaleSchema } from "@/lib/schemas/sales";
+import { requestJson } from "@/lib/client/api";
+import { buildCompleteSalePayload, completeSaleDraftSchema, createPaymentDraft, getPaymentTotal, type CompleteSaleDraftValues } from "@/lib/forms/complete-sale";
+import { paymentMethods, paymentProviders } from "@/lib/schemas/sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-
-type Values = z.infer<typeof completeSaleSchema>;
 
 export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amountDue: number }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  const form = useForm<Values>({
-    resolver: zodResolver(completeSaleSchema),
+  const form = useForm<CompleteSaleDraftValues>({
     defaultValues: {
       idempotencyKey: crypto.randomUUID(),
-      payments: [
-        {
-          method: "cash",
-          amount: amountDue,
-          provider: "manual",
-          externalReference: ""
-        }
-      ]
+      payments: [createPaymentDraft(amountDue)]
     }
   });
   const payments = useFieldArray({
     control: form.control,
     name: "payments"
   });
+  const watchedPayments = form.watch("payments");
+  const enteredTotal = getPaymentTotal(watchedPayments ?? []);
+  const remainingAmount = Math.max(amountDue - enteredTotal, 0);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
+    const parsed = completeSaleDraftSchema.safeParse(values);
+    if (!parsed.success) {
+      const firstFieldError = parsed.error.flatten().fieldErrors.payments?.[0] ?? parsed.error.flatten().fieldErrors.idempotencyKey?.[0];
+      setServerError(firstFieldError ?? "Review the payment details before completing the sale.");
+      toast.error(firstFieldError ?? "Review the payment details before completing the sale.");
+      return;
+    }
+
+    const result = buildCompleteSalePayload(parsed.data, amountDue);
+    if (!result.ok) {
+      setServerError(result.message);
+      toast.error(result.message);
+      return;
+    }
+
     try {
       const payload = await requestJson<{ sale: { id: string } }>(`/api/sales/${saleId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(result.payload)
       });
       toast.success("Sale completed.");
       router.push(`/app/sales/${payload.sale.id}`);
       router.refresh();
     } catch (error) {
-      if (error instanceof ApiClientError) {
-        applyFormIssues(form, error.issues);
-        setServerError(error.message);
-        toast.error(error.message);
-        return;
-      }
-      setServerError("Unable to complete sale.");
-      toast.error("Unable to complete sale.");
+      const message = error instanceof Error ? error.message : "Unable to complete sale.";
+      setServerError(message);
+      toast.error(message);
     }
   });
 
@@ -70,10 +73,16 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           {payments.fields.map((field, index) => (
-            <div key={field.id} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-3">
+            <div key={field.id} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
               <div className="space-y-2">
                 <Label htmlFor={`payments.${index}.method`}>Method</Label>
-                <Input id={`payments.${index}.method`} {...form.register(`payments.${index}.method`)} />
+                <Select id={`payments.${index}.method`} {...form.register(`payments.${index}.method`)}>
+                  {paymentMethods.map((method) => (
+                    <option key={method} value={method}>
+                      {method.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`payments.${index}.amount`}>Amount</Label>
@@ -81,10 +90,36 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`payments.${index}.provider`}>Provider</Label>
-                <Input id={`payments.${index}.provider`} {...form.register(`payments.${index}.provider`)} />
+                <Select id={`payments.${index}.provider`} {...form.register(`payments.${index}.provider`)}>
+                  {paymentProviders.map((provider) => (
+                    <option key={provider} value={provider}>
+                      {provider}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={form.formState.isSubmitting || payments.fields.length === 1}
+                  onClick={() => payments.remove(index)}
+                >
+                  Remove
+                </Button>
               </div>
             </div>
           ))}
+          <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Entered total</span>
+              <span>${enteredTotal.toFixed(2)}</span>
+            </div>
+            <div className="mt-2 flex justify-between">
+              <span>{remainingAmount > 0 ? "Remaining due" : "Change due"}</span>
+              <span>${(remainingAmount > 0 ? remainingAmount : enteredTotal - amountDue).toFixed(2)}</span>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="idempotencyKey">Idempotency key</Label>
             <Input id="idempotencyKey" {...form.register("idempotencyKey")} />
@@ -95,7 +130,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
               type="button"
               variant="secondary"
               disabled={form.formState.isSubmitting}
-              onClick={() => payments.append({ method: "credit_card", amount: 0, provider: "manual", externalReference: "" })}
+              onClick={() => payments.append(createPaymentDraft(0))}
             >
               Add payment
             </Button>

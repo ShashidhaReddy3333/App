@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const paymentMethods = ["cash", "debit_card", "credit_card", "mobile_payment", "bank_transfer", "gift_card", "store_credit"] as const;
+export const paymentProviders = ["stripe", "square", "manual"] as const;
+export const restockActions = ["restock_to_sellable", "restock_to_damaged", "do_not_restock"] as const;
+
 const discountSchema = z.object({
   type: z.enum(["fixed_amount", "percentage"]),
   value: z.coerce.number().min(0),
@@ -21,9 +25,9 @@ export const checkoutSchema = z.object({
 });
 
 export const paymentInputSchema = z.object({
-  method: z.enum(["cash", "debit_card", "credit_card", "mobile_payment", "bank_transfer", "gift_card", "store_credit"]),
+  method: z.enum(paymentMethods),
   amount: z.coerce.number().positive(),
-  provider: z.enum(["stripe", "square", "manual"]).optional(),
+  provider: z.enum(paymentProviders).optional(),
   externalReference: z.string().max(120).optional().or(z.literal(""))
 });
 
@@ -35,7 +39,7 @@ export const completeSaleSchema = z.object({
 export const refundItemSchema = z.object({
   saleItemId: z.string().min(1),
   quantity: z.coerce.number().positive(),
-  restockAction: z.enum(["restock_to_sellable", "restock_to_damaged", "do_not_restock"])
+  restockAction: z.enum(restockActions)
 });
 
 export const refundSchema = z.object({

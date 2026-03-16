@@ -7,7 +7,7 @@ import { ApiClientError, requestJson } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 
-export function RevokeSessionButton({ sessionId }: { sessionId: string }) {
+export function RevokeSessionButton({ sessionId, onRevoked }: { sessionId: string; onRevoked?: (sessionId: string) => void }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,6 +22,7 @@ export function RevokeSessionButton({ sessionId }: { sessionId: string }) {
             method: "POST"
           });
           toast.success("Session revoked.");
+          onRevoked?.(sessionId);
           router.refresh();
         } catch (error) {
           if (error instanceof ApiClientError) {
