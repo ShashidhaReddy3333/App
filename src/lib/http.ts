@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { toAppError } from "@/lib/errors";
+import { captureServerException, wasErrorReported } from "@/lib/monitoring/sentry";
 
 export function apiSuccess<T>(data: T, options?: { status?: number; message?: string }) {
   return NextResponse.json(
@@ -14,6 +15,12 @@ export function apiSuccess<T>(data: T, options?: { status?: number; message?: st
 
 export function apiError(error: unknown) {
   const appError = toAppError(error);
+  if (appError.status >= 500 && !wasErrorReported(error)) {
+    void captureServerException("api_error_response", error, {
+      status: appError.status,
+      code: appError.code
+    });
+  }
 
   return NextResponse.json(
     {

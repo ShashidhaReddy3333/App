@@ -8,6 +8,8 @@
 - [ ] `APP_URL` is the real HTTPS production URL
 - [ ] `RESEND_API_KEY` is configured
 - [ ] `MAIL_FROM` is configured and sender identity is verified
+- [ ] `SENTRY_DSN` is configured
+- [ ] `CRON_SECRET` is configured
 
 ## Database
 
@@ -35,8 +37,17 @@
 
 - [ ] `/api/health` passes
 - [ ] `/api/readiness` passes
+- [ ] `/api/internal/monitoring/test` sends a visible monitoring event
 - [ ] request IDs are present in responses
 - [ ] application logs are being captured
+- [ ] alert rules are configured for 5xx, readiness failures, DB failures, and email delivery failures
+
+## Scheduled jobs
+
+- [ ] Vercel Cron is enabled from `vercel.json`
+- [ ] notification processing cron is active
+- [ ] reservation cleanup cron is active
+- [ ] maintenance cleanup cron is active
 
 ## Release
 

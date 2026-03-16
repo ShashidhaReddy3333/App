@@ -58,6 +58,8 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient, b
       }
     });
   }
+
+  return expiredSales.length;
 }
 
 export async function cleanupExpiredReservations(businessId?: string) {
@@ -70,9 +72,15 @@ export async function cleanupExpiredReservations(businessId?: string) {
             select: { id: true }
           });
 
+      let salesCancelled = 0;
       for (const business of businesses) {
-        await releaseExpiredReservations(tx, business.id);
+        salesCancelled += await releaseExpiredReservations(tx, business.id);
       }
+
+      return {
+        businessesProcessed: businesses.length,
+        salesCancelled
+      };
     },
     {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable

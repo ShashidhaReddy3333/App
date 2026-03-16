@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +23,6 @@ export function ProductForm({
   locationId: string;
   suppliers: Array<{ id: string; name: string; label: string }>;
 }) {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(productSchema),
@@ -55,7 +53,7 @@ export function ProductForm({
       });
       toast.success("Product created.");
       form.reset({ ...form.getValues(), name: "", category: "", sku: "", barcode: "", purchasePrice: 0, sellingPrice: 0, taxCategory: "", parLevel: 0, openingStock: 0 });
-      router.refresh();
+      window.location.reload();
     } catch (error) {
       if (error instanceof ApiClientError) {
         applyFormIssues(form, error.issues);

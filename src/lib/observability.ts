@@ -1,3 +1,5 @@
+import { captureServerException } from "@/lib/monitoring/sentry";
+
 type LogLevel = "info" | "warn" | "error";
 
 function serializeError(error: unknown) {
@@ -47,4 +49,5 @@ export function logError(event: string, error: unknown, metadata: Record<string,
     ...metadata,
     error: serializeError(error)
   });
+  void captureServerException(event, error, metadata);
 }

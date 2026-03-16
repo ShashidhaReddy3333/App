@@ -430,20 +430,34 @@ export async function completePasswordReset(input: unknown) {
   }
 
   const passwordHash = await hashPassword(values.password);
-  await db.$transaction([
-    db.user.update({
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: user.id },
       data: { passwordHash }
-    }),
-    db.passwordResetToken.update({
+    });
+
+    await tx.passwordResetToken.update({
       where: { id: resetToken.id },
       data: { usedAt: new Date() }
-    }),
-    db.session.updateMany({
+    });
+
+    await tx.session.updateMany({
       where: { userId: user.id, revokedAt: null },
       data: { revokedAt: new Date() }
-    })
-  ]);
+    });
+
+    if (user.businessId) {
+      await logAudit({
+        tx,
+        businessId: user.businessId,
+        actorUserId: user.id,
+        action: "password_reset",
+        resourceType: "user",
+        resourceId: user.id,
+        metadata: {}
+      });
+    }
+  });
 
   return { ok: true };
 }

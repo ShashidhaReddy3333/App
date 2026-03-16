@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/jobs/process-notifications",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/jobs/cleanup-reservations",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/internal/jobs/maintenance-cleanup",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

@@ -81,6 +81,8 @@ export async function dispatchQueuedNotifications(limit = 50) {
     take: limit
   });
 
+  let sentCount = 0;
+  let failedCount = 0;
   for (const notification of notifications) {
     try {
       if (notification.channel === NotificationChannel.in_app) {
@@ -91,6 +93,7 @@ export async function dispatchQueuedNotifications(limit = 50) {
             sentAt: new Date()
           }
         });
+        sentCount += 1;
         continue;
       }
 
@@ -102,6 +105,7 @@ export async function dispatchQueuedNotifications(limit = 50) {
               status: NotificationStatus.failed
             }
           });
+          failedCount += 1;
           continue;
         }
 
@@ -121,6 +125,7 @@ export async function dispatchQueuedNotifications(limit = 50) {
             sentAt: new Date()
           }
         });
+        sentCount += 1;
       }
     } catch (error) {
       await db.notification.update({
@@ -129,6 +134,7 @@ export async function dispatchQueuedNotifications(limit = 50) {
           status: NotificationStatus.failed
         }
       });
+      failedCount += 1;
       logError("notification_dispatch_failed", error, {
         notificationId: notification.id,
         channel: notification.channel,
@@ -138,6 +144,14 @@ export async function dispatchQueuedNotifications(limit = 50) {
   }
 
   logEvent("info", "notification_dispatch_completed", {
-    processedCount: notifications.length
+    processedCount: notifications.length,
+    sentCount,
+    failedCount
   });
+
+  return {
+    processedCount: notifications.length,
+    sentCount,
+    failedCount
+  };
 }

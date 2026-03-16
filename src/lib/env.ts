@@ -7,6 +7,8 @@ const appUrlSchema = z.string().url("APP_URL must be a valid absolute URL.");
 const resendApiKeySchema = z.string().min(1, "RESEND_API_KEY is required when email delivery is enabled.");
 const mailFromSchema = z.string().min(1, "MAIL_FROM is required when email delivery is enabled.");
 const mailReplyToSchema = z.string().min(1).optional();
+const sentryDsnSchema = z.string().url("SENTRY_DSN must be a valid absolute URL.");
+const cronSecretSchema = z.string().min(16, "CRON_SECRET must be at least 16 characters.");
 const nodeEnvSchema = z.enum(["development", "test", "production"]).default("development");
 
 export type RuntimeCheckIssue = {
@@ -50,6 +52,18 @@ export function getDemoMode() {
 
 export function requiresEmailDelivery() {
   return getDemoMode() !== "true";
+}
+
+export function requiresProductionMonitoring() {
+  return getNodeEnv() === "production";
+}
+
+export function getOptionalSentryDsn() {
+  return parseOptional(sentryDsnSchema, process.env.SENTRY_DSN);
+}
+
+export function getOptionalCronSecret() {
+  return parseOptional(cronSecretSchema, process.env.CRON_SECRET);
 }
 
 export function getRuntimeCheckIssues() {
@@ -105,6 +119,24 @@ export function getRuntimeCheckIssues() {
     }
   }
 
+  if (requiresProductionMonitoring()) {
+    if (!getOptionalSentryDsn()) {
+      issues.push({
+        key: "SENTRY_DSN",
+        message: "SENTRY_DSN is required in production so runtime failures are captured.",
+        severity: "error"
+      });
+    }
+
+    if (!getOptionalCronSecret()) {
+      issues.push({
+        key: "CRON_SECRET",
+        message: "CRON_SECRET is required in production to protect internal job routes.",
+        severity: "error"
+      });
+    }
+  }
+
   if (nodeEnv === "production" && getDemoMode() === "true") {
     issues.push({
       key: "DEMO_MODE",
@@ -151,5 +183,11 @@ export const env = {
   },
   get MAIL_REPLY_TO() {
     return mailReplyToSchema.parse(process.env.MAIL_REPLY_TO);
+  },
+  get SENTRY_DSN() {
+    return sentryDsnSchema.parse(process.env.SENTRY_DSN);
+  },
+  get CRON_SECRET() {
+    return cronSecretSchema.parse(process.env.CRON_SECRET);
   }
 } as const;

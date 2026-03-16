@@ -6,14 +6,16 @@ if (existsSync(".env")) {
 }
 
 async function main() {
-  const [{ cleanupExpiredReservations }, { validateRuntimeEnvironment }] = await Promise.all([
-    import("../src/lib/services/sales-service"),
+  const [{ captureMonitoringMessage }, { validateRuntimeEnvironment }] = await Promise.all([
+    import("../src/lib/monitoring/sentry"),
     import("../src/lib/env")
   ]);
 
   validateRuntimeEnvironment({ allowWarnings: true });
-  const summary = await cleanupExpiredReservations();
-  console.log(JSON.stringify(summary));
+  const eventId = await captureMonitoringMessage("manual_monitoring_test", {
+    source: "script"
+  });
+  console.log(JSON.stringify({ eventId }));
 }
 
 main().catch((error) => {

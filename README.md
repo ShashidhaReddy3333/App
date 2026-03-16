@@ -114,12 +114,15 @@ Beyond the Phase 1 feature set, the repo now includes:
 
 - tiered runtime env validation via `pnpm env:check`
 - middleware-based request IDs and security headers
+- client and server error reporting hooks for Sentry-compatible monitoring
 - liveness and readiness endpoints:
   - `/api/health`
   - `/api/readiness`
 - throttling on sign-in, forgot-password, and invite flows
 - operational repair scripts for expired reservations and inventory consistency
 - queued notification processing infrastructure
+- Vercel cron configuration for internal scheduled jobs
+- owner-only operations page for runtime issues, failed notifications, and recent audit activity
 - GitHub Actions CI for verify and Playwright smoke coverage
 - support and launch runbooks under `docs/`
 
@@ -136,6 +139,8 @@ DEMO_MODE="true"
 RESEND_API_KEY=""
 MAIL_FROM="Commerce Operating System <noreply@example.com>"
 MAIL_REPLY_TO=""
+SENTRY_DSN=""
+CRON_SECRET="replace-with-a-long-internal-job-secret"
 ```
 
 Notes:
@@ -144,6 +149,31 @@ Notes:
 - `DIRECT_URL` is used by Prisma migrations.
 - `DEMO_MODE=true` keeps forgot-password and staff-invite flows deterministic by surfacing tokens in the UI instead of requiring live email delivery.
 - `DEMO_MODE=false` requires Resend configuration for password reset and staff invite emails.
+- `SENTRY_DSN` is required in staging/production so runtime failures are captured by monitoring.
+- `CRON_SECRET` protects internal job routes used by Vercel Cron and manual operator calls.
+
+### Staging and production environment contract
+
+For hosted environments, keep a separate Supabase database for `staging` and `production`, and configure separate Vercel environment variable sets. Do not reuse your local `.env`.
+
+Required for `staging` and `production`:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `SESSION_SECRET`
+- `APP_URL`
+- `DEMO_MODE=false`
+- `RESEND_API_KEY`
+- `MAIL_FROM`
+- `SENTRY_DSN`
+- `CRON_SECRET`
+
+Optional:
+
+- `MAIL_REPLY_TO`
+- `SENTRY_AUTH_TOKEN`
+- `SENTRY_ORG`
+- `SENTRY_PROJECT`
 
 ## Scripts
 
@@ -169,8 +199,12 @@ Notes:
   - release expired POS reservations and cancel expired pending-payment carts
 - `corepack pnpm ops:check-data`
   - validate inventory availability math and detect broken balances
+- `corepack pnpm ops:cleanup-maintenance`
+  - purge expired auth artifacts, old sessions, stale throttles, and aged notification rows
 - `corepack pnpm notifications:process`
   - dispatch queued notifications
+- `corepack pnpm monitoring:test`
+  - emit a test monitoring event through the configured Sentry DSN
 - `corepack pnpm dev`
   - start Next.js in development
 - `corepack pnpm build`
@@ -286,12 +320,45 @@ Useful endpoints:
   - app + database liveness
 - `/api/readiness`
   - readiness for traffic, including runtime config checks
+- `/api/internal/jobs/process-notifications`
+  - cron/manual notification dispatch, protected by `CRON_SECRET`
+- `/api/internal/jobs/cleanup-reservations`
+  - cron/manual release of expired reservations, protected by `CRON_SECRET`
+- `/api/internal/jobs/maintenance-cleanup`
+  - daily cleanup for expired tokens, old sessions, and aged notification rows
+- `/api/internal/monitoring/test`
+  - authenticated test event for Sentry verification
 
 Useful production docs:
 
 - `docs/PRODUCTION_RUNBOOK.md`
 - `docs/DATA_RETENTION.md`
 - `docs/LAUNCH_CHECKLIST.md`
+
+## Hosted rollout notes
+
+### Vercel Cron
+
+`vercel.json` schedules these jobs:
+
+- every 5 minutes: `/api/internal/jobs/process-notifications`
+- every 10 minutes: `/api/internal/jobs/cleanup-reservations`
+- daily at 03:00 UTC: `/api/internal/jobs/maintenance-cleanup`
+
+Set `CRON_SECRET` in Vercel so both routes reject unauthenticated manual traffic while still accepting platform-triggered cron requests.
+
+### Staging verification
+
+Minimum staging checks before production:
+
+1. `corepack pnpm env:check`
+2. `corepack pnpm prisma:migrate:deploy`
+3. `GET /api/readiness`
+4. `GET /api/health`
+5. `POST /api/internal/monitoring/test` with `Authorization: Bearer $CRON_SECRET`
+6. real forgot-password email
+7. real staff invite email
+8. customer checkout, cashier checkout, procurement receive, supplier status update, refund flow
 
 ## Important files
 

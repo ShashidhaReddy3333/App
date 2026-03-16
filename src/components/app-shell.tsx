@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { UserRole } from "@prisma/client";
-import { BarChart3, ClipboardList, LayoutDashboard, Package, RotateCcw, ShieldCheck, ShoppingCart, Truck, Users, Boxes, ClipboardCheck, Store } from "lucide-react";
+import { Activity, BarChart3, ClipboardCheck, ClipboardList, LayoutDashboard, Package, RotateCcw, ShieldCheck, ShoppingCart, Store, Truck, Users, Boxes } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { hasPermission } from "@/lib/rbac";
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/app/reorder" as Route, label: "Reorder", icon: Truck, permission: "reorder" },
   { href: "/app/procurement" as Route, label: "Procurement", icon: ClipboardCheck, permission: "procurement" },
   { href: "/app/reports" as Route, label: "Reports", icon: BarChart3, permission: "reports" },
+  { href: "/app/ops" as Route, label: "Operations", icon: Activity, permission: "owner_dashboard" },
   { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff" },
   { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions" }
 ] as const;

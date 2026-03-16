@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { isProductionRuntime } from "@/lib/env";
+import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
 
 function buildContentSecurityPolicy() {
+  const sentryDsn = getOptionalSentryDsn();
+  const connectSources = ["'self'"];
+
+  if (isProductionRuntime()) {
+    if (sentryDsn) {
+      connectSources.push(new URL(sentryDsn).origin);
+    }
+  } else {
+    connectSources.push("https:", "ws:", "wss:");
+  }
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -12,8 +23,8 @@ function buildContentSecurityPolicy() {
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "connect-src 'self' https:",
+    `script-src 'self' 'unsafe-inline'${isProductionRuntime() ? "" : " 'unsafe-eval'"}`,
+    `connect-src ${connectSources.join(" ")}`,
     "object-src 'none'"
   ].join("; ");
 }
@@ -39,6 +50,7 @@ export function middleware(request: NextRequest) {
 
   if (isProductionRuntime()) {
     response.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains; preload");
+    response.headers.set("content-security-policy", `${buildContentSecurityPolicy()}; upgrade-insecure-requests`);
   }
 
   return response;

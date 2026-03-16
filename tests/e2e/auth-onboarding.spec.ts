@@ -53,6 +53,9 @@ test("owner can sign in, reach products, and create a product", async ({ page, b
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByText("Invite created.")).toBeVisible();
   await expect(page.getByText(inviteEmail)).toBeVisible();
+  await page.getByRole("button", { name: "Resend invite" }).click();
+  await expect(page.getByText("Invite resent. Demo token is shown below.")).toBeVisible();
+  await expect(page.getByText("Demo invite token:").first()).toBeVisible();
 
   const cashierContext = await browser.newContext();
   const cashierPage = await cashierContext.newPage();
@@ -66,4 +69,8 @@ test("owner can sign in, reach products, and create a product", async ({ page, b
   await page.getByRole("button", { name: "Revoke" }).first().click();
   await expect(page.getByText("Session revoked.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(initialCards - 1);
+
+  await page.getByRole("link", { name: "Operations" }).click();
+  await expect(page.getByRole("heading", { name: "Operations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runtime checks" })).toBeVisible();
 });

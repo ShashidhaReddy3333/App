@@ -1,4 +1,5 @@
 import { InviteStaffForm } from "@/components/forms/invite-staff-form";
+import { PendingInvitesList } from "@/components/pending-invites-list";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
 import { Badge } from "@/components/ui/badge";
@@ -27,21 +28,7 @@ export default async function StaffPage() {
             {inviteCards.length === 0 ? (
               <EmptyState title="No pending invitations" description="New staff invites will appear here until they are accepted or expire." />
             ) : (
-              <div className="grid gap-4">
-                {inviteCards.map((invite) => (
-                  <Card key={invite.id} className="gradient-panel">
-                    <CardHeader>
-                      <CardTitle>{invite.email}</CardTitle>
-                      <CardDescription>{invite.roleLabel}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-1 text-sm text-muted-foreground">
-                      <div>Status: {invite.statusLabel}</div>
-                      <div>Sent: {invite.createdAtLabel}</div>
-                      <div>Expires: {invite.expiresAtLabel}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <PendingInvitesList invites={inviteCards} />
             )}
           </div>
           <div className="space-y-4">

@@ -12,8 +12,8 @@ async function main() {
   ]);
 
   validateRuntimeEnvironment({ allowWarnings: true });
-  await dispatchQueuedNotifications();
-  console.log("Queued notifications processed.");
+  const summary = await dispatchQueuedNotifications();
+  console.log(JSON.stringify(summary));
 }
 
 main().catch((error) => {

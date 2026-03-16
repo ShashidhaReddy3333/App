@@ -9,6 +9,7 @@ type SaleDetail = Awaited<ReturnType<typeof import("@/lib/services/sales-query-s
 type StaffList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listStaff>>;
 type PendingInviteList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listPendingInvites>>;
 type SessionList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listBusinessSessions>>;
+type OperationsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/operations-query-service").getOperationsSnapshot>>;
 
 export function toProductTableRows(products: CatalogData["products"]) {
   return products.map((product) => ({
@@ -94,6 +95,29 @@ export function toSessionCards(sessions: SessionList) {
     userName: session.user.fullName,
     deviceName: session.deviceName,
     lastSeenLabel: session.lastSeenAt ? formatDateTime(session.lastSeenAt) : "Never"
+  }));
+}
+
+export function toFailedNotificationCards(notifications: OperationsSnapshot["recentFailedNotifications"]) {
+  return notifications.map((notification) => ({
+    id: notification.id,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type.replaceAll("_", " "),
+    channel: notification.channel.replaceAll("_", " "),
+    status: notification.status.replaceAll("_", " "),
+    userName: notification.user.fullName,
+    userEmail: notification.user.email,
+    createdAtLabel: formatDateTime(notification.createdAt)
+  }));
+}
+
+export function toAuditActivityCards(entries: OperationsSnapshot["recentAudit"]) {
+  return entries.map((entry) => ({
+    id: entry.id,
+    actionLabel: entry.action.replaceAll("_", " "),
+    resourceLabel: `${entry.resourceType} · ${entry.resourceId}`,
+    createdAtLabel: formatDateTime(entry.createdAt)
   }));
 }
 

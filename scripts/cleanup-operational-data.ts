@@ -6,13 +6,13 @@ if (existsSync(".env")) {
 }
 
 async function main() {
-  const [{ cleanupExpiredReservations }, { validateRuntimeEnvironment }] = await Promise.all([
-    import("../src/lib/services/sales-service"),
+  const [{ cleanupOperationalData }, { validateRuntimeEnvironment }] = await Promise.all([
+    import("../src/lib/services/operations-service"),
     import("../src/lib/env")
   ]);
 
   validateRuntimeEnvironment({ allowWarnings: true });
-  const summary = await cleanupExpiredReservations();
+  const summary = await cleanupOperationalData();
   console.log(JSON.stringify(summary));
 }
 
