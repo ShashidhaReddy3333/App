@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listReorderItems } from "@/lib/services/catalog-query-service";
@@ -13,24 +14,52 @@ export default async function ReorderPage() {
       <PageHeader
         title="Reorder list"
         description="Products appear here when available inventory falls below the configured par level."
+        breadcrumbs={[{ label: "Reorder" }]}
       />
       <div className="grid gap-4">
         {items.length === 0 ? (
-          <EmptyState title="No reorder items" description="Current available stock meets or exceeds all par levels." />
+          <EmptyState icon="package" title="No reorder items" description="Current available stock meets or exceeds all par levels." />
         ) : (
-          items.map((item) => (
-            <Card key={item.productId} className="gradient-panel">
-              <CardHeader>
-                <CardTitle>{item.productName}</CardTitle>
-                <CardDescription>{item.supplierName}</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
-                <div>Available: {item.availableQuantity}</div>
-                <div>Par level: {item.parLevel}</div>
-                <div>Suggested reorder: {item.suggestedReorderQuantity}</div>
-              </CardContent>
-            </Card>
-          ))
+          items.map((item, index) => {
+            const ratio = item.parLevel > 0 ? item.availableQuantity / item.parLevel : 1;
+            const isCritical = ratio < 0.25;
+            const isLow = ratio < 0.5;
+            return (
+              <Card key={item.productId} className={`gradient-panel animate-fade-in-up stagger-${Math.min(index + 1, 5)} ${isCritical ? "border-red-200/60" : ""}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>{item.productName}</CardTitle>
+                      <CardDescription>{item.supplierName}</CardDescription>
+                    </div>
+                    {isCritical ? (
+                      <Badge variant="destructive">Critical</Badge>
+                    ) : isLow ? (
+                      <Badge variant="warning">Low stock</Badge>
+                    ) : (
+                      <Badge variant="outline">Below par</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Available</span>
+                    <div className={`font-semibold ${isCritical ? "text-red-600" : isLow ? "text-amber-600" : "text-foreground"}`}>
+                      {item.availableQuantity}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Par level</span>
+                    <div className="font-medium">{item.parLevel}</div>
+                  </div>
+                  <div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Suggested reorder</span>
+                    <div className="font-semibold text-primary">{item.suggestedReorderQuantity}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

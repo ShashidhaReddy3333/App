@@ -7,6 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requirePermission } from "@/lib/auth/guards";
 import { listSales } from "@/lib/services/sales-query-service";
 
+function getRefundBadgeVariant(status: string): "destructive" | "warning" | "default" {
+  if (status.includes("fully")) return "destructive";
+  if (status.includes("partially")) return "warning";
+  return "default";
+}
+
 export default async function RefundsPage() {
   const session = await requirePermission("refunds");
   const sales = await listSales(session.user.businessId!);
@@ -14,19 +20,30 @@ export default async function RefundsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Refunds" description="Open a sale to create a partial or full refund with explicit stock return behavior." />
+      <PageHeader
+        title="Refunds"
+        description="Open a sale to create a partial or full refund with explicit stock return behavior."
+        breadcrumbs={[{ label: "Refunds" }]}
+      />
       <div className="grid gap-4">
         {refunded.length === 0 ? <EmptyState title="No refunds yet" description="Refunded sales will appear here once processed." /> : null}
-        {refunded.map((sale) => (
+        {refunded.map((sale, index) => (
           <Link key={sale.id} href={`/app/sales/${sale.id}`}>
-            <Card className="gradient-panel">
-              <CardHeader>
-                <CardTitle>{sale.receiptNumber ?? sale.id.slice(0, 8)}</CardTitle>
-                <CardDescription>
-                  <Badge>{sale.status.replaceAll("_", " ")}</Badge>
-                </CardDescription>
+            <Card className={`gradient-panel transition-all duration-200 hover:border-primary/40 hover:shadow-md animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle>{sale.receiptNumber ?? sale.id.slice(0, 8)}</CardTitle>
+                  <Badge variant={getRefundBadgeVariant(sale.status)}>
+                    {sale.status.replaceAll("_", " ")}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">${sale.totalAmount.toString()}</CardContent>
+              <CardContent className="text-sm">
+                <div>
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Total</span>
+                  <div className="font-semibold text-foreground">${sale.totalAmount.toString()}</div>
+                </div>
+              </CardContent>
             </Card>
           </Link>
         ))}

@@ -11,8 +11,14 @@ export default async function SessionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Session management" description="Owners can review device sessions and revoke any active session." />
-      <SessionsList sessions={cards} />
+      <PageHeader
+        title="Session management"
+        description="Owners can review device sessions and revoke any active session."
+        breadcrumbs={[{ label: "Sessions" }]}
+      />
+      <div className="animate-fade-in-up">
+        <SessionsList sessions={cards} />
+      </div>
     </div>
   );
 }

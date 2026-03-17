@@ -11,23 +11,37 @@ export default async function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Suppliers" description="Manage supplier contacts used for reorder grouping and purchase planning." />
+      <PageHeader
+        title="Suppliers"
+        description="Manage supplier contacts used for reorder grouping and purchase planning."
+        breadcrumbs={[{ label: "Suppliers" }]}
+      />
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <SupplierForm />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="animate-fade-in-up stagger-1">
+          <SupplierForm />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 animate-fade-in-up stagger-2">
           {suppliers.length === 0 ? (
             <EmptyState title="No suppliers yet" description="Add a supplier to support reorder grouping and purchase planning." />
           ) : null}
           {suppliers.map((supplier) => (
-            <Card key={supplier.id} className="gradient-panel">
-              <CardHeader>
+            <Card key={supplier.id} className="gradient-panel transition-all duration-200 hover:shadow-md">
+              <CardHeader className="pb-3">
                 <CardTitle>{supplier.name}</CardTitle>
                 <CardDescription>{supplier.contactName || "No contact specified"}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm text-muted-foreground">
-                <div>{supplier.email || "No email"}</div>
-                <div>{supplier.phone || "No phone"}</div>
-                <div>{supplier.notes || "No notes"}</div>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Email</span>
+                  <span>{supplier.email || "Not set"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Phone</span>
+                  <span>{supplier.phone || "Not set"}</span>
+                </div>
+                {supplier.notes ? (
+                  <div className="mt-2 rounded-lg bg-muted/50 p-2 text-xs">{supplier.notes}</div>
+                ) : null}
               </CardContent>
             </Card>
           ))}

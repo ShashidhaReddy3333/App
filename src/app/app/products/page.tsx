@@ -19,11 +19,13 @@ export default async function ProductsPage() {
       <PageHeader
         title="Products"
         description="Manage the product catalog, opening stock, and inventory adjustments from one workspace."
+        breadcrumbs={[{ label: "Products" }]}
       />
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in-up stagger-1">
           {rows.length === 0 ? (
             <EmptyState
+              icon="package"
               title="No products yet"
               description="Create the first product on the right to begin tracking inventory and checkout availability."
             />
@@ -31,7 +33,7 @@ export default async function ProductsPage() {
             <ProductsTable data={rows} />
           )}
         </div>
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in-up stagger-2">
           <ProductForm locationId={data.location.id} suppliers={supplierOptions} />
           <InventoryAdjustmentForm locationId={data.location.id} products={productOptions} />
         </div>

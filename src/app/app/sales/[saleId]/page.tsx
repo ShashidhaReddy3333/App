@@ -10,6 +10,14 @@ import { hasPermission } from "@/lib/rbac";
 import { getSaleDetail } from "@/lib/services/sales-query-service";
 import { toRefundItemOptions } from "@/lib/view-models/app";
 
+function getStatusBadgeVariant(status: string): "success" | "warning" | "destructive" | "default" | "secondary" {
+  if (status === "completed") return "success";
+  if (status.includes("pending")) return "warning";
+  if (status.includes("refunded")) return "destructive";
+  if (status === "cancelled") return "secondary";
+  return "default";
+}
+
 export default async function SaleDetailPage({ params }: { params: Promise<{ saleId: string }> }) {
   const session = await requirePermission("sales");
   const { saleId } = await params;
@@ -28,70 +36,87 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
 
   return (
     <div className="space-y-6">
-      <PageHeader title={sale.receiptNumber ?? "Sale receipt"} description={pageDescription} />
+      <PageHeader
+        title={sale.receiptNumber ?? "Sale receipt"}
+        description={pageDescription}
+        breadcrumbs={[{ label: "Sales", href: "/app/sales" }, { label: "Receipt" }]}
+      />
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="gradient-panel">
-          <CardHeader>
-            <CardTitle>Receipt</CardTitle>
-            <CardDescription>Immutable sale snapshot with line-level tax breakdown.</CardDescription>
+        <Card className="gradient-panel animate-fade-in-up stagger-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Receipt</CardTitle>
+                <CardDescription>Immutable sale snapshot with line-level tax breakdown.</CardDescription>
+              </div>
+              <Badge variant={getStatusBadgeVariant(sale.status)}>
+                {sale.status.replaceAll("_", " ")}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between text-sm">
-              <span>Status</span>
-              <Badge>{sale.status.replaceAll("_", " ")}</Badge>
-            </div>
             <div className="space-y-3">
               {sale.items.map((item) => (
-                <div key={item.id} className="rounded-2xl border p-4">
+                <div key={item.id} className="rounded-xl border border-border/60 bg-white/60 p-4 transition-colors hover:bg-muted/50">
                   <div className="flex items-center justify-between">
                     <div className="font-medium">{item.product.name}</div>
-                    <div>${item.lineTotal.toString()}</div>
+                    <div className="font-semibold">${item.lineTotal.toString()}</div>
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Qty {item.quantity.toString()} - Unit ${item.unitPrice.toString()} - Discount ${item.lineDiscountAmount.toString()} - Tax $
-                    {item.taxAmount.toString()}
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                    <span>Qty {item.quantity.toString()}</span>
+                    <span className="text-border">|</span>
+                    <span>Unit ${item.unitPrice.toString()}</span>
+                    <span className="text-border">|</span>
+                    <span>Discount ${item.lineDiscountAmount.toString()}</span>
+                    <span className="text-border">|</span>
+                    <span>Tax ${item.taxAmount.toString()}</span>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="grid gap-2 border-t pt-4 text-sm">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>${sale.subtotalAmount.toString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Discount</span>
-                <span>${sale.discountAmount.toString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Tax</span>
-                <span>${sale.taxAmount.toString()}</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span>Total</span>
-                <span>${sale.totalAmount.toString()}</span>
+            <div className="rounded-xl bg-muted/30 p-4">
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>${sale.subtotalAmount.toString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Discount</span>
+                  <span>${sale.discountAmount.toString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span>${sale.taxAmount.toString()}</span>
+                </div>
+                <div className="border-t border-border/60 pt-2" />
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Total</span>
+                  <span className="text-primary">${sale.totalAmount.toString()}</span>
+                </div>
               </div>
             </div>
-            <div className="space-y-2 border-t pt-4 text-sm">
+            <div className="space-y-2 text-sm">
               <div className="font-medium">Payments</div>
               {sale.payments.map((payment) => (
-                <div key={payment.id} className="flex justify-between text-muted-foreground">
-                  <span>{payment.method.replaceAll("_", " ")}</span>
-                  <span>${payment.amount.toString()}</span>
+                <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-white/60 px-3 py-2">
+                  <span className="capitalize text-muted-foreground">{payment.method.replaceAll("_", " ")}</span>
+                  <span className="font-medium">${payment.amount.toString()}</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-        {canRefund ? (
-          refundItems.length > 0 ? (
-            <RefundForm saleId={sale.id} items={refundItems} />
+        <div className="animate-fade-in-up stagger-2">
+          {canRefund ? (
+            refundItems.length > 0 ? (
+              <RefundForm saleId={sale.id} items={refundItems} />
+            ) : (
+              <EmptyState title="No refundable line items" description="All sale lines are already fully refunded." />
+            )
           ) : (
-            <EmptyState title="No refundable line items" description="All sale lines are already fully refunded." />
-          )
-        ) : (
-          <EmptyState title="Refunds unavailable" description="This sale is not currently eligible for a new refund." />
-        )}
+            <EmptyState title="Refunds unavailable" description="This sale is not currently eligible for a new refund." />
+          )}
+        </div>
       </div>
     </div>
   );
