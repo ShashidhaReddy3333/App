@@ -25,14 +25,15 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
     resolver: zodResolver(customerCheckoutSchema),
     defaultValues: {
       fulfillmentType: "pickup",
-      paymentMethod: "credit_card",
-      paymentProvider: "stripe",
+      paymentMethod: "cash",
+      paymentProvider: "manual",
       idempotencyKey: uuid(),
       notes: ""
     }
   });
 
   const fulfillmentType = form.watch("fulfillmentType");
+  const paymentMethod = form.watch("paymentMethod");
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
@@ -76,23 +77,25 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment method</Label>
               <Select id="paymentMethod" {...form.register("paymentMethod")}>
-                {paymentMethods.map((method) => (
-                  <option key={method} value={method}>
-                    {method.replaceAll("_", " ")}
-                  </option>
-                ))}
+                <option value="cash">Cash on Delivery (COD)</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="debit_card">Debit Card</option>
+                <option value="mobile_payment">Mobile Payment</option>
+                <option value="bank_transfer">Bank Transfer</option>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentProvider">Provider</Label>
-              <Select id="paymentProvider" {...form.register("paymentProvider")}>
-                {paymentProviders.map((provider) => (
-                  <option key={provider} value={provider}>
-                    {provider}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {paymentMethod !== "cash" ? (
+              <div className="space-y-2">
+                <Label htmlFor="paymentProvider">Provider</Label>
+                <Select id="paymentProvider" {...form.register("paymentProvider")}>
+                  {paymentProviders.map((provider) => (
+                    <option key={provider} value={provider}>
+                      {provider}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : null}
           </div>
           {fulfillmentType === "delivery" ? (
             <div className="grid gap-4 md:grid-cols-2">
