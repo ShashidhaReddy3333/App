@@ -29,10 +29,80 @@ function buildContentSecurityPolicy() {
   ].join("; ");
 }
 
+/**
+ * Subdomain routing map:
+ *   shop.human-pulse.com   → Customer portal  (/shop, /customer, /cart, /orders)
+ *   retail.human-pulse.com → Retailer portal   (/app)
+ *   supply.human-pulse.com → Supplier portal   (/supplier)
+ *
+ * Each subdomain redirects to the correct portal landing page when visiting "/".
+ * Cross-portal routes are blocked with a redirect to the correct subdomain.
+ */
+
+const SUBDOMAIN_CONFIG: Record<string, {
+  allowedPrefixes: string[];
+  defaultPath: string;
+}> = {
+  shop: {
+    allowedPrefixes: ["/shop", "/customer", "/cart", "/orders", "/sign-in", "/sign-up", "/customer/sign-up", "/forgot-password", "/reset-password", "/api"],
+    defaultPath: "/shop",
+  },
+  retail: {
+    allowedPrefixes: ["/app", "/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/api"],
+    defaultPath: "/app/dashboard",
+  },
+  supply: {
+    allowedPrefixes: ["/supplier", "/sign-in", "/sign-up", "/supplier/sign-up", "/forgot-password", "/reset-password", "/api"],
+    defaultPath: "/supplier/dashboard",
+  },
+};
+
+function getSubdomain(host: string): string | null {
+  // Remove port if present
+  const hostname = host.split(":")[0];
+
+  // Match subdomains like shop.human-pulse.com
+  // Also support local dev: shop.localhost
+  const parts = hostname.split(".");
+  if (parts.length >= 3 || (parts.length === 2 && parts[1] === "localhost")) {
+    const sub = parts[0];
+    if (sub in SUBDOMAIN_CONFIG) {
+      return sub;
+    }
+  }
+  return null;
+}
+
 export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   requestHeaders.set("x-request-id", requestId);
+
+  const host = request.headers.get("host") ?? "";
+  const subdomain = getSubdomain(host);
+  const pathname = request.nextUrl.pathname;
+
+  // Subdomain-based routing
+  if (subdomain) {
+    const config = SUBDOMAIN_CONFIG[subdomain];
+
+    // Set a header so pages can detect which portal they're on
+    requestHeaders.set("x-portal", subdomain);
+
+    // Redirect root to the portal's default page
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL(config.defaultPath, request.url));
+    }
+
+    // Block access to routes outside this portal's scope
+    const isAllowed = config.allowedPrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+    );
+
+    if (!isAllowed) {
+      return NextResponse.redirect(new URL(config.defaultPath, request.url));
+    }
+  }
 
   const response = NextResponse.next({
     request: {
@@ -41,6 +111,7 @@ export function middleware(request: NextRequest) {
   });
 
   response.headers.set("x-request-id", requestId);
+  response.headers.set("x-portal", subdomain ?? "main");
   response.headers.set("x-content-type-options", "nosniff");
   response.headers.set("x-frame-options", "DENY");
   response.headers.set("referrer-policy", "strict-origin-when-cross-origin");

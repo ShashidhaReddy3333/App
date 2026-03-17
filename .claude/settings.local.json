@@ -11,7 +11,22 @@
       "Bash(pnpm install:*)",
       "WebFetch(domain:resend.com)",
       "Read(//c/Users/Owner/Desktop/SRJ/App/**)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(openssl rand:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr:*)",
+      "Bash(git remote:*)",
+      "Bash(npx vercel:*)",
+      "Read(//c/Users/Owner/.local/share/com.vercel.cli/**)",
+      "Read(//c/Users/Owner/AppData/Roaming/com.vercel.cli/**)",
+      "Read(//c/Users/Owner/.config/com.vercel.cli/**)",
+      "Bash(VERCEL_CONFIG_DIR=/c/Users/Owner/AppData/Roaming/com.vercel.cli/Data npx vercel deploy --prod)",
+      "Bash(find /c/Users/Owner/Desktop/SRJ/App/.claude/worktrees/happy-chebyshev/src/app -type d -name \"\\(\\\\*\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(npx next:*)"
     ]
   }
 }
