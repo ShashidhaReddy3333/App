@@ -59,13 +59,13 @@ const SUBDOMAIN_CONFIG: Record<string, {
 
 function getSubdomain(host: string): string | null {
   // Remove port if present
-  const hostname = host.split(":")[0];
+  const hostname = host.split(":")[0] ?? "";
 
   // Match subdomains like shop.human-pulse.com
   // Also support local dev: shop.localhost
   const parts = hostname.split(".");
   if (parts.length >= 3 || (parts.length === 2 && parts[1] === "localhost")) {
-    const sub = parts[0];
+    const sub = parts[0] as string;
     if (sub in SUBDOMAIN_CONFIG) {
       return sub;
     }
