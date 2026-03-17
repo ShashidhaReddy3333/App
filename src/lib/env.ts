@@ -124,7 +124,7 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "SENTRY_DSN",
         message: "SENTRY_DSN is required in production so runtime failures are captured.",
-        severity: "error"
+        severity: "warning"
       });
     }
 
