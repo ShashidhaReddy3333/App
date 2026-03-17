@@ -11,3 +11,6 @@ playwright-report
 test-results
 *.log
 prisma/dev.db
+
+.vercel
+.env*.local
