@@ -59,13 +59,15 @@ const SUBDOMAIN_CONFIG: Record<string, {
 
 function getSubdomain(host: string): string | null {
   // Remove port if present
-  const hostname = host.split(":")[0] ?? "";
+  const [hostname = ""] = host.split(":");
 
   // Match subdomains like shop.human-pulse.com
   // Also support local dev: shop.localhost
   const parts = hostname.split(".");
-  if (parts.length >= 3 || (parts.length === 2 && parts[1] === "localhost")) {
-    const sub = parts[0] as string;
+  const sub = parts[0];
+  if (!sub) return null;
+
+  if (parts.length >= 3 || (parts.length === 2 && parts.at(1) === "localhost")) {
     if (sub in SUBDOMAIN_CONFIG) {
       return sub;
     }
@@ -83,8 +85,8 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Subdomain-based routing
-  if (subdomain) {
-    const config = SUBDOMAIN_CONFIG[subdomain];
+  const config = subdomain ? SUBDOMAIN_CONFIG[subdomain] : undefined;
+  if (subdomain && config) {
 
     // Set a header so pages can detect which portal they're on
     requestHeaders.set("x-portal", subdomain);
