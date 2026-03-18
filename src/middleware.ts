@@ -5,27 +5,18 @@ import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
 
 function buildContentSecurityPolicy() {
   const sentryDsn = getOptionalSentryDsn();
-  const connectSources = ["'self'"];
-
-  if (isProductionRuntime()) {
-    if (sentryDsn) {
-      connectSources.push(new URL(sentryDsn).origin);
-    }
-  } else {
-    connectSources.push("https:", "ws:", "wss:");
-  }
+  const sentryOrigin = isProductionRuntime() && sentryDsn ? new URL(sentryDsn).origin : "";
 
   return [
     "default-src 'self'",
-    "base-uri 'self'",
+    `script-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    "style-src 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-    "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'unsafe-inline'${isProductionRuntime() ? "" : " 'unsafe-eval'"}`,
-    `connect-src ${connectSources.join(" ")}`,
-    "object-src 'none'"
+    "base-uri 'self'"
   ].join("; ");
 }
 
@@ -56,6 +47,22 @@ const SUBDOMAIN_CONFIG: Record<string, {
     defaultPath: "/supplier/dashboard",
   },
 };
+
+const ALLOWED_ORIGINS = [
+  "https://human-pulse.com",
+  "https://shop.human-pulse.com",
+  "https://retail.human-pulse.com",
+  "https://supply.human-pulse.com",
+];
+
+if (process.env.NODE_ENV === "development") {
+  ALLOWED_ORIGINS.push(
+    "http://localhost:3000",
+    "http://shop.localhost:3000",
+    "http://retail.localhost:3000",
+    "http://supply.localhost:3000"
+  );
+}
 
 function getSubdomain(host: string): string | null {
   // Remove port if present
@@ -103,6 +110,37 @@ export function middleware(request: NextRequest) {
 
     if (!isAllowed) {
       return NextResponse.redirect(new URL(config.defaultPath, request.url));
+    }
+  }
+
+  const method = request.method.toUpperCase();
+  const shouldSkipCsrf =
+    pathname.startsWith("/api/internal/") ||
+    pathname === "/api/health" ||
+    pathname === "/api/readiness";
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && !shouldSkipCsrf) {
+    const origin = request.headers.get("origin");
+    const referer = request.headers.get("referer");
+    let requestOrigin: string | null = origin;
+
+    if (!requestOrigin && referer) {
+      try {
+        requestOrigin = new URL(referer).origin;
+      } catch {
+        requestOrigin = null;
+      }
+    }
+
+    const isAllowedOrigin = requestOrigin
+      ? ALLOWED_ORIGINS.some((allowed) => requestOrigin.startsWith(allowed.replace(/\/$/, "")))
+      : false;
+
+    if (!isAllowedOrigin) {
+      return new NextResponse(JSON.stringify({ error: "CSRF validation failed" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" }
+      });
     }
   }
 

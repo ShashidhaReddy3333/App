@@ -49,7 +49,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card className="">
       <CardHeader>
         <CardTitle>Accept invitation</CardTitle>
         <CardDescription>Set your name and password to activate the staff account.</CardDescription>
@@ -59,19 +59,25 @@ export function AcceptInviteForm({ token }: { token: string }) {
           <div className="space-y-2">
             <Label htmlFor="token">Invite token</Label>
             <Input id="token" {...form.register("token")} />
-            {form.formState.errors.token ? <p className="text-sm text-destructive">{form.formState.errors.token.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.token ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.token.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="fullName">Full name</Label>
             <Input id="fullName" {...form.register("fullName")} />
-            {form.formState.errors.fullName ? <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.fullName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.fullName.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...form.register("password")} />
-            {form.formState.errors.password ? <p className="text-sm text-destructive">{form.formState.errors.password.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.password ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.password.message}</p> : null}
+            </div>
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Activating..." : "Activate account"}
           </Button>

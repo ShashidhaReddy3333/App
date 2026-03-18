@@ -90,7 +90,7 @@ export function PurchaseOrderForm({
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Create purchase order</CardTitle>
         <CardDescription>Compare supplier options and issue a new wholesale order for low-stock items.</CardDescription>
@@ -146,7 +146,7 @@ export function PurchaseOrderForm({
               <Input id="expectedDeliveryDate" type="date" {...form.register("expectedDeliveryDate")} />
             </div>
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Creating..." : "Create purchase order"}
           </Button>

@@ -26,17 +26,17 @@ export function SupplierShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="border-b border-white/60 bg-white/90 px-5 py-6 backdrop-blur lg:min-h-screen lg:border-b-0 lg:border-r">
+    <div className="min-h-screen bg-white lg:grid lg:grid-cols-[260px_1fr]">
+      <aside className="bg-black px-5 py-6 lg:min-h-screen">
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-foreground">Human Pulse</span>
-              <Badge variant="outline">Supplier Portal</Badge>
+              <span className="text-xl font-bold tracking-tight text-white">Human Pulse</span>
+              <Badge variant="outline" className="border-white/20 text-white/70">Supplier Portal</Badge>
             </div>
-            <div className="rounded-2xl bg-muted/50 px-3 py-2.5">
-              <div className="text-sm font-semibold text-foreground">{supplierName}</div>
-              <div className="text-xs text-muted-foreground">{userName}</div>
+            <div className="rounded-lg bg-white/10 px-3 py-2.5">
+              <div className="text-sm font-semibold text-white">{supplierName}</div>
+              <div className="text-xs text-white/60">{userName}</div>
             </div>
           </div>
           <nav className="flex gap-1 overflow-x-auto lg:grid lg:overflow-visible">
@@ -46,10 +46,10 @@ export function SupplierShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-white/15 text-white"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <item.icon className="size-4 shrink-0" />
@@ -59,7 +59,7 @@ export function SupplierShell({
             })}
           </nav>
           <div className="hidden lg:block">
-            <SignOutButton />
+            <SignOutButton variant="dark" />
           </div>
         </div>
       </aside>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ChevronRight, CreditCard, MapPin, Truck } from "lucide-react";
+import { Check, ChevronRight, CreditCard, MapPin, Truck } from "lucide-react";
 
 import { CustomerShell } from "@/components/customer-shell";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,21 @@ function formatDate(date: Date | string) {
   });
 }
 
+const ORDER_STEPS = ["placed", "confirmed", "preparing", "ready", "completed"];
+
+function getStepIndex(status: string): number {
+  if (status.includes("placed")) return 0;
+  if (status.includes("confirmed") || status.includes("paid")) return 1;
+  if (status.includes("preparing") || status.includes("in_progress")) return 2;
+  if (status.includes("ready") || status.includes("fulfilled") || status.includes("delivered")) return 3;
+  if (status.includes("completed")) return 4;
+  return 0;
+}
+
+function isStatusDone(status: string): boolean {
+  return status.includes("completed") || status.includes("delivered") || status.includes("fulfilled") || status.includes("paid");
+}
+
 export default async function OrderDetailPage({
   params
 }: {
@@ -33,17 +48,18 @@ export default async function OrderDetailPage({
   const session = await requireRole("customer", "/sign-in");
   const { orderId } = await params;
   const order = await getCustomerOrderDetail(session.user.id, orderId);
+  const currentStepIndex = getStepIndex(order.status);
 
   return (
     <CustomerShell customerName={session.user.fullName}>
       <div className="space-y-6">
-        <nav className="animate-fade-in flex items-center gap-1.5 text-sm text-muted-foreground">
+        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Link href={"/orders" as Route} className="transition hover:text-foreground">My Orders</Link>
           <ChevronRight className="size-3.5" />
           <span className="font-medium text-foreground">{order.orderNumber}</span>
         </nav>
 
-        <div className="animate-fade-in-up flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight">{order.orderNumber}</h1>
           <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm">
             {order.status.replaceAll("_", " ")}
@@ -53,17 +69,57 @@ export default async function OrderDetailPage({
           </Badge>
         </div>
 
+        {/* Horizontal progress stepper */}
+        <div className="rounded-lg border border-border bg-background p-4">
+          <div className="flex items-center justify-between" role="list" aria-label="Order progress">
+            {ORDER_STEPS.map((step, index) => (
+              <div
+                key={step}
+                className="flex flex-1 items-center"
+                role="listitem"
+                aria-label={`${step} - ${index < currentStepIndex ? "completed" : index === currentStepIndex ? "current" : "upcoming"}`}
+              >
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className={`flex size-8 items-center justify-center rounded-full text-xs font-medium ${
+                      index <= currentStepIndex
+                        ? "bg-[#06C167] text-white"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    {index < currentStepIndex ? (
+                      <Check className="size-4" />
+                    ) : (
+                      index + 1
+                    )}
+                  </div>
+                  <span className={`text-xs capitalize ${index <= currentStepIndex ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                    {step}
+                  </span>
+                </div>
+                {index < ORDER_STEPS.length - 1 ? (
+                  <div
+                    className={`mx-2 h-0.5 flex-1 ${
+                      index < currentStepIndex ? "bg-[#06C167]" : "bg-secondary"
+                    }`}
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
-            <Card className="animate-fade-in-up stagger-1 gradient-panel">
+            <Card>
               <CardHeader>
                 <CardTitle>Items</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border bg-white/60 p-3.5">
+                  <div key={item.id} className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 text-sm font-bold text-amber-400">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-sm font-bold text-foreground">
                         {item.product.name.charAt(0)}
                       </div>
                       <span className="font-medium">{item.product.name}</span>
@@ -74,7 +130,7 @@ export default async function OrderDetailPage({
                     </div>
                   </div>
                 ))}
-                <div className="flex items-center justify-between border-t pt-3">
+                <div className="flex items-center justify-between border-t border-border pt-4 mt-1">
                   <span className="font-medium">Total</span>
                   <span className="text-2xl font-bold">${Number(order.totalAmount).toFixed(2)}</span>
                 </div>
@@ -83,7 +139,7 @@ export default async function OrderDetailPage({
           </div>
 
           <div className="space-y-6">
-            <Card className="animate-fade-in-up stagger-2 gradient-panel">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Truck className="size-5 text-muted-foreground" />
@@ -102,7 +158,7 @@ export default async function OrderDetailPage({
                   <span className="font-medium capitalize">{order.fulfillmentType.replaceAll("_", " ")}</span>
                 </div>
                 {order.fulfillment?.deliveryAddress ? (
-                  <div className="flex items-start gap-2 rounded-xl border bg-muted/30 p-3 text-sm">
+                  <div className="flex items-start gap-2 rounded-lg border bg-secondary/50 p-3 text-sm">
                     <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div>
                       <div className="font-medium">Delivery Address</div>
@@ -110,7 +166,7 @@ export default async function OrderDetailPage({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-2 rounded-xl border bg-muted/30 p-3 text-sm">
+                  <div className="flex items-start gap-2 rounded-lg border bg-secondary/50 p-3 text-sm">
                     <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div>
                       <div className="font-medium">Pickup Location</div>
@@ -121,7 +177,7 @@ export default async function OrderDetailPage({
               </CardContent>
             </Card>
 
-            <Card className="animate-fade-in-up stagger-3 gradient-panel">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="size-5 text-muted-foreground" />
@@ -130,7 +186,7 @@ export default async function OrderDetailPage({
               </CardHeader>
               <CardContent className="space-y-3">
                 {order.payments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between rounded-xl border bg-white/60 p-3">
+                  <div key={payment.id} className="flex items-center justify-between border-b border-border pb-3 last:border-b-0 last:pb-0">
                     <div className="space-y-0.5">
                       <div className="text-sm font-medium capitalize">{payment.method.replaceAll("_", " ")}</div>
                       <Badge variant={getStatusBadgeVariant(payment.status)} className="text-[10px]">
@@ -143,7 +199,7 @@ export default async function OrderDetailPage({
               </CardContent>
             </Card>
 
-            <Card className="animate-fade-in-up stagger-4 gradient-panel">
+            <Card>
               <CardHeader>
                 <CardTitle>Status History</CardTitle>
               </CardHeader>
@@ -155,7 +211,7 @@ export default async function OrderDetailPage({
                         <div className="absolute left-[9px] top-5 h-full w-0.5 bg-border" />
                       ) : null}
                       <div className="relative mt-1 flex size-[18px] shrink-0 items-center justify-center">
-                        <div className={`size-3 rounded-full ${index === 0 ? "bg-amber-500 ring-4 ring-amber-100" : "bg-muted-foreground/30"}`} />
+                        <div className={`size-3 rounded-full ${isStatusDone(entry.newStatus) ? "bg-[#06C167] ring-4 ring-green-100" : "bg-muted-foreground/30"}`} />
                       </div>
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex flex-wrap items-center gap-2">

@@ -29,5 +29,5 @@ export const inventoryAdjustmentSchema = z.object({
   productId: z.string().min(1),
   quantityDelta: z.coerce.number().refine((value) => value !== 0, "Quantity delta cannot be zero."),
   reason: z.string().min(2).max(120),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });

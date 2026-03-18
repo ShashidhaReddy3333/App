@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { Package, DollarSign, Clock, Link2 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Wholesale Catalog | Human Pulse",
+};
 
 import { SupplierProductForm } from "@/components/forms/supplier-product-form";
 import { SupplierShell } from "@/components/supplier-shell";
@@ -23,7 +28,7 @@ export default async function SupplierCatalogPage() {
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <SupplierProductForm mappedProducts={mappedProducts} />
         <div className="space-y-6">
-          <div className="animate-fade-in">
+          <div>
             <h2 className="text-xl font-semibold">Your Products</h2>
             <p className="text-sm text-muted-foreground">
               {supplierData.supplierProducts.length} item{supplierData.supplierProducts.length !== 1 ? "s" : ""} in your wholesale catalog
@@ -37,17 +42,15 @@ export default async function SupplierCatalogPage() {
                 description="Publish your first wholesale product to start receiving purchase orders."
               />
             ) : null}
-            {supplierData.supplierProducts.map((product, index) => (
+            {supplierData.supplierProducts.map((product) => (
               <Card
                 key={product.id}
-                className={`gradient-panel animate-fade-in-up group ${
-                  index < 5 ? `stagger-${index + 1}` : ""
-                }`}
+                className="rounded-xl"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                         <Package className="size-5" />
                       </div>
                       <CardTitle className="text-base">{product.name}</CardTitle>
@@ -64,28 +67,28 @@ export default async function SupplierCatalogPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                    <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
                       <Package className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">MOQ</div>
                         <div className="font-medium">{Number(product.minimumOrderQuantity).toFixed(0)}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
                       <DollarSign className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">Wholesale</div>
                         <div className="font-medium">${Number(product.wholesalePrice).toFixed(2)}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
                       <Clock className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">Lead time</div>
                         <div className="font-medium">{product.leadTimeDays} days</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
                       <Link2 className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">Mapped to</div>
@@ -102,3 +105,5 @@ export default async function SupplierCatalogPage() {
     </SupplierShell>
   );
 }
+
+

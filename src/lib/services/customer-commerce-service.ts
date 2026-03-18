@@ -410,19 +410,70 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
   );
 }
 
-export async function listCustomerOrders(customerId: string) {
-  return db.order.findMany({
-    where: { customerId },
-    include: {
-      items: {
-        include: {
-          product: true
+export async function listCustomerOrders(customerId: string, options?: { q?: string; page?: number; pageSize?: number }) {
+  const query = options?.q?.trim();
+  const where = {
+    customerId,
+    ...(query
+      ? {
+          orderNumber: {
+            contains: query,
+            mode: "insensitive" as const
+          }
         }
+      : {})
+  };
+
+  if (typeof options?.page !== "number" && typeof options?.pageSize !== "number") {
+    const items = await db.order.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        },
+        fulfillment: true
       },
-      fulfillment: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
+      orderBy: { createdAt: "desc" }
+    });
+
+    return {
+      items,
+      totalCount: items.length,
+      totalPages: 1,
+      currentPage: 1
+    };
+  }
+
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, options?.pageSize ?? 20);
+  const skip = (page - 1) * pageSize;
+
+  const [items, totalCount] = await Promise.all([
+    db.order.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        },
+        fulfillment: true
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize
+    }),
+    db.order.count({ where })
+  ]);
+
+  return {
+    items,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize),
+    currentPage: page
+  };
 }
 
 export async function getCustomerOrderDetail(customerId: string, orderId: string) {

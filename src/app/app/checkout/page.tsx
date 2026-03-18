@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/forms/checkout-form";
 import { CompleteSaleForm } from "@/components/forms/complete-sale-form";
 import { PageHeader } from "@/components/page-header";
@@ -9,6 +10,10 @@ import { decimalToNumber } from "@/lib/money";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
 import { getSaleDetail } from "@/lib/services/sales-query-service";
 import { toCheckoutProductOptions } from "@/lib/view-models/app";
+
+export const metadata: Metadata = {
+  title: "POS Checkout | Human Pulse",
+};
 
 export default async function CheckoutPage({
   searchParams
@@ -30,12 +35,12 @@ export default async function CheckoutPage({
         breadcrumbs={[{ label: "Checkout" }]}
       />
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="animate-fade-in-up stagger-1">
+        <div>
           <CheckoutForm locationId={catalog.location.id} products={checkoutOptions} />
         </div>
         {activePendingSale ? (
-          <div className="space-y-6 animate-fade-in-up stagger-2">
-            <Card className="gradient-panel border-amber-200/60">
+          <div className="space-y-6">
+            <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">Pending cart</CardTitle>
@@ -45,23 +50,23 @@ export default async function CheckoutPage({
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {activePendingSale.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-white/60 p-3 transition-colors hover:bg-muted/50">
+                  <div key={item.id} className="flex items-center justify-between p-3 transition-colors hover:bg-muted/50">
                     <span className="font-medium">{item.product.name}</span>
                     <span className="tabular-nums text-muted-foreground">
                       {item.quantity.toString()} x ${item.unitPrice.toString()}
                     </span>
                   </div>
                 ))}
-                <div className="flex justify-between rounded-xl bg-primary/5 p-3 font-semibold">
+                <div className="flex justify-between rounded-lg bg-secondary p-3 font-semibold">
                   <span>Total due</span>
-                  <span className="text-primary">${activePendingSale.amountDue.toString()}</span>
+                  <span>${activePendingSale.amountDue.toString()}</span>
                 </div>
               </CardContent>
             </Card>
             <CompleteSaleForm saleId={activePendingSale.id} amountDue={decimalToNumber(activePendingSale.amountDue)} />
           </div>
         ) : (
-          <div className="animate-fade-in-up stagger-2">
+          <div>
             <EmptyState
               icon="cart"
               title="No active pending cart"
@@ -73,3 +78,5 @@ export default async function CheckoutPage({
     </div>
   );
 }
+
+

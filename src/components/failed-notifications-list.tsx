@@ -27,7 +27,7 @@ export function FailedNotificationsList({ notifications }: { notifications: Fail
   return (
     <div className="grid gap-4">
       {notifications.map((notification) => (
-        <Card key={notification.id} className="gradient-panel">
+        <Card key={notification.id} className="">
           <CardHeader>
             <CardTitle>{notification.title}</CardTitle>
             <CardDescription>

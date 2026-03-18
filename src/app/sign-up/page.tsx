@@ -1,6 +1,9 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Create Business | Human Pulse",
+};
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignUpForm } from "@/components/forms/sign-up-form";
@@ -17,16 +20,9 @@ export default async function SignUpPage() {
       title="Create a new business"
       description="Set up the owner account, tax mode, and default store location in a single onboarding flow."
     >
-      <div className="space-y-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors lg:hidden"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to home
-        </Link>
-        <SignUpForm />
-      </div>
+      <SignUpForm />
     </AuthShell>
   );
 }
+
+

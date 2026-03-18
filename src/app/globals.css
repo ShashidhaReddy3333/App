@@ -1,23 +1,23 @@
 :root {
-  --background: 36 33% 98%;
-  --foreground: 220 25% 16%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 7%;
   --card: 0 0% 100%;
-  --card-foreground: 220 25% 16%;
-  --primary: 190 80% 28%;
+  --card-foreground: 0 0% 7%;
+  --primary: 152 95% 39%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 38 50% 94%;
-  --secondary-foreground: 220 25% 16%;
-  --muted: 34 20% 94%;
-  --muted-foreground: 220 11% 42%;
-  --accent: 145 43% 92%;
-  --accent-foreground: 150 55% 20%;
-  --destructive: 2 72% 52%;
-  --border: 34 20% 86%;
-  --input: 34 20% 86%;
-  --ring: 190 80% 28%;
-  --success: 150 55% 34%;
-  --warning: 31 88% 53%;
-  --font-sans: "Satoshi", "Segoe UI", sans-serif;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 7%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 7%;
+  --destructive: 0 72% 51%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 152 95% 39%;
+  --success: 152 69% 38%;
+  --warning: 36 100% 50%;
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 @tailwind base;
@@ -31,11 +31,6 @@
 
   body {
     @apply bg-background text-foreground min-h-screen antialiased;
-    background-image:
-      radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.10), transparent 40%),
-      radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.12), transparent 35%),
-      radial-gradient(circle at 50% 100%, rgba(251, 191, 36, 0.06), transparent 50%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 242, 1));
   }
 }
 
@@ -45,11 +40,11 @@
   }
 
   .gradient-panel {
-    @apply border border-white/60 bg-white/90 shadow-panel backdrop-blur transition-all duration-200;
+    @apply border border-border bg-white shadow-sm transition-all duration-200;
   }
 
   .gradient-panel:hover {
-    @apply shadow-lg;
+    @apply shadow-md;
   }
 
   .animate-fade-in {
@@ -98,17 +93,8 @@
     @apply gradient-panel relative overflow-hidden;
   }
 
-  .metric-card::before {
-    content: "";
-    @apply absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity duration-300;
-  }
-
-  .metric-card:hover::before {
-    @apply opacity-100;
-  }
-
   .skeleton {
-    @apply animate-pulse rounded-xl bg-muted;
+    @apply animate-pulse rounded-lg bg-secondary;
   }
 }
 

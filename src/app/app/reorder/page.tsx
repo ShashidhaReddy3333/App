@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listReorderItems } from "@/lib/services/catalog-query-service";
+
+export const metadata: Metadata = {
+  title: "Reorder Alerts | Human Pulse",
+};
 
 export default async function ReorderPage() {
   const session = await requirePermission("reorder");
@@ -25,7 +30,7 @@ export default async function ReorderPage() {
             const isCritical = ratio < 0.25;
             const isLow = ratio < 0.5;
             return (
-              <Card key={item.productId} className={`gradient-panel animate-fade-in-up stagger-${Math.min(index + 1, 5)} ${isCritical ? "border-red-200/60" : ""}`}>
+              <Card key={item.productId} className={`${isCritical ? "border-l-4 border-l-red-500" : isLow ? "border-l-4 border-l-amber-500" : ""}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -65,3 +70,5 @@ export default async function ReorderPage() {
     </div>
   );
 }
+
+

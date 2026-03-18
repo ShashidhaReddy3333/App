@@ -55,7 +55,7 @@ export function InviteStaffForm() {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Invite staff</CardTitle>
         <CardDescription>Send an invite email in production. Demo mode shows the invite token inline for guided testing.</CardDescription>
@@ -65,7 +65,9 @@ export function InviteStaffForm() {
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
@@ -74,15 +76,17 @@ export function InviteStaffForm() {
               <option value="cashier">cashier</option>
               <option value="inventory_staff">inventory staff</option>
             </Select>
-            {form.formState.errors.role ? <p className="text-sm text-destructive">{form.formState.errors.role.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.role ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.role.message}</p> : null}
+            </div>
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Sending..." : "Send invite"}
           </Button>
         </form>
         {demoToken ? (
-          <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+          <div className="rounded-lg border border-dashed border-border bg-secondary p-3 text-sm text-foreground">
             Demo invite token: <span className="font-mono">{demoToken}</span>
           </div>
         ) : null}

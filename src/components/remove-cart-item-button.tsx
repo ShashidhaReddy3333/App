@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 
 import { ApiClientError, requestJson } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/sonner";
 
 export function RemoveCartItemButton({ itemId }: { itemId: string }) {
@@ -30,8 +41,24 @@ export function RemoveCartItemButton({ itemId }: { itemId: string }) {
   }
 
   return (
-    <Button type="button" variant="ghost" onClick={removeItem} disabled={submitting}>
-      {submitting ? "Removing..." : "Remove"}
-    </Button>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="ghost" disabled={submitting}>
+          {submitting ? "Removing..." : "Remove"}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove Item</AlertDialogTitle>
+          <AlertDialogDescription>Remove this item from your cart?</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void removeItem()} disabled={submitting}>
+            {submitting ? "Removing..." : "Remove"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

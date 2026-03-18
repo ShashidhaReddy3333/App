@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { CustomerSignUpForm } from "@/components/forms/customer-sign-up-form";
+
+export const metadata: Metadata = {
+  title: "Create Account | Human Pulse",
+};
 
 export default function CustomerSignUpPage() {
   return (
@@ -11,3 +16,5 @@ export default function CustomerSignUpPage() {
     </AuthShell>
   );
 }
+
+

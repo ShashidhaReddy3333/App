@@ -42,7 +42,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
         breadcrumbs={[{ label: "Sales", href: "/app/sales" }, { label: "Receipt" }]}
       />
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="gradient-panel animate-fade-in-up stagger-1">
+        <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -57,7 +57,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
           <CardContent className="space-y-4">
             <div className="space-y-3">
               {sale.items.map((item) => (
-                <div key={item.id} className="rounded-xl border border-border/60 bg-white/60 p-4 transition-colors hover:bg-muted/50">
+                <div key={item.id} className="rounded-md border border-border p-4 transition-colors hover:bg-muted/50">
                   <div className="flex items-center justify-between">
                     <div className="font-medium">{item.product.name}</div>
                     <div className="font-semibold">${item.lineTotal.toString()}</div>
@@ -88,7 +88,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
                   <span className="text-muted-foreground">Tax</span>
                   <span>${sale.taxAmount.toString()}</span>
                 </div>
-                <div className="border-t border-border/60 pt-2" />
+                <div className="border-t border-border pt-2" />
                 <div className="flex justify-between text-base font-semibold">
                   <span>Total</span>
                   <span className="text-primary">${sale.totalAmount.toString()}</span>
@@ -98,7 +98,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
             <div className="space-y-2 text-sm">
               <div className="font-medium">Payments</div>
               {sale.payments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-white/60 px-3 py-2">
+                <div key={payment.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                   <span className="capitalize text-muted-foreground">{payment.method.replaceAll("_", " ")}</span>
                   <span className="font-medium">${payment.amount.toString()}</span>
                 </div>
@@ -106,7 +106,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ sal
             </div>
           </CardContent>
         </Card>
-        <div className="animate-fade-in-up stagger-2">
+        <div>
           {canRefund ? (
             refundItems.length > 0 ? (
               <RefundForm saleId={sale.id} items={refundItems} />

@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SupplierSignUpForm } from "@/components/forms/supplier-sign-up-form";
+
+export const metadata: Metadata = {
+  title: "Supplier Registration | Human Pulse",
+};
 
 export default function SupplierSignUpPage() {
   return (
@@ -11,3 +16,5 @@ export default function SupplierSignUpPage() {
     </AuthShell>
   );
 }
+
+

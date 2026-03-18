@@ -65,7 +65,7 @@ export function SupplierProductForm({
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Add wholesale product</CardTitle>
         <CardDescription>Offer mapped retail products to the manager with MOQ, lead time, and wholesale pricing.</CardDescription>
@@ -119,7 +119,7 @@ export function SupplierProductForm({
             <Label htmlFor="imageUrl">Image URL</Label>
             <Input id="imageUrl" {...form.register("imageUrl")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Saving..." : "Save wholesale product"}

@@ -1,1 +1,1 @@
-export { getSaleDetail, listSales } from "@/lib/services/sales-service";
+export { getSaleDetail, listOnlineOrders, listSales } from "@/lib/services/sales-service";

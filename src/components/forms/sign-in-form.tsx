@@ -48,7 +48,7 @@ export function SignInForm() {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Access your business dashboard and checkout operations. Passwords must be at least 8 characters long.</CardDescription>
@@ -58,14 +58,18 @@ export function SignInForm() {
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...form.register("password")} />
-            {form.formState.errors.password ? <p className="text-sm text-destructive">{form.formState.errors.password.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.password ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.password.message}</p> : null}
+            </div>
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Signing in..." : "Sign in"}
           </Button>

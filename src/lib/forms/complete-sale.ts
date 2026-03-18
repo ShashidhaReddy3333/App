@@ -12,7 +12,7 @@ export const completeSaleDraftSchema = z.object({
       externalReference: z.string().max(120).optional().or(z.literal(""))
     })
   ),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });
 
 export type CompleteSaleDraftValues = z.infer<typeof completeSaleDraftSchema>;

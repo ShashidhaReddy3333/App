@@ -55,7 +55,7 @@ export function SupplierForm() {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>New supplier</CardTitle>
         <CardDescription>Add a supplier for purchase planning and reorder grouping.</CardDescription>
@@ -65,7 +65,9 @@ export function SupplierForm() {
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...form.register("name")} />
-            {form.formState.errors.name ? <p className="text-sm text-destructive">{form.formState.errors.name.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.name ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.name.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="contactName">Contact name</Label>
@@ -83,7 +85,7 @@ export function SupplierForm() {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Saving..." : "Save supplier"}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "@/app/globals.css";
+import { CookieConsent } from "@/components/cookie-consent";
 import { MonitoringClient } from "@/components/monitoring-client";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -26,12 +27,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <meta name="theme-color" content="#0e7490" />
+        <meta name="theme-color" content="#000000" />
       </head>
       <body>
         {children}
         <MonitoringClient />
         <Toaster richColors position="top-right" />
+        <CookieConsent />
       </body>
     </html>
   );

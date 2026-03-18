@@ -16,7 +16,7 @@ export const customerCheckoutSchema = z
     fulfillmentType: z.enum(["pickup", "delivery"]),
     paymentMethod: z.enum(paymentMethods),
     paymentProvider: z.enum(paymentProviders).optional(),
-    idempotencyKey: z.string().min(8),
+    idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID"),
     notes: z.string().max(240).optional().or(z.literal("")),
     address: z
       .object({
@@ -31,11 +31,34 @@ export const customerCheckoutSchema = z
       .optional()
   })
   .superRefine((value, context) => {
-    if (value.fulfillmentType === "delivery" && !value.address) {
+    if (value.fulfillmentType !== "delivery") {
+      return;
+    }
+
+    const line1 = value.address?.line1;
+    if (!line1 || line1.trim().length === 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["address"],
-        message: "Delivery address is required for delivery orders."
+        path: ["address", "line1"],
+        message: "Delivery address is required for delivery orders"
+      });
+    }
+
+    const city = value.address?.city;
+    if (!city || city.trim().length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address", "city"],
+        message: "Delivery address is required for delivery orders"
+      });
+    }
+
+    const postalCode = value.address?.postalCode;
+    if (!postalCode || postalCode.trim().length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address", "postalCode"],
+        message: "Delivery address is required for delivery orders"
       });
     }
   });

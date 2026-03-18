@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { InviteStaffForm } from "@/components/forms/invite-staff-form";
 import { PendingInvitesList } from "@/components/pending-invites-list";
 import { PageHeader } from "@/components/page-header";
@@ -7,6 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requirePermission } from "@/lib/auth/guards";
 import { listPendingInvites, listStaff } from "@/lib/services/management-query-service";
 import { toPendingInviteCards, toStaffCards } from "@/lib/view-models/app";
+
+export const metadata: Metadata = {
+  title: "Staff Management | Human Pulse",
+};
 
 function getRoleBadgeVariant(role: string): "default" | "success" | "warning" | "secondary" {
   if (role.includes("owner")) return "success";
@@ -29,10 +34,10 @@ export default async function StaffPage() {
         breadcrumbs={[{ label: "Staff" }]}
       />
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="animate-fade-in-up stagger-1">
+        <div>
           <InviteStaffForm />
         </div>
-        <div className="space-y-6 animate-fade-in-up stagger-2">
+        <div className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Pending invitations</h2>
@@ -54,7 +59,7 @@ export default async function StaffPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {cards.map((user) => (
-                  <Card key={user.id} className="gradient-panel transition-all duration-200 hover:shadow-md">
+                  <Card key={user.id} className="transition-all duration-200 hover:shadow-md">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -67,9 +72,10 @@ export default async function StaffPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground">
-                      <Badge variant={user.status === "active" ? "success" : "secondary"}>
-                        {user.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block w-2 h-2 rounded-full ${user.status === "active" ? "bg-green-500" : "bg-gray-400"}`} />
+                        <span className="capitalize">{user.status}</span>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -81,3 +87,5 @@ export default async function StaffPage() {
     </div>
   );
 }
+
+

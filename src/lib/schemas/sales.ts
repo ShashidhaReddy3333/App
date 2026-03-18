@@ -33,7 +33,7 @@ export const paymentInputSchema = z.object({
 
 export const completeSaleSchema = z.object({
   payments: z.array(paymentInputSchema).min(1),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });
 
 export const refundItemSchema = z.object({
@@ -46,5 +46,5 @@ export const refundSchema = z.object({
   items: z.array(refundItemSchema).min(1),
   reasonCode: z.string().min(2).max(80),
   note: z.string().min(2).max(240),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });
