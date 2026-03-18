@@ -9,8 +9,8 @@ function buildContentSecurityPolicy() {
 
   return [
     "default-src 'self'",
-    `script-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
-    "style-src 'self'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
