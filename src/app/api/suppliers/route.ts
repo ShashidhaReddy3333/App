@@ -1,4 +1,5 @@
 import { requireApiAccess } from "@/lib/auth/api-guard";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { apiError, apiSuccess } from "@/lib/http";
 import { createSupplier } from "@/lib/services/catalog-command-service";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
@@ -16,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const rateLimitResponse = checkRateLimit(request, { limit: 20, windowMs: 60_000 });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { session, businessId } = await requireApiAccess("suppliers");
     const payload = await request.json();

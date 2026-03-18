@@ -1,0 +1,7 @@
+node_modules
+.next
+prisma/migrations
+pnpm-lock.yaml
+coverage
+dist
+.vercel

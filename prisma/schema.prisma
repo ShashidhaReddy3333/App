@@ -372,6 +372,7 @@ model Product {
 
   @@unique([businessId, sku])
   @@index([businessId, category])
+  @@index([businessId, supplierId])
 }
 
 model CustomerProfile {
@@ -636,6 +637,7 @@ model Sale {
 
   @@index([businessId, status, completedAt])
   @@unique([businessId, receiptNumber])
+  @@index([businessId, cashierUserId])
 }
 
 model SaleItem {
@@ -690,6 +692,7 @@ model Refund {
   refundPayments    RefundPayment[]
 
   @@index([businessId, createdAt])
+  @@index([businessId, createdById])
 }
 
 model RefundItem {

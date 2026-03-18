@@ -8,12 +8,12 @@ import { SignOutButton } from "@/components/sign-out-button";
 const navItems = [
   { href: "/shop" as Route, label: "Shop", icon: Store },
   { href: "/cart" as Route, label: "Cart", icon: ShoppingCart },
-  { href: "/orders" as Route, label: "My Orders", icon: Package }
+  { href: "/orders" as Route, label: "My Orders", icon: Package },
 ] as const;
 
 export function CustomerShell({
   customerName,
-  children
+  children,
 }: {
   customerName: string;
   children: React.ReactNode;
@@ -29,7 +29,9 @@ export function CustomerShell({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold tracking-tight">Human Pulse</span>
-                <Badge variant="outline" className="hidden sm:inline-flex">Customer</Badge>
+                <Badge variant="outline" className="hidden sm:inline-flex">
+                  Customer
+                </Badge>
               </div>
               <div className="truncate text-xs text-muted-foreground">{customerName}</div>
             </div>
@@ -45,9 +47,7 @@ export function CustomerShell({
                 >
                   <Icon className="size-4" />
                   <span className="hidden sm:inline">{item.label}</span>
-                  {item.label === "Cart" ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-sm" />
-                  ) : null}
+                  {/* TODO: Show actual cart item count badge */}
                 </Link>
               );
             })}
@@ -57,7 +57,9 @@ export function CustomerShell({
           </nav>
         </div>
       </header>
-      <main className="page-shell py-8">{children}</main>
+      <main id="main-content" className="page-shell py-8">
+        {children}
+      </main>
     </div>
   );
 }

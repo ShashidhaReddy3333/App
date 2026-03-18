@@ -3,16 +3,24 @@ import { InventoryMovementType, Prisma, type UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
 import { computeAvailableQuantity } from "@/lib/domain/inventory";
-import { formatOrderNumber, formatPurchaseOrderNumber, formatReceiptNumber } from "@/lib/domain/sales";
+import {
+  formatOrderNumber,
+  formatPurchaseOrderNumber,
+  formatReceiptNumber,
+} from "@/lib/domain/sales";
 import { toDecimal } from "@/lib/money";
 
-export async function getOwnedLocation(tx: Prisma.TransactionClient, businessId: string, locationId: string) {
+export async function getOwnedLocation(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  locationId: string
+) {
   const location = await tx.location.findFirst({
     where: {
       id: locationId,
       businessId,
-      isActive: true
-    }
+      isActive: true,
+    },
   });
 
   if (!location) {
@@ -22,16 +30,20 @@ export async function getOwnedLocation(tx: Prisma.TransactionClient, businessId:
   return location;
 }
 
-export async function getOwnedProduct(tx: Prisma.TransactionClient, businessId: string, productId: string) {
+export async function getOwnedProduct(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  productId: string
+) {
   const product = await tx.product.findFirst({
     where: {
       id: productId,
       businessId,
-      isArchived: false
+      isArchived: false,
     },
     include: {
-      inventoryBalances: true
-    }
+      inventoryBalances: true,
+    },
   });
 
   if (!product) {
@@ -41,7 +53,11 @@ export async function getOwnedProduct(tx: Prisma.TransactionClient, businessId: 
   return product;
 }
 
-export async function ensureSupplierOwnership(tx: Prisma.TransactionClient, businessId: string, supplierId?: string | null) {
+export async function ensureSupplierOwnership(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  supplierId?: string | null
+) {
   if (!supplierId) {
     return null;
   }
@@ -49,8 +65,8 @@ export async function ensureSupplierOwnership(tx: Prisma.TransactionClient, busi
   const supplier = await tx.supplier.findFirst({
     where: {
       id: supplierId,
-      businessId
-    }
+      businessId,
+    },
   });
 
   if (!supplier) {
@@ -66,9 +82,9 @@ export async function findIdempotencyRecord(businessId: string, operation: strin
       businessId_operation_key: {
         businessId,
         operation,
-        key
-      }
-    }
+        key,
+      },
+    },
   });
 }
 
@@ -87,51 +103,57 @@ export async function createIdempotencyRecord(
         key,
         operation,
         resourceType,
-        resourceId
-      }
+        resourceId,
+      },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw conflictError("This request has already been processed. Refresh the page before retrying.", "IDEMPOTENCY_CONFLICT");
+      throw conflictError(
+        "This request has already been processed. Refresh the page before retrying.",
+        "IDEMPOTENCY_CONFLICT"
+      );
     }
     throw error;
   }
 }
 
 export async function allocateReceiptNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const receiptNumber = formatReceiptNumber(business.nextReceiptNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextReceiptNumber: { increment: 1 } }
-  });
-  return receiptNumber;
+  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
+  const result = await tx.$queryRaw<Array<{ nextReceiptNumber: number }>>`
+    UPDATE "Business"
+    SET "nextReceiptNumber" = "nextReceiptNumber" + 1
+    WHERE "id" = ${businessId}
+    RETURNING "nextReceiptNumber" - 1 AS "nextReceiptNumber"
+  `;
+  if (!result[0]) throw new Error("Business not found");
+  return formatReceiptNumber(result[0].nextReceiptNumber);
 }
 
 export async function allocateOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const orderNumber = formatOrderNumber(business.nextOrderNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextOrderNumber: { increment: 1 } }
-  });
-  return orderNumber;
+  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
+  const result = await tx.$queryRaw<Array<{ nextOrderNumber: number }>>`
+    UPDATE "Business"
+    SET "nextOrderNumber" = "nextOrderNumber" + 1
+    WHERE "id" = ${businessId}
+    RETURNING "nextOrderNumber" - 1 AS "nextOrderNumber"
+  `;
+  if (!result[0]) throw new Error("Business not found");
+  return formatOrderNumber(result[0].nextOrderNumber);
 }
 
-export async function allocatePurchaseOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const poNumber = formatPurchaseOrderNumber(business.nextPurchaseOrderNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextPurchaseOrderNumber: { increment: 1 } }
-  });
-  return poNumber;
+export async function allocatePurchaseOrderNumber(
+  tx: Prisma.TransactionClient,
+  businessId: string
+) {
+  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
+  const result = await tx.$queryRaw<Array<{ nextPurchaseOrderNumber: number }>>`
+    UPDATE "Business"
+    SET "nextPurchaseOrderNumber" = "nextPurchaseOrderNumber" + 1
+    WHERE "id" = ${businessId}
+    RETURNING "nextPurchaseOrderNumber" - 1 AS "nextPurchaseOrderNumber"
+  `;
+  if (!result[0]) throw new Error("Business not found");
+  return formatPurchaseOrderNumber(result[0].nextPurchaseOrderNumber);
 }
 
 export async function reserveInventory(
@@ -151,14 +173,17 @@ export async function reserveInventory(
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
-    }
+        locationId: input.locationId,
+      },
+    },
   });
 
   const availableQuantity = Number(balance.availableQuantity);
   if (!input.allowOversell && availableQuantity < input.quantity) {
-    throw conflictError("Inventory changed while reserving this cart. Please review item availability before continuing.", "STALE_INVENTORY");
+    throw conflictError(
+      "Inventory changed while reserving this cart. Please review item availability before continuing.",
+      "STALE_INVENTORY"
+    );
   }
 
   const updated = input.allowOversell
@@ -166,14 +191,14 @@ export async function reserveInventory(
         where: {
           productId_locationId: {
             productId: input.productId,
-            locationId: input.locationId
-          }
+            locationId: input.locationId,
+          },
         },
         data: {
           reservedQuantity: toDecimal(Number(balance.reservedQuantity) + input.quantity),
           availableQuantity: toDecimal(availableQuantity - input.quantity),
-          versionNumber: { increment: 1 }
-        }
+          versionNumber: { increment: 1 },
+        },
       })
     : null;
 
@@ -183,17 +208,20 @@ export async function reserveInventory(
         productId: input.productId,
         locationId: input.locationId,
         versionNumber: balance.versionNumber,
-        availableQuantity: { gte: input.quantity }
+        availableQuantity: { gte: input.quantity },
       },
       data: {
         reservedQuantity: toDecimal(Number(balance.reservedQuantity) + input.quantity),
         availableQuantity: toDecimal(availableQuantity - input.quantity),
-        versionNumber: { increment: 1 }
-      }
+        versionNumber: { increment: 1 },
+      },
     });
 
     if (optimistic.count !== 1) {
-      throw conflictError("Inventory changed while reserving this cart. Please review item availability before continuing.", "STALE_INVENTORY");
+      throw conflictError(
+        "Inventory changed while reserving this cart. Please review item availability before continuing.",
+        "STALE_INVENTORY"
+      );
     }
   }
 
@@ -206,8 +234,8 @@ export async function reserveInventory(
       referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
       reason: input.reason ?? "checkout_reservation",
-      createdById: input.createdById
-    }
+      createdById: input.createdById,
+    },
   });
 
   return updated;
@@ -229,23 +257,23 @@ export async function releaseReservation(
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
-    }
+        locationId: input.locationId,
+      },
+    },
   });
 
   await tx.inventoryBalance.update({
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
+        locationId: input.locationId,
+      },
     },
     data: {
       reservedQuantity: toDecimal(Math.max(Number(balance.reservedQuantity) - input.quantity, 0)),
       availableQuantity: toDecimal(Number(balance.availableQuantity) + input.quantity),
-      versionNumber: { increment: 1 }
-    }
+      versionNumber: { increment: 1 },
+    },
   });
 
   await tx.inventoryMovement.create({
@@ -257,8 +285,8 @@ export async function releaseReservation(
       referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
       reason: input.reason,
-      createdById: input.createdById
-    }
+      createdById: input.createdById,
+    },
   });
 }
 
@@ -278,13 +306,16 @@ export async function commitReservedInventory(
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
-    }
+        locationId: input.locationId,
+      },
+    },
   });
 
   if (Number(balance.reservedQuantity) < input.quantity) {
-    throw conflictError("The reserved inventory no longer matches this cart. Please rebuild the cart and try again.", "STALE_INVENTORY");
+    throw conflictError(
+      "The reserved inventory no longer matches this cart. Please rebuild the cart and try again.",
+      "STALE_INVENTORY"
+    );
   }
 
   const nextOnHand = Number(balance.onHandQuantity) - input.quantity;
@@ -292,15 +323,17 @@ export async function commitReservedInventory(
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
+        locationId: input.locationId,
+      },
     },
     data: {
       onHandQuantity: toDecimal(nextOnHand),
       reservedQuantity: toDecimal(Number(balance.reservedQuantity) - input.quantity),
-      availableQuantity: toDecimal(computeAvailableQuantity(nextOnHand, Number(balance.reservedQuantity) - input.quantity)),
-      versionNumber: { increment: 1 }
-    }
+      availableQuantity: toDecimal(
+        computeAvailableQuantity(nextOnHand, Number(balance.reservedQuantity) - input.quantity)
+      ),
+      versionNumber: { increment: 1 },
+    },
   });
 
   await tx.inventoryMovement.create({
@@ -312,8 +345,8 @@ export async function commitReservedInventory(
       referenceType: input.referenceType ?? "sale",
       referenceId: input.referenceId,
       reason: input.reason ?? "sale_completed",
-      createdById: input.createdById
-    }
+      createdById: input.createdById,
+    },
   });
 }
 
@@ -332,23 +365,23 @@ export async function restockInventory(
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
-    }
+        locationId: input.locationId,
+      },
+    },
   });
   const nextOnHand = Number(balance.onHandQuantity) + input.quantity;
   await tx.inventoryBalance.update({
     where: {
       productId_locationId: {
         productId: input.productId,
-        locationId: input.locationId
-      }
+        locationId: input.locationId,
+      },
     },
     data: {
       onHandQuantity: toDecimal(nextOnHand),
       availableQuantity: toDecimal(Number(balance.availableQuantity) + input.quantity),
-      versionNumber: { increment: 1 }
-    }
+      versionNumber: { increment: 1 },
+    },
   });
   await tx.inventoryMovement.create({
     data: {
@@ -359,8 +392,8 @@ export async function restockInventory(
       referenceType: "refund",
       referenceId: input.referenceId,
       reason: input.reason,
-      createdById: input.createdById
-    }
+      createdById: input.createdById,
+    },
   });
 }
 

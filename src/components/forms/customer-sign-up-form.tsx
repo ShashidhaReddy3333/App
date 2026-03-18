@@ -22,8 +22,8 @@ export function CustomerSignUpForm() {
     defaultValues: {
       fullName: "",
       email: "",
-      password: ""
-    }
+      password: "",
+    },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -32,7 +32,7 @@ export function CustomerSignUpForm() {
       const payload = await requestJson<{ redirectTo: string }>("/api/auth/customer-sign-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
       toast.success("Customer account created.");
       window.location.replace(payload.redirectTo);
@@ -52,25 +52,35 @@ export function CustomerSignUpForm() {
     <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Create customer account</CardTitle>
-        <CardDescription>Start ordering online, track order status, and manage your order history.</CardDescription>
+        <CardDescription>
+          Start ordering online, track order status, and manage your order history.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="fullName">Full name</Label>
             <Input id="fullName" {...form.register("fullName")} />
-            {form.formState.errors.fullName ? <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p> : null}
+            {form.formState.errors.fullName ? (
+              <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            {form.formState.errors.email ? (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...form.register("password")} />
-            <p className="text-xs text-muted-foreground">Passwords must be at least 8 characters long.</p>
-            {form.formState.errors.password ? <p className="text-sm text-destructive">{form.formState.errors.password.message}</p> : null}
+            <p className="text-xs text-muted-foreground">
+              Must be at least 10 characters with uppercase, lowercase, and a digit.
+            </p>
+            {form.formState.errors.password ? (
+              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+            ) : null}
           </div>
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>

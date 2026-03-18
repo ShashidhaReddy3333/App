@@ -15,19 +15,20 @@ async function handleRequest(request: Request) {
     logEvent("info", "maintenance_cleanup_job_succeeded", {
       requestId: context.requestId,
       route: "/api/internal/jobs/maintenance-cleanup",
-      ...summary
+      ...summary,
     });
 
     return apiSuccess(summary, { message: "Operational maintenance cleanup completed." });
   } catch (error) {
     logError("maintenance_cleanup_job_failed", error, {
       requestId: context.requestId,
-      route: "/api/internal/jobs/maintenance-cleanup"
+      route: "/api/internal/jobs/maintenance-cleanup",
     });
     return apiError(error);
   }
 }
 
+// GET is kept for Vercel Cron compatibility — Vercel sends GET requests to cron endpoints
 export async function GET(request: Request) {
   return handleRequest(request);
 }

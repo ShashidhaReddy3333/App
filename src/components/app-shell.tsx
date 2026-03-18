@@ -20,7 +20,7 @@ import {
   Truck,
   Users,
   Boxes,
-  X
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,33 +28,105 @@ import { hasPermission } from "@/lib/rbac";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navItems = [
-  { href: "/app/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard, permission: "sales", group: "overview" },
-  { href: "/app/checkout" as Route, label: "Checkout", icon: ShoppingCart, permission: "sales", group: "sales" },
-  { href: "/app/sales" as Route, label: "Sales", icon: ClipboardList, permission: "sales", group: "sales" },
-  { href: "/app/orders" as Route, label: "Online Orders", icon: Store, permission: "sales", group: "sales" },
-  { href: "/app/refunds" as Route, label: "Refunds", icon: RotateCcw, permission: "refunds", group: "sales" },
-  { href: "/app/products" as Route, label: "Products", icon: Package, permission: "products", group: "inventory" },
-  { href: "/app/suppliers" as Route, label: "Suppliers", icon: Boxes, permission: "suppliers", group: "inventory" },
-  { href: "/app/reorder" as Route, label: "Reorder", icon: Truck, permission: "reorder", group: "inventory" },
-  { href: "/app/procurement" as Route, label: "Procurement", icon: ClipboardCheck, permission: "procurement", group: "inventory" },
-  { href: "/app/reports" as Route, label: "Reports", icon: BarChart3, permission: "reports", group: "admin" },
-  { href: "/app/ops" as Route, label: "Operations", icon: Activity, permission: "owner_dashboard", group: "admin" },
+  {
+    href: "/app/dashboard" as Route,
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    permission: "sales",
+    group: "overview",
+  },
+  {
+    href: "/app/checkout" as Route,
+    label: "Checkout",
+    icon: ShoppingCart,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/sales" as Route,
+    label: "Sales",
+    icon: ClipboardList,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/orders" as Route,
+    label: "Online Orders",
+    icon: Store,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/refunds" as Route,
+    label: "Refunds",
+    icon: RotateCcw,
+    permission: "refunds",
+    group: "sales",
+  },
+  {
+    href: "/app/products" as Route,
+    label: "Products",
+    icon: Package,
+    permission: "products",
+    group: "inventory",
+  },
+  {
+    href: "/app/suppliers" as Route,
+    label: "Suppliers",
+    icon: Boxes,
+    permission: "suppliers",
+    group: "inventory",
+  },
+  {
+    href: "/app/reorder" as Route,
+    label: "Reorder",
+    icon: Truck,
+    permission: "reorder",
+    group: "inventory",
+  },
+  {
+    href: "/app/procurement" as Route,
+    label: "Procurement",
+    icon: ClipboardCheck,
+    permission: "procurement",
+    group: "inventory",
+  },
+  {
+    href: "/app/reports" as Route,
+    label: "Reports",
+    icon: BarChart3,
+    permission: "reports",
+    group: "admin",
+  },
+  {
+    href: "/app/ops" as Route,
+    label: "Operations",
+    icon: Activity,
+    permission: "owner_dashboard",
+    group: "admin",
+  },
   { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff", group: "admin" },
-  { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions", group: "admin" }
+  {
+    href: "/app/sessions" as Route,
+    label: "Sessions",
+    icon: ShieldCheck,
+    permission: "sessions",
+    group: "admin",
+  },
 ] as const;
 
 const groupLabels: Record<string, string> = {
   overview: "Overview",
   sales: "Sales & Orders",
   inventory: "Inventory",
-  admin: "Administration"
+  admin: "Administration",
 };
 
 export function AppShell({
   role,
   businessName,
   userName,
-  children
+  children,
 }: {
   role: UserRole;
   businessName: string;
@@ -134,7 +206,13 @@ export function AppShell({
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          role="button"
+          aria-label="Close sidebar"
+          tabIndex={0}
           onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setSidebarOpen(false);
+          }}
         />
       )}
 
@@ -146,6 +224,7 @@ export function AppShell({
         <div className="absolute right-3 top-4 z-10">
           <button
             onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="size-5" />
@@ -158,6 +237,8 @@ export function AppShell({
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/40 bg-white/80 px-4 py-3 backdrop-blur lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={sidebarOpen}
             className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Menu className="size-5" />
@@ -169,7 +250,7 @@ export function AppShell({
             <span className="text-sm font-bold tracking-tight">Human Pulse</span>
           </div>
         </div>
-        {children}
+        <div id="main-content">{children}</div>
       </div>
     </div>
   );

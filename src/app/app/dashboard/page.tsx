@@ -25,24 +25,21 @@ export default async function DashboardPage() {
           const Icon = cardIcons[index] ?? ShoppingBag;
           const staggerClass = `stagger-${Math.min(index + 1, 5)}`;
           return (
-            <Card key={card.title} className={`metric-card gradient-panel animate-fade-in-up ${staggerClass}`}>
+            <Card
+              key={card.title}
+              className={`metric-card gradient-panel animate-fade-in-up ${staggerClass}`}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {card.title}
+                </CardTitle>
                 <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10">
                   <Icon className="size-4 text-primary" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-semibold tracking-tight">{card.value}</div>
-                <div className="mt-3 flex gap-1">
-                  {[40, 65, 45, 80, 55, 70, 90].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-full bg-primary/15"
-                      style={{ height: `${h * 0.24}px`, minHeight: "4px" }}
-                    />
-                  ))}
-                </div>
+                {/* TODO: Replace with real 7-day trend data from reporting service */}
               </CardContent>
             </Card>
           );
@@ -98,11 +95,19 @@ export default async function DashboardPage() {
               />
             ) : null}
             {metrics.recentActivity.map((entry) => (
-              <div key={entry.id} className="rounded-xl border border-border/60 bg-white/60 p-3 transition-colors hover:bg-muted/50">
+              <div
+                key={entry.id}
+                className="rounded-xl border border-border/60 bg-white/60 p-3 transition-colors hover:bg-muted/50"
+              >
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-foreground">{entry.action}</div>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleString()}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {new Intl.DateTimeFormat("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(entry.createdAt))}
+                </div>
               </div>
             ))}
           </CardContent>

@@ -2,6 +2,10 @@
   "name": "business-management-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
   "packageManager": "pnpm@10.11.1",
   "scripts": {
     "dev": "next dev",
@@ -71,6 +75,7 @@
     "eslint": "^9.21.0",
     "eslint-config-next": "^15.3.0",
     "jsdom": "^26.0.0",
+    "lint-staged": "^16.4.0",
     "playwright": "^1.51.1",
     "postcss": "^8.5.3",
     "prisma": "^6.6.0",
@@ -78,5 +83,13 @@
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
   }
 }
