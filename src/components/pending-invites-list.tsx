@@ -26,7 +26,7 @@ export function PendingInvitesList({ invites }: { invites: PendingInviteCard[] }
   return (
     <div className="grid gap-4">
       {invites.map((invite) => (
-        <Card key={invite.id} className="gradient-panel">
+        <Card key={invite.id} className="">
           <CardHeader>
             <CardTitle>{invite.email}</CardTitle>
             <CardDescription>{invite.roleLabel}</CardDescription>
@@ -59,7 +59,7 @@ export function PendingInvitesList({ invites }: { invites: PendingInviteCard[] }
               {resendingId === invite.id ? "Resending..." : "Resend invite"}
             </Button>
             {demoTokenInviteId === invite.id && demoToken ? (
-              <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-3 text-primary">
+              <div className="rounded-lg border border-dashed border-border bg-secondary p-3 text-foreground">
                 Demo invite token: <span className="font-mono">{demoToken}</span>
               </div>
             ) : null}

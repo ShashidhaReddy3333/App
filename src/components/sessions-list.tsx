@@ -23,7 +23,7 @@ export function SessionsList({ sessions }: { sessions: SessionCard[] }) {
   return (
     <div className="grid gap-4">
       {items.map((deviceSession) => (
-        <Card key={deviceSession.id} className="gradient-panel">
+        <Card key={deviceSession.id} className="">
           <CardHeader>
             <CardTitle>{deviceSession.userName}</CardTitle>
             <CardDescription>{deviceSession.deviceName}</CardDescription>

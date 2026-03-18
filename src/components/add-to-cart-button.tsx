@@ -9,10 +9,12 @@ import { toast } from "@/components/ui/sonner";
 
 export function AddToCartButton({
   productId,
-  disabled
+  disabled,
+  className
 }: {
   productId: string;
   disabled?: boolean;
+  className?: string;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +41,7 @@ export function AddToCartButton({
   }
 
   return (
-    <Button type="button" onClick={addToCart} disabled={disabled || submitting}>
+    <Button type="button" onClick={addToCart} disabled={disabled || submitting} className={className}>
       {submitting ? "Adding..." : "Add to cart"}
     </Button>
   );

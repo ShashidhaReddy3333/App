@@ -23,7 +23,7 @@ export const purchaseOrderSchema = z.object({
   locationId: z.string().min(1),
   expectedDeliveryDate: z.string().optional().or(z.literal("")),
   items: z.array(purchaseOrderItemInputSchema).min(1),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });
 
 export const receivePurchaseOrderSchema = z.object({
@@ -33,7 +33,7 @@ export const receivePurchaseOrderSchema = z.object({
       receivedQuantity: z.coerce.number().min(0)
     })
   ),
-  idempotencyKey: z.string().min(8)
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
 });
 
 export const supplierOrderStatusSchema = z.object({

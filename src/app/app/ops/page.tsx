@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { FailedNotificationsList } from "@/components/failed-notifications-list";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
@@ -6,6 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requirePermission } from "@/lib/auth/guards";
 import { getOperationsSnapshot } from "@/lib/services/operations-query-service";
 import { toAuditActivityCards, toFailedNotificationCards } from "@/lib/view-models/app";
+
+export const metadata: Metadata = {
+  title: "Operations | Human Pulse",
+};
 
 function getSummaryCardVariant(title: string, value: number): "default" | "warning" | "destructive" | "success" {
   if (title.includes("Failed") || title.includes("Runtime errors")) {
@@ -45,10 +50,9 @@ export default async function OperationsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card, index) => {
           const variant = getSummaryCardVariant(card.title, card.numValue);
-          const staggerClass = `stagger-${Math.min(index + 1, 5)}`;
           return (
-            <Card key={card.title} className={`gradient-panel animate-fade-in-up ${staggerClass} ${
-              variant === "destructive" ? "border-red-200/60" : variant === "warning" ? "border-amber-200/60" : ""
+            <Card key={card.title} className={`${
+              variant === "destructive" ? "border-l-4 border-l-red-500" : variant === "warning" ? "border-l-4 border-l-amber-500" : ""
             }`}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -67,7 +71,7 @@ export default async function OperationsPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-4 animate-fade-in-up stagger-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Failed notifications</h2>
             <Badge variant={failedNotifications.length > 0 ? "destructive" : "outline"}>{failedNotifications.length}</Badge>
@@ -79,7 +83,7 @@ export default async function OperationsPage() {
           )}
         </div>
 
-        <div className="space-y-6 animate-fade-in-up stagger-4">
+        <div className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Runtime checks</h2>
@@ -90,8 +94,8 @@ export default async function OperationsPage() {
             ) : (
               <div className="grid gap-4">
                 {snapshot.runtimeIssues.map((issue) => (
-                  <Card key={`${issue.severity}-${issue.key}`} className={`gradient-panel ${
-                    issue.severity === "error" ? "border-red-200/60" : issue.severity === "warning" ? "border-amber-200/60" : ""
+                  <Card key={`${issue.severity}-${issue.key}`} className={`${
+                    issue.severity === "error" ? "border-l-4 border-l-red-500" : issue.severity === "warning" ? "border-l-4 border-l-amber-500" : ""
                   }`}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
@@ -118,7 +122,7 @@ export default async function OperationsPage() {
             ) : (
               <div className="grid gap-4">
                 {auditActivity.map((entry) => (
-                  <Card key={entry.id} className="gradient-panel">
+                  <Card key={entry.id}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">{entry.actionLabel}</CardTitle>
                       <CardDescription>{entry.resourceLabel}</CardDescription>
@@ -134,3 +138,5 @@ export default async function OperationsPage() {
     </div>
   );
 }
+
+

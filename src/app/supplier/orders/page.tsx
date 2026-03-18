@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { MapPin, DollarSign, Package, Check, Truck, XCircle, Clock } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Retailer Orders | Human Pulse",
+};
 
 import { SupplierOrderStatusForm } from "@/components/forms/supplier-order-status-form";
 import { SupplierShell } from "@/components/supplier-shell";
@@ -37,9 +42,9 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   isCancelled
                     ? "bg-red-100 text-red-400"
                     : isCompleted
-                      ? "bg-primary/15 text-primary"
+                      ? "bg-[#06C167] text-white"
                       : "bg-muted text-muted-foreground"
-                } ${isCurrent ? "ring-2 ring-primary/30" : ""}`}
+                } ${isCurrent ? "ring-2 ring-foreground" : ""}`}
               >
                 {isCompleted ? <Check className="size-3.5" /> : index + 1}
               </div>
@@ -50,7 +55,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
             {index < statusSteps.length - 1 ? (
               <div
                 className={`mb-4 h-0.5 w-4 rounded-full sm:w-6 ${
-                  !isCancelled && currentIndex > index ? "bg-primary/30" : "bg-muted"
+                  !isCancelled && currentIndex > index ? "bg-[#06C167]" : "bg-muted"
                 }`}
               />
             ) : null}
@@ -68,7 +73,7 @@ export default async function SupplierOrdersPage() {
   return (
     <SupplierShell supplierName={data.supplier.name} userName={session.user.fullName}>
       <div className="space-y-6">
-        <div className="animate-fade-in space-y-1">
+        <div className="space-y-1">
           <h1 className="text-3xl font-semibold">Retailer purchase orders</h1>
           <p className="text-muted-foreground">Review incoming wholesale orders and update fulfillment status as goods move through your pipeline.</p>
         </div>
@@ -80,18 +85,17 @@ export default async function SupplierOrdersPage() {
           />
         ) : null}
         <div className="grid gap-4">
-          {data.purchaseOrders.map((purchaseOrder, index) => {
+          {data.purchaseOrders.map((purchaseOrder) => {
             const config = statusConfig[purchaseOrder.status] ?? { variant: "default" as const, icon: Clock };
             const StatusIcon = config.icon;
             return (
               <Card
                 key={purchaseOrder.id}
-                className={`gradient-panel animate-fade-in-up ${index < 5 ? `stagger-${index + 1}` : ""}`}
               >
                 <CardHeader className="pb-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
                         <Package className="size-5" />
                       </div>
                       <div>
@@ -126,7 +130,7 @@ export default async function SupplierOrdersPage() {
                       const received = Number(item.receivedQuantity);
                       const progress = ordered > 0 ? Math.min((received / ordered) * 100, 100) : 0;
                       return (
-                        <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-border/50 bg-muted/30 p-3 text-sm">
+                        <div key={item.id} className="flex items-center justify-between gap-4 rounded-lg bg-secondary p-3 text-sm">
                           <div className="flex items-center gap-2">
                             <Package className="size-3.5 text-muted-foreground" />
                             <span className="font-medium">{item.supplierProduct?.name ?? item.product.name}</span>
@@ -134,7 +138,7 @@ export default async function SupplierOrdersPage() {
                           <div className="flex items-center gap-3">
                             <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">
                               <div
-                                className="h-full rounded-full bg-primary/60 transition-all"
+                                className="h-full rounded-full bg-[#06C167] transition-all"
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
@@ -156,3 +160,5 @@ export default async function SupplierOrdersPage() {
     </SupplierShell>
   );
 }
+
+

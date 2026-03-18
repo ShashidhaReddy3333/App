@@ -65,7 +65,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Take payment</CardTitle>
         <CardDescription>Split payments are represented as multiple records on the sale.</CardDescription>
@@ -73,7 +73,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           {payments.fields.map((field, index) => (
-            <div key={field.id} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <div key={field.id} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
               <div className="space-y-2">
                 <Label htmlFor={`payments.${index}.method`}>Method</Label>
                 <Select id={`payments.${index}.method`} {...form.register(`payments.${index}.method`)}>
@@ -110,7 +110,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
               </div>
             </div>
           ))}
-          <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             <div className="flex justify-between">
               <span>Entered total</span>
               <span>${enteredTotal.toFixed(2)}</span>
@@ -124,7 +124,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
             <Label htmlFor="idempotencyKey">Idempotency key</Label>
             <Input id="idempotencyKey" {...form.register("idempotencyKey")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="flex gap-3">
             <Button
               type="button"

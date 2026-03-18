@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Sign In | Human Pulse",
+};
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignInForm } from "@/components/forms/sign-in-form";
@@ -18,13 +22,6 @@ export default async function SignInPage() {
       description="Use email and password to access the store dashboard, checkout, reports, and staff tools."
     >
       <div className="space-y-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors lg:hidden"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to home
-        </Link>
         <SignInForm />
         <div className="flex justify-between text-sm text-muted-foreground">
           <Link href="/forgot-password" className="hover:text-foreground">
@@ -38,3 +35,5 @@ export default async function SignInPage() {
     </AuthShell>
   );
 }
+
+

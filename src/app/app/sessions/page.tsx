@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { SessionsList } from "@/components/sessions-list";
 import { requirePermission } from "@/lib/auth/guards";
 import { listBusinessSessions } from "@/lib/services/management-query-service";
 import { toSessionCards } from "@/lib/view-models/app";
+
+export const metadata: Metadata = {
+  title: "Sessions | Human Pulse",
+};
 
 export default async function SessionsPage() {
   const session = await requirePermission("sessions");
@@ -16,9 +21,11 @@ export default async function SessionsPage() {
         description="Owners can review device sessions and revoke any active session."
         breadcrumbs={[{ label: "Sessions" }]}
       />
-      <div className="animate-fade-in-up">
+      <div>
         <SessionsList sessions={cards} />
       </div>
     </div>
   );
 }
+
+

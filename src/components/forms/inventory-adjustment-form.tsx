@@ -61,7 +61,7 @@ export function InventoryAdjustmentForm({
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Inventory adjustment</CardTitle>
         <CardDescription>Increase or decrease stock with an auditable reason and idempotency key.</CardDescription>
@@ -78,23 +78,29 @@ export function InventoryAdjustmentForm({
                 </option>
               ))}
             </Select>
-            {form.formState.errors.productId ? <p className="text-sm text-destructive">{form.formState.errors.productId.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.productId ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.productId.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="quantityDelta">Quantity delta</Label>
             <Input id="quantityDelta" type="number" step="0.001" {...form.register("quantityDelta", { valueAsNumber: true })} />
-            {form.formState.errors.quantityDelta ? <p className="text-sm text-destructive">{form.formState.errors.quantityDelta.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.quantityDelta ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.quantityDelta.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="reason">Reason</Label>
             <Input id="reason" {...form.register("reason")} />
-            {form.formState.errors.reason ? <p className="text-sm text-destructive">{form.formState.errors.reason.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.reason ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.reason.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="idempotencyKey">Idempotency key</Label>
             <Input id="idempotencyKey" {...form.register("idempotencyKey")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Applying..." : "Apply adjustment"}

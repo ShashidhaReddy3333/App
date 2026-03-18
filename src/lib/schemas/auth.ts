@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+const strongPasswordSchema = z
+  .string()
+  .min(12, "Password must be at least 12 characters")
+  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/, "Password must include uppercase, lowercase, number, and special character");
+
 export const signUpSchema = z.object({
   ownerName: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8),
+  password: strongPasswordSchema,
   businessName: z.string().min(2).max(100),
   businessType: z.enum([
     "retail_store",
@@ -29,20 +34,20 @@ export const signUpSchema = z.object({
 
 export const signInSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(1, "Password is required")
 });
 
 export const customerSignUpSchema = z.object({
   fullName: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8)
+  password: strongPasswordSchema
 });
 
 export const supplierSignUpSchema = z.object({
   fullName: z.string().min(2).max(100),
   businessName: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8),
+  password: strongPasswordSchema,
   phone: z.string().min(7).max(30).optional().or(z.literal("")),
   notes: z.string().max(240).optional().or(z.literal(""))
 });
@@ -54,7 +59,7 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   email: z.string().email(),
   token: z.string().min(10),
-  password: z.string().min(8)
+  password: strongPasswordSchema
 });
 
 export const inviteStaffSchema = z.object({
@@ -65,5 +70,5 @@ export const inviteStaffSchema = z.object({
 export const acceptInviteSchema = z.object({
   token: z.string().min(10),
   fullName: z.string().min(2).max(100),
-  password: z.string().min(8)
+  password: strongPasswordSchema
 });

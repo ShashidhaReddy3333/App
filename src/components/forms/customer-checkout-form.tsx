@@ -34,6 +34,12 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
 
   const fulfillmentType = form.watch("fulfillmentType");
   const paymentMethod = form.watch("paymentMethod");
+  const addressLabelError = form.getFieldState("address.label", form.formState).error;
+  const addressLine1Error = form.getFieldState("address.line1", form.formState).error;
+  const addressLine2Error = form.getFieldState("address.line2", form.formState).error;
+  const addressCityError = form.getFieldState("address.city", form.formState).error;
+  const addressProvinceError = form.getFieldState("address.province", form.formState).error;
+  const addressPostalCodeError = form.getFieldState("address.postalCode", form.formState).error;
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
@@ -58,7 +64,7 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Checkout</CardTitle>
         <CardDescription>Confirm fulfillment and payment for your order of ${cartTotal.toFixed(2)}.</CardDescription>
@@ -68,10 +74,31 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
           <input type="hidden" {...form.register("idempotencyKey")} />
           <div className="space-y-2">
             <Label htmlFor="fulfillmentType">Fulfillment</Label>
-            <Select id="fulfillmentType" {...form.register("fulfillmentType")}>
-              <option value="pickup">pickup</option>
-              <option value="delivery">delivery</option>
-            </Select>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  fulfillmentType === "pickup"
+                    ? "bg-foreground text-background"
+                    : "bg-secondary text-foreground"
+                }`}
+                onClick={() => form.setValue("fulfillmentType", "pickup")}
+              >
+                Pickup
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  fulfillmentType === "delivery"
+                    ? "bg-foreground text-background"
+                    : "bg-secondary text-foreground"
+                }`}
+                onClick={() => form.setValue("fulfillmentType", "delivery")}
+              >
+                Delivery
+              </button>
+            </div>
+            <input type="hidden" {...form.register("fulfillmentType")} />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -102,26 +129,32 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
               <div className="space-y-2">
                 <Label htmlFor="address.label">Address label</Label>
                 <Input id="address.label" {...form.register("address.label")} />
+                {addressLabelError ? <p className="text-sm text-destructive">{addressLabelError.message}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.line1">Address line 1</Label>
-                <Input id="address.line1" {...form.register("address.line1")} />
+                <Input id="address.line1" aria-required={fulfillmentType === "delivery"} {...form.register("address.line1")} />
+                {addressLine1Error ? <p className="text-sm text-destructive">{addressLine1Error.message}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.line2">Address line 2</Label>
                 <Input id="address.line2" {...form.register("address.line2")} />
+                {addressLine2Error ? <p className="text-sm text-destructive">{addressLine2Error.message}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.city">City</Label>
                 <Input id="address.city" {...form.register("address.city")} />
+                {addressCityError ? <p className="text-sm text-destructive">{addressCityError.message}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.province">Province</Label>
                 <Input id="address.province" {...form.register("address.province")} />
+                {addressProvinceError ? <p className="text-sm text-destructive">{addressProvinceError.message}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.postalCode">Postal code</Label>
                 <Input id="address.postalCode" {...form.register("address.postalCode")} />
+                {addressPostalCodeError ? <p className="text-sm text-destructive">{addressPostalCodeError.message}</p> : null}
               </div>
             </div>
           ) : null}
@@ -129,8 +162,8 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
-          <Button className="w-full" disabled={form.formState.isSubmitting}>
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
+          <Button className="w-full" variant="uber-green" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Placing order..." : "Place order"}
           </Button>
         </form>

@@ -65,7 +65,7 @@ export function RefundForm({
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Create refund</CardTitle>
         <CardDescription>Refund one sale line at a time with explicit restock handling.</CardDescription>
@@ -105,7 +105,7 @@ export function RefundForm({
             <Label htmlFor="idempotencyKey">Idempotency key</Label>
             <Input id="idempotencyKey" {...form.register("idempotencyKey")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Creating..." : "Create refund"}
           </Button>

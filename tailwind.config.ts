@@ -22,15 +22,17 @@ const config: Config = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         success: "hsl(var(--success))",
-        warning: "hsl(var(--warning))"
+        warning: "hsl(var(--warning))",
+        "uber-black": "#000000",
+        "uber-green": "#06C167",
+        "uber-grey": "#F6F6F6"
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"]
       },
       boxShadow: {
-        panel: "0 10px 30px rgba(15, 23, 42, 0.08)",
-        "panel-hover": "0 20px 40px rgba(15, 23, 42, 0.12)",
-        glow: "0 0 40px rgba(14, 165, 233, 0.15)"
+        panel: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
+        "panel-hover": "0 4px 12px rgba(0,0,0,0.1)"
       },
       keyframes: {
         "pulse-subtle": {

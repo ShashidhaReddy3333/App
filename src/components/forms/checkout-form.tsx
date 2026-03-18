@@ -76,7 +76,7 @@ export function CheckoutForm({
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>New checkout</CardTitle>
         <CardDescription>Create a pending-payment cart and reserve stock before payment collection.</CardDescription>
@@ -85,7 +85,7 @@ export function CheckoutForm({
         <form className="space-y-4" onSubmit={onSubmit}>
           <input type="hidden" {...form.register("locationId")} />
           {items.fields.map((field, index) => (
-            <div key={field.id} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-3">
+            <div key={field.id} className="grid gap-3 rounded-lg border p-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor={`items.${index}.productId`}>Product</Label>
                 <Select
@@ -110,7 +110,7 @@ export function CheckoutForm({
               </div>
             </div>
           ))}
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="flex gap-3">
             <Button
               type="button"

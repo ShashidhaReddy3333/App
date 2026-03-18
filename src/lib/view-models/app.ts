@@ -4,7 +4,7 @@ import { formatDateTime } from "@/lib/utils";
 type CatalogData = Awaited<ReturnType<typeof import("@/lib/services/catalog-query-service").listCatalogData>>;
 type DashboardMetrics = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getDashboardMetrics>>;
 type ReportsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getReportsSnapshot>>;
-type SalesList = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").listSales>>;
+type SalesListResponse = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").listSales>>;
 type SaleDetail = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").getSaleDetail>>;
 type StaffList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listStaff>>;
 type PendingInviteList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listPendingInvites>>;
@@ -49,7 +49,7 @@ export function toSupplierOptions(suppliers: CatalogData["suppliers"]) {
   }));
 }
 
-export function toSalesListItems(sales: SalesList) {
+export function toSalesListItems(sales: SalesListResponse["items"]) {
   return sales.map((sale) => ({
     id: sale.id,
     receiptNumber: sale.receiptNumber ?? sale.id.slice(0, 8),

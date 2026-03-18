@@ -8,7 +8,7 @@ export function PageSkeleton({
   columns?: string;
 }) {
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <div className="space-y-3">
         <div className="h-4 w-40 skeleton" />
         <div className="h-9 w-56 skeleton" />
@@ -16,7 +16,7 @@ export function PageSkeleton({
       </div>
       <div className={`grid gap-4 ${columns}`}>
         {Array.from({ length: cards }).map((_, index) => (
-          <Card key={index} className="gradient-panel">
+          <Card key={index}>
             <CardHeader>
               <div className="h-5 w-32 skeleton" />
               <div className="h-4 w-24 skeleton" />
@@ -31,26 +31,26 @@ export function PageSkeleton({
         ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="gradient-panel">
+        <Card>
           <CardHeader>
             <div className="h-5 w-36 skeleton" />
           </CardHeader>
           <CardContent className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex justify-between rounded-2xl border p-3">
+              <div key={i} className="flex justify-between rounded-lg border p-3">
                 <div className="h-4 w-24 skeleton" />
                 <div className="h-4 w-12 skeleton" />
               </div>
             ))}
           </CardContent>
         </Card>
-        <Card className="gradient-panel">
+        <Card>
           <CardHeader>
             <div className="h-5 w-36 skeleton" />
           </CardHeader>
           <CardContent className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border p-3">
+              <div key={i} className="rounded-lg border p-3">
                 <div className="h-4 w-32 skeleton" />
                 <div className="mt-1 h-3 w-24 skeleton" />
               </div>

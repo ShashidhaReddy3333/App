@@ -23,9 +23,9 @@ export function EmptyState({
 }) {
   const Icon = emptyIcons[icon];
   return (
-    <Card className="gradient-panel animate-fade-in-up">
+    <Card>
       <CardHeader className="items-center text-center">
-        <div className="mb-3 inline-flex size-14 items-center justify-center rounded-2xl bg-muted/80 text-muted-foreground">
+        <div className="mb-3 inline-flex rounded-full bg-secondary p-3 text-muted-foreground">
           <Icon className="size-6" />
         </div>
         <CardTitle>{title}</CardTitle>
@@ -46,9 +46,9 @@ export function ErrorState({
   onRetryLabel?: string;
 }) {
   return (
-    <Card className="gradient-panel border-destructive/30 animate-fade-in-up">
+    <Card>
       <CardHeader className="items-center text-center">
-        <div className="mb-3 inline-flex size-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+        <div className="mb-3 inline-flex rounded-full bg-secondary p-3 text-destructive">
           <AlertTriangle className="size-6" />
         </div>
         <CardTitle>{title}</CardTitle>
@@ -56,7 +56,7 @@ export function ErrorState({
       </CardHeader>
       <CardContent className="flex justify-center">
         <form action="">
-          <Button type="submit" variant="outline">
+          <Button type="submit">
             {onRetryLabel}
           </Button>
         </form>

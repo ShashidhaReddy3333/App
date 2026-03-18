@@ -34,16 +34,16 @@ export function DataTable<TData>({ columns, data, emptyTitle, emptyDescription }
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border bg-white shadow-panel animate-fade-in">
+    <div className="rounded-lg bg-white border border-border overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50 border-b">
+          <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 font-medium text-muted-foreground whitespace-nowrap"
+                    className="bg-secondary text-foreground font-semibold text-xs uppercase px-4 py-3 whitespace-nowrap"
                     onClick={header.column.getToggleSortingHandler()}
                     style={{ cursor: header.column.getCanSort() ? "pointer" : "default" }}
                   >
@@ -58,9 +58,9 @@ export function DataTable<TData>({ columns, data, emptyTitle, emptyDescription }
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-muted/30">
+              <tr key={row.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-4 py-3 align-top">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

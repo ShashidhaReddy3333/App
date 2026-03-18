@@ -29,19 +29,19 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-slate-950">
+      <body className="bg-white text-black">
         <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
           <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">Application error</p>
-            <h1 className="text-3xl font-semibold text-slate-900">Something went wrong.</h1>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">Application error</p>
+            <h1 className="text-3xl font-bold text-black">Something went wrong.</h1>
+            <p className="text-sm text-neutral-600">
               The error has been recorded. Retry this screen, and if the problem continues, use the support contact in the runbook.
             </p>
           </div>
           <button
             type="button"
             onClick={() => reset()}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
           >
             Try again
           </button>

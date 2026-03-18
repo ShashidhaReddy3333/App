@@ -1,4 +1,4 @@
-import { InventoryMovementType, PaymentStatus, Prisma, PurchaseOrderStatus, RefundStatus, RestockAction, SaleStatus } from "@prisma/client";
+import { InventoryMovementType, OrderStatus, PaymentStatus, Prisma, PurchaseOrderStatus, RefundStatus, RestockAction, SaleStatus } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -317,15 +317,125 @@ export async function completeSale(actorUserId: string, businessId: string, sale
   return sale;
 }
 
-export async function listSales(businessId: string) {
-  return db.sale.findMany({
-    where: { businessId },
-    include: {
-      cashier: true,
-      payments: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
+export async function listSales(businessId: string, options?: { q?: string; page?: number; pageSize?: number }) {
+  const query = options?.q?.trim();
+  const where = {
+    businessId,
+    ...(query
+      ? {
+          receiptNumber: {
+            contains: query,
+            mode: "insensitive" as const
+          }
+        }
+      : {})
+  };
+
+  if (typeof options?.page !== "number" && typeof options?.pageSize !== "number") {
+    const items = await db.sale.findMany({
+      where,
+      include: {
+        cashier: true,
+        payments: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return {
+      items,
+      totalCount: items.length,
+      totalPages: 1,
+      currentPage: 1
+    };
+  }
+
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, options?.pageSize ?? 20);
+  const skip = (page - 1) * pageSize;
+
+  const [items, totalCount] = await Promise.all([
+    db.sale.findMany({
+      where,
+      include: {
+        cashier: true,
+        payments: true
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize
+    }),
+    db.sale.count({ where })
+  ]);
+
+  return {
+    items,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize),
+    currentPage: page
+  };
+}
+
+export async function listOnlineOrders(businessId: string, options?: { q?: string; status?: OrderStatus; page?: number; pageSize?: number }) {
+  const query = options?.q?.trim();
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, options?.pageSize ?? 20);
+  const skip = (page - 1) * pageSize;
+  const where = {
+    businessId,
+    ...(options?.status
+      ? {
+          status: options.status
+        }
+      : {}),
+    ...(query
+      ? {
+          OR: [
+            {
+              orderNumber: {
+                contains: query,
+                mode: "insensitive" as const
+              }
+            },
+            {
+              customer: {
+                is: {
+                  fullName: {
+                    contains: query,
+                    mode: "insensitive" as const
+                  }
+                }
+              }
+            }
+          ]
+        }
+      : {})
+  };
+
+  const [items, totalCount] = await Promise.all([
+    db.order.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        },
+        customer: true,
+        fulfillment: true
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize
+    }),
+    db.order.count({ where })
+  ]);
+
+  return {
+    items,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize),
+    currentPage: page
+  };
 }
 
 export async function getSaleDetail(businessId: string, saleId: string) {
@@ -377,6 +487,46 @@ export async function createRefund(actorUserId: string, businessId: string, sale
       });
       if (sale.status !== SaleStatus.completed && sale.status !== SaleStatus.refunded_partially) {
         throw conflictError("Only completed or partially refunded sales can be refunded.");
+      }
+
+      let newRefundAmount = 0;
+      for (const item of values.items) {
+        const saleItem = sale.items.find((entry) => entry.id === item.saleItemId);
+        if (!saleItem) {
+          throw notFoundError("Refund item not found on sale.");
+        }
+
+        const alreadyRefundedQuantity = saleItem.refundItems.reduce((sum, refundItem) => sum + Number(refundItem.quantityRefunded), 0);
+        const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
+        if (item.quantity > remainingQuantity) {
+          throw validationError("Refund quantity exceeds remaining refundable quantity.", {
+            fieldErrors: {
+              items: ["Refund quantity exceeds remaining refundable quantity."]
+            }
+          });
+        }
+
+        const perUnitAmount = roundMoney(Number(saleItem.lineTotal) / Number(saleItem.quantity));
+        const amountRefunded = roundMoney(perUnitAmount * item.quantity);
+        newRefundAmount = roundMoney(newRefundAmount + amountRefunded);
+      }
+
+      const existingRefunds = await tx.refund.aggregate({
+        where: {
+          saleId: sale.id,
+          status: { not: RefundStatus.cancelled }
+        },
+        _sum: {
+          refundTotalAmount: true
+        }
+      });
+      const previousRefundTotal = existingRefunds._sum.refundTotalAmount?.toNumber() ?? 0;
+      const saleTotal = sale.totalAmount.toNumber();
+
+      if (previousRefundTotal + newRefundAmount > saleTotal) {
+        throw new Error(
+          `Refund exceeds sale total. Sale total: $${saleTotal.toFixed(2)}, already refunded: $${previousRefundTotal.toFixed(2)}, requested: $${newRefundAmount.toFixed(2)}`
+        );
       }
 
       const refundRecord = await tx.refund.create({

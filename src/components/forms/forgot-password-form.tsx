@@ -54,7 +54,7 @@ export function ForgotPasswordForm() {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>Forgot password</CardTitle>
         <CardDescription>Send a password reset email in production. Demo mode shows the reset token inline.</CardDescription>
@@ -64,16 +64,18 @@ export function ForgotPasswordForm() {
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
+            </div>
           </div>
           {successMessage ? <p className="text-sm text-primary">{successMessage}</p> : null}
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Sending..." : "Send reset link"}
           </Button>
         </form>
         {devToken ? (
-          <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+          <div className="rounded-lg border border-dashed border-border bg-secondary p-3 text-sm text-foreground">
             Demo reset token: <span className="font-mono">{devToken}</span>
           </div>
         ) : null}

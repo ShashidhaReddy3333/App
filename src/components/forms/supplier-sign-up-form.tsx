@@ -53,7 +53,7 @@ export function SupplierSignUpForm() {
   });
 
   return (
-    <Card className="gradient-panel">
+    <Card>
       <CardHeader>
         <CardTitle>Join as a supplier</CardTitle>
         <CardDescription>Manage wholesale products, receive retailer orders, and update fulfillment in one portal.</CardDescription>
@@ -63,34 +63,44 @@ export function SupplierSignUpForm() {
           <div className="space-y-2">
             <Label htmlFor="fullName">Contact name</Label>
             <Input id="fullName" {...form.register("fullName")} />
-            {form.formState.errors.fullName ? <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.fullName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.fullName.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="businessName">Supplier business</Label>
             <Input id="businessName" {...form.register("businessName")} />
-            {form.formState.errors.businessName ? <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.businessName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.businessName.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? <p className="text-sm text-destructive">{form.formState.errors.email.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" {...form.register("phone")} />
-            {form.formState.errors.phone ? <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.phone ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.phone.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...form.register("password")} />
             <p className="text-xs text-muted-foreground">Passwords must be at least 8 characters long.</p>
-            {form.formState.errors.password ? <p className="text-sm text-destructive">{form.formState.errors.password.message}</p> : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.password ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.password.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Business notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Creating..." : "Create supplier account"}

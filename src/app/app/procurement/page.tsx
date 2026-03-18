@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PurchaseOrderForm } from "@/components/forms/purchase-order-form";
 import { PageHeader } from "@/components/page-header";
 import { ReceivePurchaseOrderButton } from "@/components/receive-purchase-order-button";
@@ -6,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listProcurementData } from "@/lib/services/procurement-query-service";
+
+export const metadata: Metadata = {
+  title: "Procurement | Human Pulse",
+};
 
 function getPoBadgeVariant(status: string): "success" | "warning" | "destructive" | "default" | "secondary" {
   if (status === "received" || status === "closed") return "success";
@@ -27,7 +32,7 @@ export default async function ProcurementPage() {
         breadcrumbs={[{ label: "Procurement" }]}
       />
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="animate-fade-in-up stagger-1">
+        <div>
           <PurchaseOrderForm
             locationId={data.location.id}
             suppliers={data.suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name }))}
@@ -38,12 +43,12 @@ export default async function ProcurementPage() {
             }))}
           />
         </div>
-        <div className="space-y-4 animate-fade-in-up stagger-2">
+        <div className="space-y-4">
           {data.purchaseOrders.length === 0 ? (
             <EmptyState icon="package" title="No purchase orders yet" description="Create the first procurement order to start restocking from suppliers." />
           ) : null}
           {data.purchaseOrders.map((purchaseOrder) => (
-            <Card key={purchaseOrder.id} className="gradient-panel">
+            <Card key={purchaseOrder.id}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between gap-3">
                   <span>{purchaseOrder.poNumber ?? purchaseOrder.id.slice(0, 8)}</span>
@@ -88,3 +93,5 @@ export default async function ProcurementPage() {
     </div>
   );
 }
+
+

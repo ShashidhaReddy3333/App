@@ -14,11 +14,76 @@ import {
 } from "@/lib/services/command-helpers";
 import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
 
-export async function listCatalogData(businessId: string) {
+export async function listCatalogData(businessId: string, options?: { page?: number; pageSize?: number }) {
   const location = await getDefaultLocation(businessId);
+  const where = { businessId, isArchived: false };
+  const suppliersPromise = db.supplier.findMany({
+    where: { businessId },
+    orderBy: { name: "asc" }
+  });
+
+  if (typeof options?.page === "number" || typeof options?.pageSize === "number") {
+    const page = Math.max(1, options?.page ?? 1);
+    const pageSize = Math.max(1, options?.pageSize ?? 20);
+    const skip = (page - 1) * pageSize;
+
+    const [products, totalCount, allProducts, suppliers] = await Promise.all([
+      db.product.findMany({
+        where,
+        include: {
+          supplier: true,
+          inventoryBalances: {
+            where: { locationId: location.id }
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize
+      }),
+      db.product.count({ where }),
+      db.product.findMany({
+        where,
+        include: {
+          supplier: true,
+          inventoryBalances: {
+            where: { locationId: location.id }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      }),
+      suppliersPromise
+    ]);
+
+    return {
+      location,
+      products: products.map((product) => {
+        const balance = product.inventoryBalances[0];
+        const availableQuantity = balance ? Number(balance.availableQuantity) : 0;
+        return {
+          ...product,
+          availableQuantity,
+          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+        };
+      }),
+      allProducts: allProducts.map((product) => {
+        const balance = product.inventoryBalances[0];
+        const availableQuantity = balance ? Number(balance.availableQuantity) : 0;
+        return {
+          ...product,
+          availableQuantity,
+          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+        };
+      }),
+      suppliers,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      currentPage: page
+    };
+  }
+
   const [products, suppliers] = await Promise.all([
     db.product.findMany({
-      where: { businessId, isArchived: false },
+      where,
       include: {
         supplier: true,
         inventoryBalances: {
@@ -27,24 +92,27 @@ export async function listCatalogData(businessId: string) {
       },
       orderBy: { createdAt: "desc" }
     }),
-    db.supplier.findMany({
-      where: { businessId },
-      orderBy: { name: "asc" }
-    })
+    suppliersPromise
   ]);
+
+  const mappedProducts = products.map((product) => {
+    const balance = product.inventoryBalances[0];
+    const availableQuantity = balance ? Number(balance.availableQuantity) : 0;
+    return {
+      ...product,
+      availableQuantity,
+      reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+    };
+  });
 
   return {
     location,
-    products: products.map((product) => {
-      const balance = product.inventoryBalances[0];
-      const availableQuantity = balance ? Number(balance.availableQuantity) : 0;
-      return {
-        ...product,
-        availableQuantity,
-        reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
-      };
-    }),
-    suppliers
+    products: mappedProducts,
+    allProducts: mappedProducts,
+    suppliers,
+    totalCount: mappedProducts.length,
+    totalPages: 1,
+    currentPage: 1
   };
 }
 

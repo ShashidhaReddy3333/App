@@ -5,13 +5,23 @@ import { useState } from "react";
 import { ApiClientError, requestJson } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 
-export function SignOutButton() {
+export function SignOutButton({
+  variant = "light",
+  className,
+}: {
+  variant?: "dark" | "light";
+  className?: string;
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <Button
-      className="w-full"
+      className={cn(
+        className ?? "w-full",
+        variant === "dark" && "text-white/60 hover:text-white"
+      )}
       disabled={isSubmitting}
       variant="outline"
       onClick={async () => {

@@ -6,6 +6,17 @@ import { v4 as uuid } from "uuid";
 
 import { ApiClientError, requestJson } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/sonner";
 
 export function ReceivePurchaseOrderButton({
@@ -43,8 +54,24 @@ export function ReceivePurchaseOrderButton({
   }
 
   return (
-    <Button type="button" variant="secondary" onClick={receiveAll} disabled={submitting || items.every((item) => item.remainingQuantity <= 0)}>
-      {submitting ? "Receiving..." : "Receive remaining stock"}
-    </Button>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="secondary" disabled={submitting || items.every((item) => item.remainingQuantity <= 0)}>
+          {submitting ? "Receiving..." : "Receive remaining stock"}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Receive Order</AlertDialogTitle>
+          <AlertDialogDescription>Mark all items as received? This action cannot be undone.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => void receiveAll()} disabled={submitting}>
+            {submitting ? "Receiving..." : "Confirm Receipt"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
