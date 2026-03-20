@@ -9,11 +9,12 @@ function buildContentSecurityPolicy() {
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://*.stripe.com https://public.blob.vercel-storage.com",
     "font-src 'self'",
-    `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    `connect-src 'self' https://api.stripe.com https://r.stripe.com${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    "frame-src https://js.stripe.com https://hooks.stripe.com",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'"
@@ -35,7 +36,7 @@ const SUBDOMAIN_CONFIG: Record<string, {
   defaultPath: string;
 }> = {
   shop: {
-    allowedPrefixes: ["/shop", "/customer", "/cart", "/orders", "/sign-in", "/sign-up", "/customer/sign-up", "/forgot-password", "/reset-password", "/api"],
+    allowedPrefixes: ["/shop", "/customer", "/cart", "/orders", "/sign-in", "/sign-up", "/customer/sign-up", "/forgot-password", "/reset-password", "/api", "/marketplace"],
     defaultPath: "/shop",
   },
   retail: {
@@ -46,6 +47,10 @@ const SUBDOMAIN_CONFIG: Record<string, {
     allowedPrefixes: ["/supplier", "/sign-in", "/sign-up", "/supplier/sign-up", "/forgot-password", "/reset-password", "/api"],
     defaultPath: "/supplier/dashboard",
   },
+  admin: {
+    allowedPrefixes: ["/admin", "/sign-in", "/api"],
+    defaultPath: "/admin",
+  },
 };
 
 const ALLOWED_ORIGINS = [
@@ -53,6 +58,7 @@ const ALLOWED_ORIGINS = [
   "https://shop.human-pulse.com",
   "https://retail.human-pulse.com",
   "https://supply.human-pulse.com",
+  "https://admin.human-pulse.com",
 ];
 
 if (process.env.NODE_ENV === "development") {
@@ -60,7 +66,8 @@ if (process.env.NODE_ENV === "development") {
     "http://localhost:3000",
     "http://shop.localhost:3000",
     "http://retail.localhost:3000",
-    "http://supply.localhost:3000"
+    "http://supply.localhost:3000",
+    "http://admin.localhost:3000"
   );
 }
 
@@ -116,6 +123,8 @@ export function middleware(request: NextRequest) {
   const method = request.method.toUpperCase();
   const shouldSkipCsrf =
     pathname.startsWith("/api/internal/") ||
+    pathname === "/api/stripe/webhooks" ||
+    pathname.startsWith("/api/stripe/webhooks") ||
     pathname === "/api/health" ||
     pathname === "/api/readiness";
 

@@ -199,6 +199,13 @@ model User {
   createdPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreator")
   notifications    Notification[]
   notificationPreference NotificationPreference?
+  marketplaceReviews     MarketplaceReview[]
+  stripeCustomer         StripeCustomer?
+  uploadedAssets         MediaAsset[]          @relation("MediaAssetUploader")
+  authoredAnnouncements  PlatformAnnouncement[] @relation("AnnouncementAuthor")
+  verificationReviews    BusinessVerification[] @relation("VerificationReviewer")
+  customerDisputes       PlatformDispute[]      @relation("CustomerDisputes")
+  adminDisputes          PlatformDispute[]      @relation("AdminDisputes")
 }
 
 model Session {
@@ -259,6 +266,8 @@ model Business {
   reservationDurationMinutes Int               @default(10)
   weekStartsOn               Int               @default(1)
   isActive                   Boolean           @default(true)
+  isMarketplaceVisible       Boolean           @default(false)
+  marketplaceCommissionRate  Decimal?          @db.Decimal(5, 4)
   nextReceiptNumber          Int               @default(1)
   nextOrderNumber            Int               @default(1)
   nextPurchaseOrderNumber    Int               @default(1)
@@ -279,6 +288,13 @@ model Business {
   purchaseOrders             PurchaseOrder[]
   auditLogs                  AuditLog[]
   idempotencyKeys            IdempotencyKey[]
+  businessProfile            BusinessProfile?
+  stripeAccount              StripeAccount?
+  stripePaymentIntents       StripePaymentIntent[]
+  mediaAssets                MediaAsset[]
+  businessVerification       BusinessVerification?
+  disputes                   PlatformDispute[]
+  marketplaceReviews         MarketplaceReview[]
 }
 
 model Location {
@@ -435,24 +451,25 @@ model CartItem {
 }
 
 model Order {
-  id               String          @id @default(cuid())
-  businessId       String
-  locationId       String
-  orderNumber      String
-  orderType        OrderType
-  customerId       String?
-  createdByUserId  String?
-  status           OrderStatus
-  subtotalAmount   Decimal         @db.Decimal(12, 2)
-  taxAmount        Decimal         @db.Decimal(12, 2)
-  discountAmount   Decimal         @db.Decimal(12, 2)
-  deliveryFee      Decimal         @db.Decimal(12, 2) @default(0)
-  totalAmount      Decimal         @db.Decimal(12, 2)
-  paymentStatus    String
-  fulfillmentType  FulfillmentType
-  notes            String?
-  createdAt        DateTime        @default(now())
-  completedAt      DateTime?
+  id                        String          @id @default(cuid())
+  businessId                String
+  locationId                String
+  orderNumber               String
+  orderType                 OrderType
+  customerId                String?
+  createdByUserId           String?
+  status                    OrderStatus
+  subtotalAmount            Decimal         @db.Decimal(12, 2)
+  taxAmount                 Decimal         @db.Decimal(12, 2)
+  discountAmount            Decimal         @db.Decimal(12, 2)
+  deliveryFee               Decimal         @db.Decimal(12, 2) @default(0)
+  totalAmount               Decimal         @db.Decimal(12, 2)
+  paymentStatus             String
+  fulfillmentType           FulfillmentType
+  notes                     String?
+  stripeCheckoutSessionId   String?
+  createdAt                 DateTime        @default(now())
+  completedAt               DateTime?
   business         Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   location         Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
   customer         User?           @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: SetNull)
@@ -507,16 +524,17 @@ model OrderFulfillment {
 }
 
 model OrderPayment {
-  id                String          @id @default(cuid())
-  orderId           String
-  method            PaymentMethod
-  provider          PaymentProvider?
-  amount            Decimal         @db.Decimal(12, 2)
-  status            PaymentStatus
-  externalReference String?
-  paidAt            DateTime        @default(now())
-  failureReason     String?
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                    String          @id @default(cuid())
+  orderId               String
+  method                PaymentMethod
+  provider              PaymentProvider?
+  amount                Decimal         @db.Decimal(12, 2)
+  status                PaymentStatus
+  externalReference     String?
+  stripePaymentIntentId String?
+  paidAt                DateTime        @default(now())
+  failureReason         String?
+  order                 Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, status])
 }
@@ -658,17 +676,18 @@ model SaleItem {
 }
 
 model Payment {
-  id                String          @id @default(cuid())
-  saleId            String
-  method            PaymentMethod
-  provider          PaymentProvider?
-  amount            Decimal         @db.Decimal(12, 2)
-  status            PaymentStatus
-  externalReference String?
-  receivedAt        DateTime        @default(now())
-  failureReason     String?
-  sale              Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  refundPayments    RefundPayment[]
+  id                    String          @id @default(cuid())
+  saleId                String
+  method                PaymentMethod
+  provider              PaymentProvider?
+  amount                Decimal         @db.Decimal(12, 2)
+  status                PaymentStatus
+  externalReference     String?
+  stripePaymentIntentId String?
+  receivedAt            DateTime        @default(now())
+  failureReason         String?
+  sale                  Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  refundPayments        RefundPayment[]
 
   @@index([saleId, status])
 }
@@ -826,4 +845,269 @@ model AuthThrottle {
   updatedAt    DateTime @updatedAt
 
   @@unique([email, ipAddress])
+}
+
+// ============================================================
+// Multi-Retailer Marketplace
+// ============================================================
+
+model MarketplaceConfig {
+  id                    String   @id @default(cuid())
+  marketplaceName       String   @default("Human Pulse Marketplace")
+  logoUrl               String?
+  defaultCommissionRate Decimal  @db.Decimal(5, 4) @default(0.1000)
+  isActive              Boolean  @default(true)
+  supportEmail          String?
+  termsUrl              String?
+  privacyUrl            String?
+  metaDescription       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model BusinessCategory {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  description      String?
+  iconName         String?
+  sortOrder        Int               @default(0)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  businessProfiles BusinessProfile[]
+}
+
+model BusinessProfile {
+  id            String           @id @default(cuid())
+  businessId    String           @unique
+  categoryId    String?
+  slug          String           @unique
+  tagline       String?
+  description   String?
+  logoUrl       String?
+  bannerUrl     String?
+  websiteUrl    String?
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  country       String?
+  averageRating Decimal          @db.Decimal(3, 2) @default(0.00)
+  reviewCount   Int              @default(0)
+  isFeatured    Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  business      Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category      BusinessCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([slug])
+  @@index([isFeatured])
+}
+
+model MarketplaceReview {
+  id          String   @id @default(cuid())
+  businessId  String
+  reviewerId  String
+  orderId     String?
+  rating      Int
+  title       String?
+  body        String?
+  isVerified  Boolean  @default(false)
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer    User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+}
+
+// ============================================================
+// Platform Admin
+// ============================================================
+
+model PlatformMetrics {
+  id                String   @id @default(cuid())
+  periodType        String
+  periodStart       DateTime
+  periodEnd         DateTime
+  gmv               Decimal  @db.Decimal(18, 2) @default(0)
+  totalOrders       Int      @default(0)
+  newUsers          Int      @default(0)
+  activeBusinesses  Int      @default(0)
+  totalRevenue      Decimal  @db.Decimal(18, 2) @default(0)
+  commissionRevenue Decimal  @db.Decimal(18, 2) @default(0)
+  refundAmount      Decimal  @db.Decimal(18, 2) @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([periodType, periodStart])
+}
+
+model PlatformAnnouncement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  type        String    @default("info")
+  audience    String    @default("all")
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  authorId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  author      User?     @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+model BusinessVerification {
+  id                  String    @id @default(cuid())
+  businessId          String    @unique
+  status              String    @default("pending")
+  submittedAt         DateTime?
+  reviewedAt          DateTime?
+  reviewedByAdminId   String?
+  verificationNotes   String?
+  documentsJson       Json      @default("[]")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  business            Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewedByAdmin     User?     @relation("VerificationReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+}
+
+model PlatformDispute {
+  id               String    @id @default(cuid())
+  orderId          String?
+  businessId       String?
+  customerId       String?
+  assignedAdminId  String?
+  status           String    @default("open")
+  type             String
+  title            String
+  description      String
+  resolution       String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  customer         User?     @relation("CustomerDisputes", fields: [customerId], references: [id], onDelete: SetNull)
+  assignedAdmin    User?     @relation("AdminDisputes", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+// ============================================================
+// Stripe Integration
+// ============================================================
+
+model StripeAccount {
+  id                String   @id @default(cuid())
+  businessId        String   @unique
+  stripeAccountId   String   @unique
+  onboardingStatus  String   @default("pending")
+  chargesEnabled    Boolean  @default(false)
+  payoutsEnabled    Boolean  @default(false)
+  detailsSubmitted  Boolean  @default(false)
+  defaultCurrency   String   @default("usd")
+  country           String?
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model StripeCustomer {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  stripeCustomerId String   @unique
+  email            String?
+  name             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StripePaymentIntent {
+  id                    String   @id @default(cuid())
+  stripePaymentIntentId String   @unique
+  orderId               String?
+  saleId                String?
+  businessId            String
+  amount                Int
+  currency              String   @default("usd")
+  status                String
+  applicationFeeAmount  Int?
+  transferData          Json?
+  metadata              Json     @default("{}")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model StripeWebhookEvent {
+  id              String    @id @default(cuid())
+  stripeEventId   String    @unique
+  type            String
+  livemode        Boolean   @default(false)
+  payload         Json
+  processedAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  createdAt       DateTime  @default(now())
+
+  @@index([stripeEventId])
+  @@index([type, processedAt])
+}
+
+// ============================================================
+// Object Storage
+// ============================================================
+
+model MediaAsset {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  url          String
+  contentType  String
+  size         Int
+  uploadedById String?
+  entityType   String?
+  entityId     String?
+  businessId   String?
+  createdAt    DateTime  @default(now())
+  uploadedBy   User?     @relation("MediaAssetUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([businessId])
+}
+
+// ============================================================
+// Job Queue
+// ============================================================
+
+model JobQueue {
+  id           String    @id @default(cuid())
+  type         String
+  payload      Json      @default("{}")
+  status       String    @default("pending")
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  scheduledAt  DateTime  @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  failedAt     DateTime?
+  error        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([type, status])
+}
+
+model JobLock {
+  id        String   @id @default(cuid())
+  lockKey   String   @unique
+  ownerId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([lockKey, expiresAt])
 }

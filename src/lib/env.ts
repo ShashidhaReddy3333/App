@@ -10,6 +10,12 @@ const mailReplyToSchema = z.string().min(1).optional();
 const sentryDsnSchema = z.string().url("SENTRY_DSN must be a valid absolute URL.");
 const cronSecretSchema = z.string().min(16, "CRON_SECRET must be at least 16 characters.");
 const nodeEnvSchema = z.enum(["development", "test", "production"]).default("development");
+const stripeSecretKeySchema = z.string().min(1, "STRIPE_SECRET_KEY is required.");
+const stripeWebhookSecretSchema = z.string().min(1, "STRIPE_WEBHOOK_SECRET is required.");
+const upstashRedisUrlSchema = z.string().url("UPSTASH_REDIS_REST_URL must be a valid URL.");
+const upstashRedisTokenSchema = z.string().min(1, "UPSTASH_REDIS_REST_TOKEN is required.");
+const blobReadWriteTokenSchema = z.string().min(1, "BLOB_READ_WRITE_TOKEN is required.");
+const platformAdminEmailSchema = z.string().email("PLATFORM_ADMIN_EMAIL must be a valid email.");
 
 export type RuntimeCheckIssue = {
   key: string;
@@ -64,6 +70,26 @@ export function getOptionalSentryDsn() {
 
 export function getOptionalCronSecret() {
   return parseOptional(cronSecretSchema, process.env.CRON_SECRET);
+}
+
+export function getOptionalStripeSecretKey() {
+  return parseOptional(stripeSecretKeySchema, process.env.STRIPE_SECRET_KEY);
+}
+
+export function getOptionalStripeWebhookSecret() {
+  return parseOptional(stripeWebhookSecretSchema, process.env.STRIPE_WEBHOOK_SECRET);
+}
+
+export function getOptionalUpstashRedisUrl() {
+  return parseOptional(upstashRedisUrlSchema, process.env.UPSTASH_REDIS_REST_URL);
+}
+
+export function getOptionalBlobToken() {
+  return parseOptional(blobReadWriteTokenSchema, process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+export function getOptionalPlatformAdminEmail() {
+  return parseOptional(platformAdminEmailSchema, process.env.PLATFORM_ADMIN_EMAIL);
 }
 
 export function getRuntimeCheckIssues() {
@@ -133,6 +159,22 @@ export function getRuntimeCheckIssues() {
         key: "CRON_SECRET",
         message: "CRON_SECRET is required in production to protect internal job routes.",
         severity: "error"
+      });
+    }
+
+    if (!getOptionalStripeSecretKey()) {
+      issues.push({
+        key: "STRIPE_SECRET_KEY",
+        message: "STRIPE_SECRET_KEY is required for payment processing.",
+        severity: "warning"
+      });
+    }
+
+    if (!getOptionalStripeWebhookSecret()) {
+      issues.push({
+        key: "STRIPE_WEBHOOK_SECRET",
+        message: "STRIPE_WEBHOOK_SECRET is required to verify Stripe webhooks.",
+        severity: "warning"
       });
     }
   }
