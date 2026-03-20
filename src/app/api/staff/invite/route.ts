@@ -1,11 +1,12 @@
 import { requireApiAccess } from "@/lib/auth/api-guard";
+import { withRateLimit } from "@/lib/api-rate-limit";
 import { apiError, apiSuccess } from "@/lib/http";
 import { getRequestContext, logError, logEvent } from "@/lib/observability";
 import { inviteStaff } from "@/lib/services/auth-service";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+const postHandler = async (request: Request) => {
   const context = getRequestContext(request);
   try {
     const { session } = await requireApiAccess("staff");
@@ -26,4 +27,6 @@ export async function POST(request: Request) {
     });
     return apiError(error);
   }
-}
+};
+
+export const POST = withRateLimit(postHandler, { limit: 10, windowMs: 60_000 });
