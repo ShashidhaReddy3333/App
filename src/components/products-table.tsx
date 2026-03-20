@@ -52,5 +52,5 @@ const columns: ColumnDef<ProductRow>[] = [
 ];
 
 export function ProductsTable({ data }: { data: ProductRow[] }) {
-  return <DataTable columns={columns} data={data} />;
+  return <DataTable columns={columns} data={data} searchColumn="name" searchPlaceholder="Search products..." />;
 }

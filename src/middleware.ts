@@ -17,24 +17,17 @@ function buildContentSecurityPolicy() {
     "frame-src https://js.stripe.com https://hooks.stripe.com",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "base-uri 'self'"
+    "base-uri 'self'",
   ].join("; ");
 }
 
-/**
- * Subdomain routing map:
- *   shop.human-pulse.com   → Customer portal  (/shop, /customer, /cart, /orders)
- *   retail.human-pulse.com → Retailer portal   (/app)
- *   supply.human-pulse.com → Supplier portal   (/supplier)
- *
- * Each subdomain redirects to the correct portal landing page when visiting "/".
- * Cross-portal routes are blocked with a redirect to the correct subdomain.
- */
-
-const SUBDOMAIN_CONFIG: Record<string, {
-  allowedPrefixes: string[];
-  defaultPath: string;
-}> = {
+const SUBDOMAIN_CONFIG: Record<
+  string,
+  {
+    allowedPrefixes: string[];
+    defaultPath: string;
+  }
+> = {
   shop: {
     allowedPrefixes: ["/shop", "/customer", "/cart", "/orders", "/sign-in", "/sign-up", "/customer/sign-up", "/forgot-password", "/reset-password", "/api", "/marketplace"],
     defaultPath: "/shop",
@@ -72,20 +65,20 @@ if (process.env.NODE_ENV === "development") {
 }
 
 function getSubdomain(host: string): string | null {
-  // Remove port if present
   const [hostname = ""] = host.split(":");
-
-  // Match subdomains like shop.human-pulse.com
-  // Also support local dev: shop.localhost
   const parts = hostname.split(".");
-  const sub = parts[0];
-  if (!sub) return null;
+  const subdomain = parts[0];
+
+  if (!subdomain) {
+    return null;
+  }
 
   if (parts.length >= 3 || (parts.length === 2 && parts.at(1) === "localhost")) {
-    if (sub in SUBDOMAIN_CONFIG) {
-      return sub;
+    if (subdomain in SUBDOMAIN_CONFIG) {
+      return subdomain;
     }
   }
+
   return null;
 }
 
@@ -98,23 +91,17 @@ export function middleware(request: NextRequest) {
   const subdomain = getSubdomain(host);
   const pathname = request.nextUrl.pathname;
 
-  // Subdomain-based routing
   const config = subdomain ? SUBDOMAIN_CONFIG[subdomain] : undefined;
   if (subdomain && config) {
-
-    // Set a header so pages can detect which portal they're on
     requestHeaders.set("x-portal", subdomain);
 
-    // Redirect root to the portal's default page
     if (pathname === "/") {
       return NextResponse.redirect(new URL(config.defaultPath, request.url));
     }
 
-    // Block access to routes outside this portal's scope
     const isAllowed = config.allowedPrefixes.some(
       (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
     );
-
     if (!isAllowed) {
       return NextResponse.redirect(new URL(config.defaultPath, request.url));
     }
@@ -148,15 +135,17 @@ export function middleware(request: NextRequest) {
     if (!isAllowedOrigin) {
       return new NextResponse(JSON.stringify({ error: "CSRF validation failed" }), {
         status: 403,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     }
   }
 
+  requestHeaders.set("x-pathname", pathname);
+
   const response = NextResponse.next({
     request: {
-      headers: requestHeaders
-    }
+      headers: requestHeaders,
+    },
   });
 
   response.headers.set("x-request-id", requestId);
@@ -177,5 +166,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

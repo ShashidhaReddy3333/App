@@ -47,6 +47,7 @@ jobs:
       - run: pnpm prisma:seed
       - run: pnpm exec prisma validate
       - run: pnpm typecheck
+      - run: pnpm lint
       - run: pnpm test:unit
       - run: pnpm build
       - run: pnpm ops:check-data

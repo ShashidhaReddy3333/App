@@ -8,6 +8,8 @@ import { UserRole } from "@prisma/client";
 import {
   Activity,
   BarChart3,
+  Bell,
+  Boxes,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -19,13 +21,12 @@ import {
   Store,
   Truck,
   Users,
-  Boxes,
-  X
+  X,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { hasPermission } from "@/lib/rbac";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { SignOutButton } from "@/components/sign-out-button";
+import { hasPermission } from "@/lib/rbac";
 
 const navItems = [
   { href: "/app/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard, permission: "sales", group: "overview" },
@@ -40,21 +41,22 @@ const navItems = [
   { href: "/app/reports" as Route, label: "Reports", icon: BarChart3, permission: "reports", group: "admin" },
   { href: "/app/ops" as Route, label: "Operations", icon: Activity, permission: "owner_dashboard", group: "admin" },
   { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff", group: "admin" },
-  { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions", group: "admin" }
+  { href: "/app/notifications" as Route, label: "Notifications", icon: Bell, permission: "sales", group: "admin" },
+  { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions", group: "admin" },
 ] as const;
 
 const groupLabels: Record<string, string> = {
   overview: "Overview",
   sales: "Sales & Orders",
   inventory: "Inventory",
-  admin: "Administration"
+  admin: "Administration",
 };
 
 export function AppShell({
   role,
   businessName,
   userName,
-  children
+  children,
 }: {
   role: UserRole;
   businessName: string;
@@ -65,7 +67,6 @@ export function AppShell({
   const pathname = usePathname();
 
   const filteredItems = navItems.filter((item) => hasPermission(role, item.permission));
-
   const groups = filteredItems.reduce<Record<string, typeof filteredItems>>((acc, item) => {
     const group = item.group;
     if (!acc[group]) {
@@ -77,18 +78,18 @@ export function AppShell({
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
-      <div className="space-y-1 px-5 pt-6 pb-4">
+      <div className="space-y-1 px-5 pb-4 pt-6">
         <div className="flex items-center gap-2">
           <Activity className="size-5 text-white" />
           <span className="text-lg font-bold tracking-tight text-white">Human Pulse</span>
         </div>
       </div>
-      <div className="border-t border-white/10 mx-5" />
-      <div className="px-5 pt-4 pb-2">
-        <div className="text-sm font-semibold truncate text-white">{businessName}</div>
-        <div className="text-xs text-white/50 truncate">{userName}</div>
+      <div className="mx-5 border-t border-white/10" />
+      <div className="px-5 pb-2 pt-4">
+        <div className="truncate text-sm font-semibold text-white">{businessName}</div>
+        <div className="truncate text-xs text-white/50">{userName}</div>
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} className="space-y-1">
             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
@@ -103,9 +104,7 @@ export function AppShell({
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-white/15 text-white"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
+                    isActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
@@ -116,25 +115,31 @@ export function AppShell({
           </div>
         ))}
       </nav>
-      <div className="border-t border-white/10 mx-5" />
-      <div className="p-4">
-        <div className="text-white/60 hover:text-white">
-          <SignOutButton />
-        </div>
+      <div className="mx-5 border-t border-white/10" />
+      <div className="p-4 text-white/60 hover:text-white">
+        <SignOutButton />
       </div>
     </div>
   );
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="hidden lg:block border-r border-white/10 bg-black text-white lg:min-h-screen">
+      <aside className="hidden border-r border-white/10 bg-black text-white lg:block lg:min-h-screen">
         {sidebarContent}
       </aside>
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          role="button"
+          aria-label="Close sidebar"
+          tabIndex={0}
           onClick={() => setSidebarOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              setSidebarOpen(false);
+            }
+          }}
         />
       )}
 
@@ -146,6 +151,7 @@ export function AppShell({
         <div className="absolute right-3 top-4 z-10">
           <button
             onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
             className="flex size-8 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="size-5" />
@@ -158,6 +164,8 @@ export function AppShell({
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-black px-4 py-3 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={sidebarOpen}
             className="flex size-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Menu className="size-5" />
@@ -167,8 +175,9 @@ export function AppShell({
             <span className="text-sm font-bold tracking-tight text-white">Human Pulse</span>
           </div>
         </div>
-        {children}
+        <div id="main-content">{children}</div>
       </div>
+      <KeyboardShortcutsHelp />
     </div>
   );
 }

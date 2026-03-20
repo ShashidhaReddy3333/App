@@ -1,69 +1,94 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
 import type { NextRequest } from "next/server";
 
-// In-memory fallback store for dev environments without Redis
-const inMemoryStore = new Map<string, { count: number; resetAt: number }>();
+import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
 
-export interface RateLimitResult {
+type RateLimitStoreEntry = { count: number; resetAt: number };
+
+const rateStore = new Map<string, RateLimitStoreEntry>();
+const cleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateStore) {
+    if (value.resetAt <= now) {
+      rateStore.delete(key);
+    }
+  }
+}, 60_000);
+
+cleanupTimer.unref?.();
+
+export interface PresetRateLimitResult {
   success: boolean;
   limit: number;
   remaining: number;
   reset: number;
 }
 
+export interface RateLimitResult {
+  success: boolean;
+  remaining: number;
+  resetAt: Date;
+}
+
 export type RateLimitPreset = "auth" | "api" | "upload" | "webhook" | "public";
 
 const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number }> = {
-  auth: { requests: 10, windowSeconds: 60 },       // 10 attempts per minute
-  api: { requests: 120, windowSeconds: 60 },        // 120 req/min
-  upload: { requests: 20, windowSeconds: 60 },      // 20 uploads/min
-  webhook: { requests: 500, windowSeconds: 60 },    // Stripe sends many webhooks
-  public: { requests: 60, windowSeconds: 60 },      // Public marketplace
+  auth: { requests: 10, windowSeconds: 60 },
+  api: { requests: 120, windowSeconds: 60 },
+  upload: { requests: 20, windowSeconds: 60 },
+  webhook: { requests: 500, windowSeconds: 60 },
+  public: { requests: 60, windowSeconds: 60 },
 };
 
-let _ratelimiters: Record<RateLimitPreset, Ratelimit> | null = null;
+let rateLimiters: Record<RateLimitPreset, Ratelimit> | null = null;
 
 function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
-  if (!isRedisAvailable()) return null;
-  if (_ratelimiters) return _ratelimiters;
+  if (!isRedisAvailable()) {
+    return null;
+  }
+
+  if (rateLimiters) {
+    return rateLimiters;
+  }
 
   const redis = getRedisClient();
-  if (!redis) return null;
+  if (!redis) {
+    return null;
+  }
 
-  _ratelimiters = {} as Record<RateLimitPreset, Ratelimit>;
-
-  for (const [preset, config] of Object.entries(LIMITS) as [RateLimitPreset, typeof LIMITS[RateLimitPreset]][]) {
-    _ratelimiters[preset] = new Ratelimit({
+  rateLimiters = {} as Record<RateLimitPreset, Ratelimit>;
+  for (const [preset, config] of Object.entries(LIMITS) as [RateLimitPreset, (typeof LIMITS)[RateLimitPreset]][]) {
+    rateLimiters[preset] = new Ratelimit({
       redis,
       limiter: Ratelimit.slidingWindow(config.requests, `${config.windowSeconds} s`),
       prefix: `hp:rl:${preset}`,
     });
   }
 
-  return _ratelimiters;
+  return rateLimiters;
 }
 
-/**
- * In-memory fallback rate limiter for environments without Redis.
- */
-function inMemoryRateLimit(key: string, preset: RateLimitPreset): RateLimitResult {
-  const config = LIMITS[preset];
+function getOrCreateEntry(key: string, windowMs: number): RateLimitStoreEntry {
   const now = Date.now();
-  const windowMs = config.windowSeconds * 1000;
-
-  const entry = inMemoryStore.get(key);
-
-  if (!entry || entry.resetAt < now) {
-    inMemoryStore.set(key, { count: 1, resetAt: now + windowMs });
-    return { success: true, limit: config.requests, remaining: config.requests - 1, reset: now + windowMs };
+  const entry = rateStore.get(key);
+  if (!entry || entry.resetAt <= now) {
+    const nextEntry = { count: 0, resetAt: now + windowMs };
+    rateStore.set(key, nextEntry);
+    return nextEntry;
   }
 
-  if (entry.count >= config.requests) {
+  return entry;
+}
+
+function inMemoryPresetRateLimit(key: string, preset: RateLimitPreset): PresetRateLimitResult {
+  const config = LIMITS[preset];
+  const entry = getOrCreateEntry(key, config.windowSeconds * 1000);
+  entry.count += 1;
+
+  if (entry.count > config.requests) {
     return { success: false, limit: config.requests, remaining: 0, reset: entry.resetAt };
   }
 
-  entry.count++;
   return {
     success: true,
     limit: config.requests,
@@ -72,17 +97,28 @@ function inMemoryRateLimit(key: string, preset: RateLimitPreset): RateLimitResul
   };
 }
 
-/**
- * Check rate limit for a given identifier and preset.
- */
+export function rateLimit(identifier: string, options: { limit: number; windowMs: number }): RateLimitResult {
+  const entry = getOrCreateEntry(identifier, options.windowMs);
+  entry.count += 1;
+
+  if (entry.count > options.limit) {
+    return { success: false, remaining: 0, resetAt: new Date(entry.resetAt) };
+  }
+
+  return {
+    success: true,
+    remaining: options.limit - entry.count,
+    resetAt: new Date(entry.resetAt),
+  };
+}
+
 export async function checkRateLimit(
   identifier: string,
   preset: RateLimitPreset = "api"
-): Promise<RateLimitResult> {
+): Promise<PresetRateLimitResult> {
   const limiters = getRatelimiters();
-
   if (!limiters) {
-    return inMemoryRateLimit(identifier, preset);
+    return inMemoryPresetRateLimit(identifier, preset);
   }
 
   const limiter = limiters[preset];
@@ -96,15 +132,12 @@ export async function checkRateLimit(
   };
 }
 
-/**
- * Extract a rate-limit identifier from a Next.js request.
- * Uses IP address, falling back to a generic identifier.
- */
-export function getIdentifier(req: NextRequest, suffix?: string): string {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
+export function getRateLimitIdentifier(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+}
 
+export function getIdentifier(request: NextRequest, suffix?: string): string {
+  const ip = getRateLimitIdentifier(request);
   return suffix ? `${ip}:${suffix}` : ip;
 }

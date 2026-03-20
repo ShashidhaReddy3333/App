@@ -175,6 +175,7 @@ model User {
   fullName         String
   email            String             @unique
   passwordHash     String?
+  emailVerifiedAt  DateTime?
   status           UserStatus         @default(invited)
   role             UserRole
   createdAt        DateTime           @default(now())
@@ -185,6 +186,7 @@ model User {
   ownedBusinesses  Business[]         @relation("BusinessOwner")
   sessions         Session[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   invitesSent      StaffInviteToken[] @relation("InviteSender")
   auditLogs        AuditLog[]
   cashSales        Sale[]             @relation("SaleCashier")
@@ -271,6 +273,7 @@ model Business {
   nextReceiptNumber          Int               @default(1)
   nextOrderNumber            Int               @default(1)
   nextPurchaseOrderNumber    Int               @default(1)
+  onboardingCompletedAt      DateTime?
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   owner                      User              @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Restrict)
@@ -388,6 +391,7 @@ model Product {
 
   @@unique([businessId, sku])
   @@index([businessId, category])
+  @@index([businessId, supplierId])
 }
 
 model CustomerProfile {
@@ -654,6 +658,7 @@ model Sale {
 
   @@index([businessId, status, completedAt])
   @@unique([businessId, receiptNumber])
+  @@index([businessId, cashierUserId])
 }
 
 model SaleItem {
@@ -709,6 +714,7 @@ model Refund {
   refundPayments    RefundPayment[]
 
   @@index([businessId, createdAt])
+  @@index([businessId, createdById])
 }
 
 model RefundItem {
@@ -832,6 +838,19 @@ model IdempotencyKey {
   business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, operation, key])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+  @@index([userId])
 }
 
 model AuthThrottle {

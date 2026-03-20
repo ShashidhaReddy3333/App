@@ -15,19 +15,20 @@ async function handleRequest(request: Request) {
     logEvent("info", "process_notifications_job_succeeded", {
       requestId: context.requestId,
       route: "/api/internal/jobs/process-notifications",
-      ...summary
+      ...summary,
     });
 
     return apiSuccess(summary, { message: "Queued notifications processed." });
   } catch (error) {
     logError("process_notifications_job_failed", error, {
       requestId: context.requestId,
-      route: "/api/internal/jobs/process-notifications"
+      route: "/api/internal/jobs/process-notifications",
     });
     return apiError(error);
   }
 }
 
+// GET is kept for Vercel Cron compatibility — Vercel sends GET requests to cron endpoints
 export async function GET(request: Request) {
   return handleRequest(request);
 }

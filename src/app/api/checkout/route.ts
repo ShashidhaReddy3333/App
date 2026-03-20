@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess("sales");
+    const { session, businessId } = await requireApiAccess("sales", { request });
     const payload = await request.json();
     const sale = await createCheckoutDraft(session.user.id, businessId, payload);
     return apiSuccess({ sale }, { status: 201, message: "Cart reserved and ready for payment." });

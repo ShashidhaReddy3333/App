@@ -24,8 +24,8 @@ export function ResetPasswordForm({ email, token }: { email: string; token: stri
     defaultValues: {
       email,
       token,
-      password: ""
-    }
+      password: "",
+    },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -34,7 +34,7 @@ export function ResetPasswordForm({ email, token }: { email: string; token: stri
       await requestJson<{ ok: boolean }>("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
 
       toast.success("Password updated.");
@@ -52,35 +52,38 @@ export function ResetPasswordForm({ email, token }: { email: string; token: stri
   });
 
   return (
-    <Card className="shadow-sm">
+    <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Reset password</CardTitle>
-        <CardDescription>Use the one-time token to set a new password. New passwords must be at least 8 characters long.</CardDescription>
+        <CardDescription>
+          Use the one-time token to set a new password. Must be at least 10 characters with
+          uppercase, lowercase, and a digit.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
-            </div>
+            {form.formState.errors.email ? (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="token">Reset token</Label>
             <Input id="token" {...form.register("token")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.token ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.token.message}</p> : null}
-            </div>
+            {form.formState.errors.token ? (
+              <p className="text-sm text-destructive">{form.formState.errors.token.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">New password</Label>
             <Input id="password" type="password" {...form.register("password")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.password ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.password.message}</p> : null}
-            </div>
+            {form.formState.errors.password ? (
+              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+            ) : null}
           </div>
-          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Resetting..." : "Reset password"}
           </Button>

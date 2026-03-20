@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ saleId: string }> }) {
   try {
-    const { session, businessId } = await requireApiAccess("refunds");
+    const { session, businessId } = await requireApiAccess("refunds", { request });
     const payload = await request.json();
     const { saleId } = await params;
     return apiSuccess(

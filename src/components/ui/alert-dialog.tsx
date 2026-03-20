@@ -5,7 +5,67 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+type ConfirmAlertDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
+  variant?: "default" | "destructive";
+};
+
+type AlertDialogRootProps = React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>;
+
+function isConfirmDialogProps(
+  props: ConfirmAlertDialogProps | AlertDialogRootProps
+): props is ConfirmAlertDialogProps {
+  return "title" in props && "description" in props && "onConfirm" in props;
+}
+
+function AlertDialog(props: ConfirmAlertDialogProps | AlertDialogRootProps) {
+  if (!isConfirmDialogProps(props)) {
+    return <AlertDialogPrimitive.Root {...props} />;
+  }
+
+  const {
+    cancelLabel = "Cancel",
+    confirmLabel = "Confirm",
+    description,
+    onConfirm,
+    onOpenChange,
+    open,
+    title,
+    variant = "default",
+  } = props;
+
+  function handleConfirm() {
+    onConfirm();
+    onOpenChange(false);
+  }
+
+  return (
+    <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction
+            className={variant === "destructive" ? "bg-destructive text-white hover:bg-destructive/90" : undefined}
+            onClick={handleConfirm}
+          >
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialogPrimitive.Root>
+  );
+}
+
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
 function AlertDialogContent({
@@ -89,5 +149,5 @@ export {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogAction,
-  AlertDialogCancel
+  AlertDialogCancel,
 };

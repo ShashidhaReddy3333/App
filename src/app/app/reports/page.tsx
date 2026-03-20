@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DollarSign, TrendingUp, ShoppingBag, Globe, Truck } from "lucide-react";
+import { ExportButton } from "@/components/export-button";
 import { PageHeader } from "@/components/page-header";
 import { ReportsChart, WeeklyRevenueLineChart } from "@/components/reports-charts";
 import { EmptyState } from "@/components/state-card";
@@ -23,12 +24,26 @@ export default async function ReportsPage() {
   const cards = toReportCards(report);
   const hasWeeklyRevenue = enhancedMetrics.weeklyRevenue.some((entry) => entry.revenue > 0);
 
+  const exportHeaders = ["Metric", "Value"];
+  const exportRows: (string | number | null | undefined)[][] = cards.map((card) => [
+    card.title,
+    card.value
+  ]);
+
+  if (report.paymentBreakdown.length > 0) {
+    exportRows.push([], ["Payment Method", "Amount"]);
+    for (const entry of report.paymentBreakdown) {
+      exportRows.push([entry.method, entry.amount]);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Reports"
         description="Daily and monthly performance summaries combine POS and online ordering, and use the business timezone for all cutoffs."
         breadcrumbs={[{ label: "Reports" }]}
+        actions={<ExportButton filename="report.csv" headers={exportHeaders} rows={exportRows} />}
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {cards.map((card, index) => {

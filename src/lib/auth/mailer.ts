@@ -11,6 +11,10 @@ function buildUrl(pathname: string, searchParams: Record<string, string>) {
   return url.toString();
 }
 
+export function buildEmailVerificationLink(email: string, token: string) {
+  return buildUrl("/verify-email", { email, token });
+}
+
 export function buildPasswordResetLink(email: string, token: string) {
   return buildUrl("/reset-password", { email, token });
 }
@@ -74,6 +78,17 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     subject: "Reset your Business Management App password",
     html: `<p>You requested a password reset for Business Management App.</p><p><a href="${resetLink}">Reset your password</a></p><p>If you did not request this, you can ignore this email.</p>`,
     text: `You requested a password reset for Business Management App.\n\nReset your password: ${resetLink}\n\nIf you did not request this, you can ignore this email.`
+  });
+}
+
+export async function sendEmailVerificationEmail(email: string, token: string) {
+  const verifyLink = buildEmailVerificationLink(email, token);
+
+  await sendEmail({
+    to: email,
+    subject: "Verify your email address",
+    html: `<p>Welcome! Please verify your email address to activate your account.</p><p><a href="${verifyLink}">Verify your email</a></p><p>This link will expire in 24 hours. If you did not create an account, you can ignore this email.</p>`,
+    text: `Welcome! Please verify your email address to activate your account.\n\nVerify your email: ${verifyLink}\n\nThis link will expire in 24 hours. If you did not create an account, you can ignore this email.`
   });
 }
 

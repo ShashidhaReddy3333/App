@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     const { purchaseOrderId } = await params;
-    const { session, businessId } = await requireApiAccess("procurement");
+    const { session, businessId } = await requireApiAccess("procurement", { request });
     const payload = await request.json();
     const purchaseOrder = await receivePurchaseOrder(session.user.id, businessId!, purchaseOrderId, payload);
     return apiSuccess({ purchaseOrder: { id: purchaseOrder.id } }, { message: "Goods received." });

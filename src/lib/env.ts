@@ -4,7 +4,9 @@ const demoModeSchema = z.enum(["true", "false"]).default("false");
 const databaseUrlSchema = z.string().min(1, "DATABASE_URL is required.");
 const sessionSecretSchema = z.string().min(16, "SESSION_SECRET must be at least 16 characters.");
 const appUrlSchema = z.string().url("APP_URL must be a valid absolute URL.");
-const resendApiKeySchema = z.string().min(1, "RESEND_API_KEY is required when email delivery is enabled.");
+const resendApiKeySchema = z
+  .string()
+  .min(1, "RESEND_API_KEY is required when email delivery is enabled.");
 const mailFromSchema = z.string().min(1, "MAIL_FROM is required when email delivery is enabled.");
 const mailReplyToSchema = z.string().min(1).optional();
 const sentryDsnSchema = z.string().url("SENTRY_DSN must be a valid absolute URL.");
@@ -101,30 +103,40 @@ export function getRuntimeCheckIssues() {
   const parsedSessionSecret = sessionSecretSchema.safeParse(process.env.SESSION_SECRET);
 
   if (!parsedDatabaseUrl.success) {
-    issues.push({ key: "DATABASE_URL", message: parsedDatabaseUrl.error.issues[0]?.message ?? "DATABASE_URL is required.", severity: "error" });
+    issues.push({
+      key: "DATABASE_URL",
+      message: parsedDatabaseUrl.error.issues[0]?.message ?? "DATABASE_URL is required.",
+      severity: "error",
+    });
   }
 
   if (!parsedSessionSecret.success) {
     issues.push({
       key: "SESSION_SECRET",
-      message: parsedSessionSecret.error.issues[0]?.message ?? "SESSION_SECRET must be at least 16 characters.",
-      severity: "error"
+      message:
+        parsedSessionSecret.error.issues[0]?.message ??
+        "SESSION_SECRET must be at least 16 characters.",
+      severity: "error",
     });
   } else if (parsedSessionSecret.data.length < 32) {
     issues.push({
       key: "SESSION_SECRET",
       message: "SESSION_SECRET should be at least 32 characters for production deployments.",
-      severity: nodeEnv === "production" ? "warning" : "warning"
+      severity: nodeEnv === "production" ? "error" : "warning",
     });
   }
 
   if (!parsedAppUrl.success) {
-    issues.push({ key: "APP_URL", message: parsedAppUrl.error.issues[0]?.message ?? "APP_URL must be a valid absolute URL.", severity: "error" });
+    issues.push({
+      key: "APP_URL",
+      message: parsedAppUrl.error.issues[0]?.message ?? "APP_URL must be a valid absolute URL.",
+      severity: "error",
+    });
   } else if (nodeEnv === "production" && !parsedAppUrl.data.startsWith("https://")) {
     issues.push({
       key: "APP_URL",
       message: "APP_URL should use https:// in production.",
-      severity: "warning"
+      severity: "warning",
     });
   }
 
@@ -133,14 +145,14 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "RESEND_API_KEY",
         message: "RESEND_API_KEY is required when DEMO_MODE=false.",
-        severity: "error"
+        severity: "error",
       });
     }
     if (!parseOptional(mailFromSchema, process.env.MAIL_FROM)) {
       issues.push({
         key: "MAIL_FROM",
         message: "MAIL_FROM is required when DEMO_MODE=false.",
-        severity: "error"
+        severity: "error",
       });
     }
   }
@@ -150,7 +162,7 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "SENTRY_DSN",
         message: "SENTRY_DSN is required in production so runtime failures are captured.",
-        severity: "warning"
+        severity: "warning",
       });
     }
 
@@ -158,7 +170,7 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "CRON_SECRET",
         message: "CRON_SECRET is required in production to protect internal job routes.",
-        severity: "error"
+        severity: "error",
       });
     }
 
@@ -183,7 +195,7 @@ export function getRuntimeCheckIssues() {
     issues.push({
       key: "DEMO_MODE",
       message: "DEMO_MODE should be false in production.",
-      severity: "warning"
+      severity: "warning",
     });
   }
 
@@ -192,7 +204,10 @@ export function getRuntimeCheckIssues() {
 
 export function validateRuntimeEnvironment(options?: { allowWarnings?: boolean }) {
   const issues = getRuntimeCheckIssues();
-  const blocking = issues.filter((issue) => issue.severity === "error" || (!options?.allowWarnings && issue.severity === "warning"));
+  const blocking = issues.filter(
+    (issue) =>
+      issue.severity === "error" || (!options?.allowWarnings && issue.severity === "warning")
+  );
 
   if (blocking.length > 0) {
     throw new Error(blocking.map((issue) => `${issue.key}: ${issue.message}`).join("\n"));
@@ -231,5 +246,5 @@ export const env = {
   },
   get CRON_SECRET() {
     return cronSecretSchema.parse(process.env.CRON_SECRET);
-  }
+  },
 } as const;

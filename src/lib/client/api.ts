@@ -2,6 +2,8 @@
 
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
 
+import { csrfFetch } from "@/lib/client/csrf";
+
 type ApiEnvelope<T> = {
   data: T;
   message?: string;
@@ -20,7 +22,7 @@ export class ApiClientError extends Error {
 }
 
 export async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit) {
-  const response = await fetch(input, init);
+  const response = await csrfFetch(input, init);
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> & {
     message?: string;
     code?: string;

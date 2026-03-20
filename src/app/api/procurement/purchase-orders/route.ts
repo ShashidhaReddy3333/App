@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess("procurement");
+    const { session, businessId } = await requireApiAccess("procurement", { request });
     const payload = await request.json();
     const purchaseOrder = await createPurchaseOrder(session.user.id, businessId!, payload);
     return apiSuccess({ purchaseOrder: { id: purchaseOrder.id } }, { status: 201, message: "Purchase order created." });

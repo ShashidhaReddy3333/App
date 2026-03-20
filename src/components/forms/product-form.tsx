@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,11 +19,12 @@ type Values = z.infer<typeof productSchema>;
 
 export function ProductForm({
   locationId,
-  suppliers
+  suppliers,
 }: {
   locationId: string;
   suppliers: Array<{ id: string; name: string; label: string }>;
 }) {
+  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(productSchema),
@@ -39,8 +41,8 @@ export function ProductForm({
       taxCategory: "",
       parLevel: 0,
       openingStock: 0,
-      allowOversell: false
-    }
+      allowOversell: false,
+    },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -49,11 +51,22 @@ export function ProductForm({
       await requestJson<{ product: { id: string } }>("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
       toast.success("Product created.");
-      form.reset({ ...form.getValues(), name: "", category: "", sku: "", barcode: "", purchasePrice: 0, sellingPrice: 0, taxCategory: "", parLevel: 0, openingStock: 0 });
-      window.location.reload();
+      form.reset({
+        ...form.getValues(),
+        name: "",
+        category: "",
+        sku: "",
+        barcode: "",
+        purchasePrice: 0,
+        sellingPrice: 0,
+        taxCategory: "",
+        parLevel: 0,
+        openingStock: 0,
+      });
+      router.refresh();
     } catch (error) {
       if (error instanceof ApiClientError) {
         applyFormIssues(form, error.issues);
@@ -67,10 +80,12 @@ export function ProductForm({
   });
 
   return (
-    <Card>
+    <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Add product</CardTitle>
-        <CardDescription>Create a product with opening stock and par level in one step.</CardDescription>
+        <CardDescription>
+          Create a product with opening stock and par level in one step.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
@@ -78,23 +93,23 @@ export function ProductForm({
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...form.register("name")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.name ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.name.message}</p> : null}
-            </div>
+            {form.formState.errors.name ? (
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
             <Input id="category" {...form.register("category")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.category ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.category.message}</p> : null}
-            </div>
+            {form.formState.errors.category ? (
+              <p className="text-sm text-destructive">{form.formState.errors.category.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="sku">SKU</Label>
             <Input id="sku" {...form.register("sku")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.sku ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.sku.message}</p> : null}
-            </div>
+            {form.formState.errors.sku ? (
+              <p className="text-sm text-destructive">{form.formState.errors.sku.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="barcode">Barcode</Label>
@@ -110,53 +125,83 @@ export function ProductForm({
                 </option>
               ))}
             </Select>
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.supplierId ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.supplierId.message}</p> : null}
-            </div>
+            {form.formState.errors.supplierId ? (
+              <p className="text-sm text-destructive">{form.formState.errors.supplierId.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="unitType">Unit type</Label>
             <Input id="unitType" {...form.register("unitType")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.unitType ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.unitType.message}</p> : null}
-            </div>
+            {form.formState.errors.unitType ? (
+              <p className="text-sm text-destructive">{form.formState.errors.unitType.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="purchasePrice">Purchase price</Label>
-            <Input id="purchasePrice" type="number" step="0.01" {...form.register("purchasePrice", { valueAsNumber: true })} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.purchasePrice ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.purchasePrice.message}</p> : null}
-            </div>
+            <Input
+              id="purchasePrice"
+              type="number"
+              step="0.01"
+              {...form.register("purchasePrice", { valueAsNumber: true })}
+            />
+            {form.formState.errors.purchasePrice ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.purchasePrice.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="sellingPrice">Selling price</Label>
-            <Input id="sellingPrice" type="number" step="0.01" {...form.register("sellingPrice", { valueAsNumber: true })} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.sellingPrice ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.sellingPrice.message}</p> : null}
-            </div>
+            <Input
+              id="sellingPrice"
+              type="number"
+              step="0.01"
+              {...form.register("sellingPrice", { valueAsNumber: true })}
+            />
+            {form.formState.errors.sellingPrice ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.sellingPrice.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="parLevel">Par level</Label>
-            <Input id="parLevel" type="number" step="0.001" {...form.register("parLevel", { valueAsNumber: true })} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.parLevel ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.parLevel.message}</p> : null}
-            </div>
+            <Input
+              id="parLevel"
+              type="number"
+              step="0.001"
+              {...form.register("parLevel", { valueAsNumber: true })}
+            />
+            {form.formState.errors.parLevel ? (
+              <p className="text-sm text-destructive">{form.formState.errors.parLevel.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="openingStock">Opening stock</Label>
-            <Input id="openingStock" type="number" step="0.001" {...form.register("openingStock", { valueAsNumber: true })} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.openingStock ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.openingStock.message}</p> : null}
-            </div>
+            <Input
+              id="openingStock"
+              type="number"
+              step="0.001"
+              {...form.register("openingStock", { valueAsNumber: true })}
+            />
+            {form.formState.errors.openingStock ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.openingStock.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="taxCategory">Tax category</Label>
             <Input id="taxCategory" {...form.register("taxCategory")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.taxCategory ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.taxCategory.message}</p> : null}
-            </div>
+            {form.formState.errors.taxCategory ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.taxCategory.message}
+              </p>
+            ) : null}
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
+          {serverError ? (
+            <p className="text-sm text-destructive md:col-span-2">{serverError}</p>
+          ) : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Saving..." : "Save product"}

@@ -31,14 +31,14 @@ const defaultValues: Values = {
   provinceOrState: "",
   postalCode: "",
   defaultTaxName: "HST",
-  defaultTaxRate: 13
+  defaultTaxRate: 13,
 };
 
 export function SignUpForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(signUpSchema),
-    defaultValues
+    defaultValues,
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -47,7 +47,7 @@ export function SignUpForm() {
       await requestJson<{ businessId: string }>("/api/auth/sign-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
 
       toast.success("Business created.");
@@ -65,40 +65,45 @@ export function SignUpForm() {
   });
 
   return (
-    <Card className="shadow-sm">
+    <Card className="gradient-panel">
       <CardHeader>
         <CardTitle>Create business</CardTitle>
-        <CardDescription>Set up the owner account, business profile, default location, and initial tax rule. Passwords must be at least 8 characters long.</CardDescription>
+        <CardDescription>
+          Set up the owner account, business profile, default location, and initial tax rule. Must
+          be at least 10 characters with uppercase, lowercase, and a digit.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor="ownerName">Owner name</Label>
             <Input id="ownerName" {...form.register("ownerName")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.ownerName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.ownerName.message}</p> : null}
-            </div>
+            {form.formState.errors.ownerName ? (
+              <p className="text-sm text-destructive">{form.formState.errors.ownerName.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Owner email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
-            </div>
+            {form.formState.errors.email ? (
+              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...form.register("password")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.password ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.password.message}</p> : null}
-            </div>
+            {form.formState.errors.password ? (
+              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="businessName">Business name</Label>
             <Input id="businessName" {...form.register("businessName")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.businessName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.businessName.message}</p> : null}
-            </div>
+            {form.formState.errors.businessName ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.businessName.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="businessType">Business type</Label>
@@ -112,9 +117,11 @@ export function SignUpForm() {
               <option value="wholesale">wholesale</option>
               <option value="service_with_products">service with products</option>
             </Select>
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.businessType ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.businessType.message}</p> : null}
-            </div>
+            {form.formState.errors.businessType ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.businessType.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="taxMode">Tax mode</Label>
@@ -123,67 +130,82 @@ export function SignUpForm() {
               <option value="inclusive_tax">inclusive tax</option>
               <option value="no_tax">no tax</option>
             </Select>
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.taxMode ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.taxMode.message}</p> : null}
-            </div>
+            {form.formState.errors.taxMode ? (
+              <p className="text-sm text-destructive">{form.formState.errors.taxMode.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="currency">Currency</Label>
             <Input id="currency" {...form.register("currency")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.currency ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.currency.message}</p> : null}
-            </div>
+            {form.formState.errors.currency ? (
+              <p className="text-sm text-destructive">{form.formState.errors.currency.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="timezone">Timezone</Label>
             <Input id="timezone" {...form.register("timezone")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.timezone ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.timezone.message}</p> : null}
-            </div>
+            {form.formState.errors.timezone ? (
+              <p className="text-sm text-destructive">{form.formState.errors.timezone.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="addressLine1">Address</Label>
             <Input id="addressLine1" {...form.register("addressLine1")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.addressLine1 ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.addressLine1.message}</p> : null}
-            </div>
+            {form.formState.errors.addressLine1 ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.addressLine1.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="city">City</Label>
             <Input id="city" {...form.register("city")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.city ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.city.message}</p> : null}
-            </div>
+            {form.formState.errors.city ? (
+              <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="provinceOrState">Province / state</Label>
             <Input id="provinceOrState" {...form.register("provinceOrState")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.provinceOrState ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.provinceOrState.message}</p> : null}
-            </div>
+            {form.formState.errors.provinceOrState ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.provinceOrState.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="postalCode">Postal code</Label>
             <Input id="postalCode" {...form.register("postalCode")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.postalCode ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.postalCode.message}</p> : null}
-            </div>
+            {form.formState.errors.postalCode ? (
+              <p className="text-sm text-destructive">{form.formState.errors.postalCode.message}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="defaultTaxName">Default tax name</Label>
             <Input id="defaultTaxName" {...form.register("defaultTaxName")} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.defaultTaxName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.defaultTaxName.message}</p> : null}
-            </div>
+            {form.formState.errors.defaultTaxName ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.defaultTaxName.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="defaultTaxRate">Default tax rate</Label>
-            <Input id="defaultTaxRate" type="number" step="0.01" {...form.register("defaultTaxRate", { valueAsNumber: true })} />
-            <div aria-live="polite" aria-atomic="true">
-              {form.formState.errors.defaultTaxRate ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.defaultTaxRate.message}</p> : null}
-            </div>
+            <Input
+              id="defaultTaxRate"
+              type="number"
+              step="0.01"
+              {...form.register("defaultTaxRate", { valueAsNumber: true })}
+            />
+            {form.formState.errors.defaultTaxRate ? (
+              <p className="text-sm text-destructive">
+                {form.formState.errors.defaultTaxRate.message}
+              </p>
+            ) : null}
           </div>
-          {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
+          {serverError ? (
+            <p className="text-sm text-destructive md:col-span-2">{serverError}</p>
+          ) : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Creating business..." : "Create business"}

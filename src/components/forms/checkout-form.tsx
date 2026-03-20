@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import { ApiClientError, applyFormIssues, requestJson } from "@/lib/client/api";
+import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
 import { checkoutSchema } from "@/lib/schemas/sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export function CheckoutForm({
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const firstProductRef = useRef<HTMLSelectElement>(null);
   const form = useForm<Values>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
@@ -52,7 +54,26 @@ export function CheckoutForm({
     }
   };
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  // Keyboard shortcuts
+  useKeyboardShortcut("Escape", () => {
+    form.reset();
+    setServerError(null);
+    toast.info("Checkout form cleared.");
+  });
+
+  useKeyboardShortcut("F1", () => {
+    firstProductRef.current?.focus();
+  });
+
+  useKeyboardShortcut("F2", () => {
+    items.append({ productId: products[0]?.id ?? "", quantity: 1, unitPrice: products[0]?.sellingPrice ?? 0 });
+  });
+
+  useKeyboardShortcut("Enter", () => {
+    form.handleSubmit((values) => onSubmitHandler(values))();
+  }, { ctrl: true });
+
+  const onSubmitHandler = async (values: Values) => {
     setServerError(null);
     try {
       const payload = await requestJson<{ sale: { id: string } }>("/api/checkout", {
@@ -73,7 +94,9 @@ export function CheckoutForm({
       setServerError("Unable to create checkout.");
       toast.error("Unable to create checkout.");
     }
-  });
+  };
+
+  const onSubmit = form.handleSubmit(onSubmitHandler);
 
   return (
     <Card>
@@ -89,6 +112,7 @@ export function CheckoutForm({
               <div className="space-y-2">
                 <Label htmlFor={`items.${index}.productId`}>Product</Label>
                 <Select
+                  ref={index === 0 ? firstProductRef : undefined}
                   id={`items.${index}.productId`}
                   value={form.watch(`items.${index}.productId`)}
                   onChange={(event) => updateProduct(index, event.target.value)}
