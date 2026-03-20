@@ -1,83 +1,68 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { rateLimit, getRateLimitIdentifier } from "@/lib/rate-limit";
+import { withRateLimit } from "@/lib/api-rate-limit";
+import { _resetStoreForTesting, getRateLimitIdentifier, rateLimit } from "@/lib/rate-limit";
 
 describe("rateLimit", () => {
   beforeEach(() => {
-    // Use unique keys per test to avoid cross-test pollution
-    vi.restoreAllMocks();
+    _resetStoreForTesting();
+    vi.useFakeTimers();
   });
 
-  it("allows requests under the limit", () => {
-    const key = `test-under-limit-${Date.now()}`;
-    const opts = { limit: 5, windowMs: 60_000 };
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-    const r1 = rateLimit(key, opts);
-    expect(r1.success).toBe(true);
+  it("allows requests up to the limit", () => {
+    for (let index = 0; index < 5; index++) {
+      const result = rateLimit("user1", { limit: 5, windowMs: 60_000 });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("blocks the request that exceeds the limit", () => {
+    for (let index = 0; index < 5; index++) {
+      rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    }
+
+    const result = rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    expect(result.success).toBe(false);
+    expect(result.remaining).toBe(0);
+  });
+
+  it("decrements remaining on each allowed request", () => {
+    const r1 = rateLimit("user1", { limit: 5, windowMs: 60_000 });
     expect(r1.remaining).toBe(4);
 
-    const r2 = rateLimit(key, opts);
-    expect(r2.success).toBe(true);
+    const r2 = rateLimit("user1", { limit: 5, windowMs: 60_000 });
     expect(r2.remaining).toBe(3);
   });
 
-  it("rejects requests over the limit", () => {
-    const key = `test-over-limit-${Date.now()}`;
-    const opts = { limit: 3, windowMs: 60_000 };
+  it("isolates different identifiers", () => {
+    for (let index = 0; index < 5; index++) {
+      rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    }
 
-    rateLimit(key, opts);
-    rateLimit(key, opts);
-    rateLimit(key, opts);
-
-    const r4 = rateLimit(key, opts);
-    expect(r4.success).toBe(false);
-    expect(r4.remaining).toBe(0);
+    const result = rateLimit("user2", { limit: 5, windowMs: 60_000 });
+    expect(result.success).toBe(true);
+    expect(result.remaining).toBe(4);
   });
 
-  it("allows the exact number of requests at the limit", () => {
-    const key = `test-exact-limit-${Date.now()}`;
-    const opts = { limit: 2, windowMs: 60_000 };
+  it("allows requests again after the window expires", () => {
+    vi.setSystemTime(0);
+    for (let index = 0; index < 5; index++) {
+      rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    }
 
-    const r1 = rateLimit(key, opts);
-    expect(r1.success).toBe(true);
-    expect(r1.remaining).toBe(1);
-
-    const r2 = rateLimit(key, opts);
-    expect(r2.success).toBe(true);
-    expect(r2.remaining).toBe(0);
-
-    const r3 = rateLimit(key, opts);
-    expect(r3.success).toBe(false);
+    vi.setSystemTime(61_000);
+    const result = rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    expect(result.success).toBe(true);
   });
 
-  it("resets after window expires", () => {
-    const key = `test-window-reset-${Date.now()}`;
-    const opts = { limit: 1, windowMs: 100 };
-
-    const r1 = rateLimit(key, opts);
-    expect(r1.success).toBe(true);
-
-    const r2 = rateLimit(key, opts);
-    expect(r2.success).toBe(false);
-
-    // Simulate time passing beyond the window by manipulating Date.now
-    const original = Date.now;
-    vi.spyOn(Date, "now").mockReturnValue(original() + 200);
-
-    const r3 = rateLimit(key, opts);
-    expect(r3.success).toBe(true);
-    expect(r3.remaining).toBe(0);
-
-    vi.restoreAllMocks();
-  });
-
-  it("returns a resetAt Date in the future", () => {
-    const key = `test-reset-date-${Date.now()}`;
-    const before = Date.now();
-    const result = rateLimit(key, { limit: 10, windowMs: 30_000 });
-
-    expect(result.resetAt).toBeInstanceOf(Date);
-    expect(result.resetAt.getTime()).toBeGreaterThanOrEqual(before);
+  it("returns a resetAt in the future", () => {
+    vi.setSystemTime(0);
+    const result = rateLimit("user1", { limit: 5, windowMs: 60_000 });
+    expect(result.resetAt.getTime()).toBe(60_000);
   });
 });
 
@@ -89,8 +74,64 @@ describe("getRateLimitIdentifier", () => {
     expect(getRateLimitIdentifier(request)).toBe("192.168.1.1");
   });
 
-  it("returns 'unknown' when x-forwarded-for is missing", () => {
+  it("returns unknown when forwarding headers are missing", () => {
     const request = new Request("http://localhost/api/test");
     expect(getRateLimitIdentifier(request)).toBe("unknown");
+  });
+});
+
+describe("withRateLimit", () => {
+  beforeEach(() => {
+    _resetStoreForTesting();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeRequest(options: { method?: string; ip?: string; url?: string } = {}): Request {
+    return new Request(options.url ?? "http://localhost/api/test", {
+      method: options.method ?? "POST",
+      headers: options.ip ? { "x-forwarded-for": options.ip } : {},
+    });
+  }
+
+  it("calls through to the handler when under the limit", async () => {
+    const handler = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    const wrapped = withRateLimit(handler, { limit: 5, windowMs: 60_000 });
+
+    const response = await wrapped(makeRequest({ ip: "1.2.3.4" }));
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("returns 429 when the limit is exceeded", async () => {
+    const handler = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    const wrapped = withRateLimit(handler, { limit: 2, windowMs: 60_000 });
+
+    await wrapped(makeRequest({ ip: "1.2.3.4" }));
+    await wrapped(makeRequest({ ip: "1.2.3.4" }));
+    const response = await wrapped(makeRequest({ ip: "1.2.3.4" }));
+
+    expect(response.status).toBe(429);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it("includes retry headers on 429", async () => {
+    vi.setSystemTime(0);
+    const wrapped = withRateLimit(vi.fn().mockResolvedValue(new Response("ok")), {
+      limit: 1,
+      windowMs: 60_000,
+    });
+
+    await wrapped(makeRequest({ ip: "5.5.5.5" }));
+    const response = await wrapped(makeRequest({ ip: "5.5.5.5" }));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+    expect(response.headers.get("X-RateLimit-Limit")).toBe("1");
+    expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+    expect(response.headers.get("X-RateLimit-Reset")).toBeTruthy();
   });
 });

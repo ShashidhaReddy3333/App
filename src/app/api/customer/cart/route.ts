@@ -1,5 +1,5 @@
+import { withRateLimit } from "@/lib/api-rate-limit";
 import { requireApiAccess } from "@/lib/auth/api-guard";
-import { checkRateLimit } from "@/lib/api-rate-limit";
 import { apiError, apiSuccess } from "@/lib/http";
 import {
   addItemToCustomerCart,
@@ -22,10 +22,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  const rateLimitResponse = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
-  if (rateLimitResponse) return rateLimitResponse;
-
+const postHandler = async (request: Request) => {
   try {
     const { session } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
@@ -38,12 +35,9 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError(error);
   }
-}
+};
 
-export async function DELETE(request: Request) {
-  const rateLimitResponse = checkRateLimit(request, { limit: 30, windowMs: 60_000 });
-  if (rateLimitResponse) return rateLimitResponse;
-
+const deleteHandler = async (request: Request) => {
   try {
     const { session } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
@@ -56,4 +50,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return apiError(error);
   }
-}
+};
+
+export const POST = withRateLimit(postHandler, { limit: 30, windowMs: 60_000 });
+export const DELETE = withRateLimit(deleteHandler, { limit: 20, windowMs: 60_000 });

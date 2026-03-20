@@ -3,19 +3,15 @@ import type { NextRequest } from "next/server";
 
 import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
 
-type RateLimitStoreEntry = { count: number; resetAt: number };
+const CLEANUP_INTERVAL_MS = 60_000;
+const MAX_WINDOW_MS = 5 * 60_000;
 
-const rateStore = new Map<string, RateLimitStoreEntry>();
-const cleanupTimer = setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateStore) {
-    if (value.resetAt <= now) {
-      rateStore.delete(key);
-    }
-  }
-}, 60_000);
+type WindowEntry = {
+  timestamps: number[];
+};
 
-cleanupTimer.unref?.();
+const store = new Map<string, WindowEntry>();
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 export interface PresetRateLimitResult {
   success: boolean;
@@ -41,6 +37,29 @@ const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number 
 };
 
 let rateLimiters: Record<RateLimitPreset, Ratelimit> | null = null;
+
+function cleanupExpiredEntries(): void {
+  const cutoff = Date.now() - MAX_WINDOW_MS;
+  for (const [key, entry] of store.entries()) {
+    const filtered = entry.timestamps.filter((timestamp) => timestamp > cutoff);
+    if (filtered.length === 0) {
+      store.delete(key);
+    } else {
+      entry.timestamps = filtered;
+    }
+  }
+}
+
+function ensureCleanupStarted(): void {
+  if (cleanupTimer !== null) {
+    return;
+  }
+
+  cleanupTimer = setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS);
+  if (typeof cleanupTimer === "object" && cleanupTimer !== null && "unref" in cleanupTimer) {
+    cleanupTimer.unref();
+  }
+}
 
 function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
   if (!isRedisAvailable()) {
@@ -68,48 +87,32 @@ function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
   return rateLimiters;
 }
 
-function getOrCreateEntry(key: string, windowMs: number): RateLimitStoreEntry {
-  const now = Date.now();
-  const entry = rateStore.get(key);
-  if (!entry || entry.resetAt <= now) {
-    const nextEntry = { count: 0, resetAt: now + windowMs };
-    rateStore.set(key, nextEntry);
-    return nextEntry;
-  }
-
-  return entry;
-}
-
-function inMemoryPresetRateLimit(key: string, preset: RateLimitPreset): PresetRateLimitResult {
-  const config = LIMITS[preset];
-  const entry = getOrCreateEntry(key, config.windowSeconds * 1000);
-  entry.count += 1;
-
-  if (entry.count > config.requests) {
-    return { success: false, limit: config.requests, remaining: 0, reset: entry.resetAt };
-  }
-
-  return {
-    success: true,
-    limit: config.requests,
-    remaining: config.requests - entry.count,
-    reset: entry.resetAt,
-  };
-}
-
 export function rateLimit(identifier: string, options: { limit: number; windowMs: number }): RateLimitResult {
-  const entry = getOrCreateEntry(identifier, options.windowMs);
-  entry.count += 1;
+  const { limit, windowMs } = options;
+  const now = Date.now();
+  const windowStart = now - windowMs;
 
-  if (entry.count > options.limit) {
-    return { success: false, remaining: 0, resetAt: new Date(entry.resetAt) };
+  ensureCleanupStarted();
+
+  let entry = store.get(identifier);
+  if (!entry) {
+    entry = { timestamps: [] };
+    store.set(identifier, entry);
   }
 
-  return {
-    success: true,
-    remaining: options.limit - entry.count,
-    resetAt: new Date(entry.resetAt),
-  };
+  entry.timestamps = entry.timestamps.filter((timestamp) => timestamp > windowStart);
+
+  const count = entry.timestamps.length;
+  const success = count < limit;
+  if (success) {
+    entry.timestamps.push(now);
+  }
+
+  const remaining = Math.max(0, limit - entry.timestamps.length);
+  const oldest = entry.timestamps[0];
+  const resetAt = new Date(oldest !== undefined ? oldest + windowMs : now + windowMs);
+
+  return { success, remaining, resetAt };
 }
 
 export async function checkRateLimit(
@@ -118,12 +121,18 @@ export async function checkRateLimit(
 ): Promise<PresetRateLimitResult> {
   const limiters = getRatelimiters();
   if (!limiters) {
-    return inMemoryPresetRateLimit(identifier, preset);
+    const config = LIMITS[preset];
+    const result = rateLimit(identifier, { limit: config.requests, windowMs: config.windowSeconds * 1000 });
+    return {
+      success: result.success,
+      limit: config.requests,
+      remaining: result.remaining,
+      reset: result.resetAt.getTime(),
+    };
   }
 
   const limiter = limiters[preset];
   const result = await limiter.limit(identifier);
-
   return {
     success: result.success,
     limit: result.limit,
@@ -140,4 +149,12 @@ export function getRateLimitIdentifier(request: Request): string {
 export function getIdentifier(request: NextRequest, suffix?: string): string {
   const ip = getRateLimitIdentifier(request);
   return suffix ? `${ip}:${suffix}` : ip;
+}
+
+export function _resetStoreForTesting(): void {
+  store.clear();
+  if (cleanupTimer !== null) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
+  }
 }
