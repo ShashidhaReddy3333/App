@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   try {
     const { purchaseOrderId } = await params;
-    const { session } = await requireApiAccess("supplier_portal", { roles: ["supplier"] });
+    const { session } = await requireApiAccess("supplier_portal", { roles: ["supplier"], request });
     const payload = await request.json();
     const purchaseOrder = await updateSupplierPurchaseOrderStatus(session.user.id, purchaseOrderId, payload);
     return apiSuccess({ purchaseOrder: { id: purchaseOrder.id } }, { message: "Purchase order updated." });

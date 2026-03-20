@@ -106,6 +106,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Pass current pathname to server components via header
+  requestHeaders.set("x-pathname", pathname);
+
   const response = NextResponse.next({
     request: {
       headers: requestHeaders

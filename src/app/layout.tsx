@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "@/app/globals.css";
+import { CsrfProvider } from "@/components/csrf-provider";
 import { MonitoringClient } from "@/components/monitoring-client";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -38,7 +39,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Skip to main content
         </a>
-        {children}
+        <CsrfProvider>
+          {children}
+        </CsrfProvider>
         <MonitoringClient />
         <Toaster richColors position="top-right" />
       </body>

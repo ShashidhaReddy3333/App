@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const { session } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
       roles: ["customer"],
+      request,
     });
     const payload = await request.json();
     const cart = await addItemToCustomerCart(session.user.id, payload);
@@ -47,6 +48,7 @@ export async function DELETE(request: Request) {
     const { session } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
       roles: ["customer"],
+      request,
     });
     const payload = await request.json();
     const cart = await removeItemFromCustomerCart(session.user.id, payload);

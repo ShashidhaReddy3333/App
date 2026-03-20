@@ -1,7 +1,7 @@
 import { BusinessType, TaxMode, UserRole, UserStatus } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
-import { sendPasswordResetEmail, sendStaffInviteEmail } from "@/lib/auth/mailer";
+import { sendEmailVerificationEmail, sendPasswordResetEmail, sendStaffInviteEmail } from "@/lib/auth/mailer";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -23,6 +23,8 @@ const PASSWORD_RESET_WINDOW_MINUTES = 30;
 const PASSWORD_RESET_LIMIT = 3;
 const STAFF_INVITE_WINDOW_MINUTES = 60;
 const STAFF_INVITE_LIMIT = 10;
+const EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
+const RESEND_VERIFICATION_COOLDOWN_SECONDS = 60;
 
 async function assertLoginNotBlocked(email: string, ipAddress: string | null) {
   const throttleIpAddress = ipAddress ?? "unknown";
@@ -117,6 +119,118 @@ async function assertInviteNotThrottled(businessId: string, email: string) {
   }
 }
 
+export async function generateVerificationToken(userId: string) {
+  const rawToken = createOpaqueToken();
+  await db.emailVerificationToken.create({
+    data: {
+      userId,
+      tokenHash: hashToken(rawToken),
+      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000)
+    }
+  });
+  return rawToken;
+}
+
+export async function verifyEmail(email: string, token: string) {
+  const normalizedEmail = email.toLowerCase();
+  const user = await db.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (!user) {
+    throw validationError("Invalid verification request.");
+  }
+
+  if (user.emailVerifiedAt) {
+    return { ok: true, alreadyVerified: true };
+  }
+
+  const tokenHash = hashToken(token);
+  const verificationToken = await db.emailVerificationToken.findFirst({
+    where: {
+      userId: user.id,
+      tokenHash,
+      usedAt: null,
+      expiresAt: { gt: new Date() }
+    }
+  });
+
+  if (!verificationToken) {
+    throw validationError("Verification link is invalid or expired.", {
+      fieldErrors: {
+        token: ["Verification link is invalid or expired."]
+      }
+    });
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date() }
+    });
+
+    await tx.emailVerificationToken.update({
+      where: { id: verificationToken.id },
+      data: { usedAt: new Date() }
+    });
+  });
+
+  return { ok: true, alreadyVerified: false };
+}
+
+export async function resendVerificationEmail(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!user) {
+    throw notFoundError("User not found.");
+  }
+
+  if (user.emailVerifiedAt) {
+    return { ok: true, alreadyVerified: true };
+  }
+
+  // Rate limit: check last token creation time
+  const recentToken = await db.emailVerificationToken.findFirst({
+    where: {
+      userId,
+      createdAt: { gte: new Date(Date.now() - RESEND_VERIFICATION_COOLDOWN_SECONDS * 1000) }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (recentToken) {
+    throw conflictError("Please wait before requesting another verification email.");
+  }
+
+  const rawToken = await generateVerificationToken(userId);
+
+  if (env.DEMO_MODE !== "true") {
+    await sendEmailVerificationEmail(user.email, rawToken);
+  }
+
+  return { ok: true, alreadyVerified: false };
+}
+
+async function sendVerificationForNewUser(userId: string, email: string) {
+  if (env.DEMO_MODE === "true") {
+    // In demo mode, auto-verify for convenience
+    await db.user.update({
+      where: { id: userId },
+      data: { emailVerifiedAt: new Date() }
+    });
+    return;
+  }
+
+  const rawToken = await generateVerificationToken(userId);
+  try {
+    await sendEmailVerificationEmail(email, rawToken);
+  } catch {
+    // If email sending fails, still allow sign-up but user can resend later
+  }
+}
+
 function duplicateEmailError() {
   return validationError("An account with this email already exists.", {
     fieldErrors: {
@@ -138,7 +252,7 @@ export async function registerOwner(input: unknown) {
 
   const passwordHash = await hashPassword(values.password);
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         fullName: values.ownerName,
@@ -212,6 +326,10 @@ export async function registerOwner(input: unknown) {
 
     return { user, business };
   });
+
+  await sendVerificationForNewUser(result.user.id, normalizedEmail);
+
+  return result;
 }
 
 export async function registerCustomer(input: unknown) {
@@ -242,6 +360,8 @@ export async function registerCustomer(input: unknown) {
     }
   });
 
+  await sendVerificationForNewUser(user.id, normalizedEmail);
+
   return user;
 }
 
@@ -267,7 +387,7 @@ export async function registerSupplierUser(input: unknown) {
 
   const passwordHash = await hashPassword(values.password);
 
-  return db.$transaction(async (tx) => {
+  const user = await db.$transaction(async (tx) => {
     const supplier = await tx.supplier.create({
       data: {
         businessId: business.id,
@@ -279,7 +399,7 @@ export async function registerSupplierUser(input: unknown) {
       }
     });
 
-    const user = await tx.user.create({
+    const createdUser = await tx.user.create({
       data: {
         businessId: business.id,
         supplierId: supplier.id,
@@ -297,15 +417,19 @@ export async function registerSupplierUser(input: unknown) {
     await logAudit({
       tx,
       businessId: business.id,
-      actorUserId: user.id,
+      actorUserId: createdUser.id,
       action: "supplier_portal_onboarded",
       resourceType: "supplier",
       resourceId: supplier.id,
       metadata: { supplierName: supplier.name }
     });
 
-    return user;
+    return createdUser;
   });
+
+  await sendVerificationForNewUser(user.id, normalizedEmail);
+
+  return user;
 }
 
 export async function authenticateUser(input: unknown, ipAddress: string | null) {

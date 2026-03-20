@@ -8,6 +8,7 @@ import { UserRole } from "@prisma/client";
 import {
   Activity,
   BarChart3,
+  Bell,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -25,6 +26,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { hasPermission } from "@/lib/rbac";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navItems = [
@@ -106,6 +108,13 @@ const navItems = [
     group: "admin",
   },
   { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff", group: "admin" },
+  {
+    href: "/app/notifications" as Route,
+    label: "Notifications",
+    icon: Bell,
+    permission: "sales",
+    group: "admin",
+  },
   {
     href: "/app/sessions" as Route,
     label: "Sessions",
@@ -252,6 +261,7 @@ export function AppShell({
         </div>
         <div id="main-content">{children}</div>
       </div>
+      <KeyboardShortcutsHelp />
     </div>
   );
 }

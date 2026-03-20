@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const { session } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
       roles: ["customer"],
+      request,
     });
     const payload = await request.json();
     const order = await checkoutCustomerCart(session.user.id, payload);

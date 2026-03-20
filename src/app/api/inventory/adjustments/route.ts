@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const { session, businessId } = await requireApiAccess("inventory");
+    const { session, businessId } = await requireApiAccess("inventory", { request });
     const payload = await request.json();
     const movement = await adjustInventory(session.user.id, businessId, payload);
     return apiSuccess({ movement }, { status: 201, message: "Inventory adjusted." });

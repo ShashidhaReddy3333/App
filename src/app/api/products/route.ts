@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const { session, businessId } = await requireApiAccess("products");
+    const { session, businessId } = await requireApiAccess("products", { request });
     const payload = await request.json();
     const product = await createProduct(session.user.id, businessId, payload);
     return apiSuccess({ product }, { status: 201, message: "Product created." });

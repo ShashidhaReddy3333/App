@@ -38,6 +38,7 @@ async function resetDatabase() {
   await prisma.purchaseOrder.deleteMany();
   await prisma.location.deleteMany();
   await prisma.staffInviteToken.deleteMany();
+  await prisma.emailVerificationToken.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.session.deleteMany();
   await prisma.taxRate.deleteMany();
@@ -68,7 +69,8 @@ async function main() {
       email: "owner@demo.local",
       passwordHash,
       role: UserRole.owner,
-      status: UserStatus.active
+      status: UserStatus.active,
+      emailVerifiedAt: new Date()
     }
   });
 
@@ -113,7 +115,8 @@ async function main() {
         email: "manager@demo.local",
         passwordHash,
         role: UserRole.manager,
-        status: UserStatus.active
+        status: UserStatus.active,
+        emailVerifiedAt: new Date()
       }
     }),
     prisma.user.create({
@@ -123,7 +126,8 @@ async function main() {
         email: "cashier@demo.local",
         passwordHash,
         role: UserRole.cashier,
-        status: UserStatus.active
+        status: UserStatus.active,
+        emailVerifiedAt: new Date()
       }
     }),
     prisma.user.create({
@@ -133,7 +137,8 @@ async function main() {
         email: "inventory@demo.local",
         passwordHash,
         role: UserRole.inventory_staff,
-        status: UserStatus.active
+        status: UserStatus.active,
+        emailVerifiedAt: new Date()
       }
     })
   ]);
@@ -176,6 +181,7 @@ async function main() {
         passwordHash,
         role: UserRole.supplier,
         status: UserStatus.active,
+        emailVerifiedAt: new Date(),
         notificationPreference: {
           create: {}
         }
@@ -188,6 +194,7 @@ async function main() {
         passwordHash,
         role: UserRole.customer,
         status: UserStatus.active,
+        emailVerifiedAt: new Date(),
         customerProfile: {
           create: {
             preferredStoreId: location.id
@@ -721,7 +728,8 @@ async function main() {
     data: {
       nextReceiptNumber: 3,
       nextOrderNumber: 2,
-      nextPurchaseOrderNumber: 2
+      nextPurchaseOrderNumber: 2,
+      onboardingCompletedAt: new Date()
     }
   });
 

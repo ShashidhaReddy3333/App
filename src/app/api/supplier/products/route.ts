@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   try {
     const { session, businessId } = await requireApiAccess("supplier_portal", {
       roles: ["supplier"],
+      request,
     });
     if (!session.user.supplierId) {
       throw notFoundError("Supplier profile not found.");

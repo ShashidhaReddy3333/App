@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const context = getRequestContext(request);
   try {
-    const { session } = await requireApiAccess("staff");
+    const { session } = await requireApiAccess("staff", { request });
     const payload = await request.json();
     const result = await inviteStaff(session.user.id, payload, context.ipAddress);
     logEvent("info", "staff_invite_requested", {

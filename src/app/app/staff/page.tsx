@@ -1,19 +1,12 @@
 import { InviteStaffForm } from "@/components/forms/invite-staff-form";
 import { PendingInvitesList } from "@/components/pending-invites-list";
 import { PageHeader } from "@/components/page-header";
+import { StaffList } from "@/components/staff-list";
 import { EmptyState } from "@/components/state-card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listPendingInvites, listStaff } from "@/lib/services/management-query-service";
 import { toPendingInviteCards, toStaffCards } from "@/lib/view-models/app";
-
-function getRoleBadgeVariant(role: string): "default" | "success" | "warning" | "secondary" {
-  if (role.includes("owner")) return "success";
-  if (role.includes("manager")) return "default";
-  if (role.includes("cashier")) return "warning";
-  return "secondary";
-}
 
 export default async function StaffPage() {
   const session = await requirePermission("staff");
@@ -52,28 +45,7 @@ export default async function StaffPage() {
             {cards.length === 0 ? (
               <EmptyState title="No staff members yet" description="Send the first invite to add a manager, cashier, or inventory team member." />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {cards.map((user) => (
-                  <Card key={user.id} className="gradient-panel transition-all duration-200 hover:shadow-md">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>{user.fullName}</CardTitle>
-                          <CardDescription>{user.email}</CardDescription>
-                        </div>
-                        <Badge variant={getRoleBadgeVariant(user.roleLabel)}>
-                          {user.roleLabel}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                      <Badge variant={user.status === "active" ? "success" : "secondary"}>
-                        {user.status}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <StaffList cards={cards} />
             )}
           </div>
         </div>
