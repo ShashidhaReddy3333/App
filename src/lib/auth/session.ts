@@ -3,9 +3,24 @@ import { cookies, headers } from "next/headers";
 import { unauthorizedError } from "@/lib/errors";
 import { db } from "@/lib/db";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
-import { shouldUseSecureSessionCookie } from "@/lib/auth/session-cookie";
+import { getSessionCookieDomain, shouldUseSecureSessionCookie } from "@/lib/auth/session-cookie";
 
 const SESSION_COOKIE = "bma_session";
+const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
+const SESSION_SLIDING_WINDOW_MS = 1000 * 60 * 60 * 24;
+
+function getSessionCookieOptions(expires: Date) {
+  const domain = getSessionCookieDomain();
+
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: shouldUseSecureSessionCookie(),
+    path: "/",
+    expires,
+    ...(domain ? { domain } : {}),
+  };
+}
 
 export async function createSession(userId: string) {
   const token = createOpaqueToken();
@@ -22,18 +37,12 @@ export async function createSession(userId: string) {
       ipAddressLastSeen: forwardedFor?.split(",")[0]?.trim() ?? null,
       userAgentLastSeen: userAgent ?? null,
       refreshTokenHash: tokenHash,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+      expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
       lastSeenAt: new Date()
     }
   });
 
-  cookieStore.set(SESSION_COOKIE, `${session.id}.${token}`, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: shouldUseSecureSessionCookie(),
-    path: "/",
-    expires: session.expiresAt
-  });
+  cookieStore.set(SESSION_COOKIE, `${session.id}.${token}`, getSessionCookieOptions(session.expiresAt));
 
   return session;
 }
@@ -46,12 +55,14 @@ export async function getCurrentSession() {
   const [sessionId, token] = cookie.split(".");
   if (!sessionId || !token) return null;
 
+  const now = new Date();
+
   const session = await db.session.findFirst({
     where: {
       id: sessionId,
       refreshTokenHash: hashToken(token),
       revokedAt: null,
-      expiresAt: { gt: new Date() }
+      expiresAt: { gt: now }
     },
     include: {
       user: {
@@ -63,7 +74,33 @@ export async function getCurrentSession() {
   });
 
   if (!session) return null;
-  return session;
+
+  const lastActivityAt = session.lastSeenAt ?? session.createdAt;
+  const shouldExtendSession = now.getTime() - lastActivityAt.getTime() > SESSION_SLIDING_WINDOW_MS;
+  const updatedSession = await db.session.update({
+    where: { id: session.id },
+    data: {
+      lastSeenAt: now,
+      ...(shouldExtendSession ? { expiresAt: new Date(now.getTime() + SESSION_DURATION_MS) } : {}),
+    },
+    include: {
+      user: {
+        include: {
+          business: true
+        }
+      }
+    }
+  });
+
+  if (shouldExtendSession) {
+    try {
+      cookieStore.set(SESSION_COOKIE, cookie, getSessionCookieOptions(updatedSession.expiresAt));
+    } catch {
+      // Read-only render contexts cannot mutate cookies; route handlers still refresh the cookie when allowed.
+    }
+  }
+
+  return updatedSession;
 }
 
 export async function requireSession() {
@@ -93,5 +130,8 @@ export async function clearSession() {
     }
   }
 
-  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.set(SESSION_COOKIE, "", {
+    ...getSessionCookieOptions(new Date(0)),
+    maxAge: 0
+  });
 }

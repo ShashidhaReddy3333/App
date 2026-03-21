@@ -2,8 +2,10 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
 import type { NextRequest } from "next/server";
 
-// In-memory fallback store for dev environments without Redis
+// This in-memory store is a degraded fallback only. In serverless production
+// environments it resets on cold starts, so counters are not durable without Redis.
 const inMemoryStore = new Map<string, { count: number; resetAt: number }>();
+let hasWarnedAboutMissingRedisAtStartup = false;
 
 export interface RateLimitResult {
   success: boolean;
@@ -23,6 +25,18 @@ const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number 
 };
 
 let _ratelimiters: Record<RateLimitPreset, Ratelimit> | null = null;
+
+export class RedisRateLimitUnavailableError extends Error {
+  constructor() {
+    super("Redis-backed rate limiting is unavailable.");
+    this.name = "RedisRateLimitUnavailableError";
+  }
+}
+
+if (process.env.NODE_ENV === "production" && !isRedisAvailable() && !hasWarnedAboutMissingRedisAtStartup) {
+  hasWarnedAboutMissingRedisAtStartup = true;
+  console.warn("[Rate Limit] Redis is not configured in production; rate limiting is degraded and in-memory counters reset on serverless cold starts");
+}
 
 function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
   if (!isRedisAvailable()) return null;
@@ -47,7 +61,7 @@ function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
 /**
  * In-memory fallback rate limiter for environments without Redis.
  */
-function inMemoryRateLimit(key: string, preset: RateLimitPreset): RateLimitResult {
+export function checkInMemoryRateLimit(key: string, preset: RateLimitPreset): RateLimitResult {
   const config = LIMITS[preset];
   const now = Date.now();
   const windowMs = config.windowSeconds * 1000;
@@ -73,7 +87,7 @@ function inMemoryRateLimit(key: string, preset: RateLimitPreset): RateLimitResul
 }
 
 /**
- * Check rate limit for a given identifier and preset.
+ * Check rate limit for a given identifier and preset using Redis-backed counters.
  */
 export async function checkRateLimit(
   identifier: string,
@@ -82,7 +96,7 @@ export async function checkRateLimit(
   const limiters = getRatelimiters();
 
   if (!limiters) {
-    return inMemoryRateLimit(identifier, preset);
+    throw new RedisRateLimitUnavailableError();
   }
 
   const limiter = limiters[preset];

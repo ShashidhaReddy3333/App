@@ -3,6 +3,7 @@ import { z } from "zod";
 const demoModeSchema = z.enum(["true", "false"]).default("false");
 const databaseUrlSchema = z.string().min(1, "DATABASE_URL is required.");
 const sessionSecretSchema = z.string().min(16, "SESSION_SECRET must be at least 16 characters.");
+const productionSessionSecretSchema = z.string().min(32, "SESSION_SECRET must be at least 32 characters in production.");
 const appUrlSchema = z.string().url("APP_URL must be a valid absolute URL.");
 const resendApiKeySchema = z.string().min(1, "RESEND_API_KEY is required when email delivery is enabled.");
 const mailFromSchema = z.string().min(1, "MAIL_FROM is required when email delivery is enabled.");
@@ -46,6 +47,14 @@ function parseOptional<T>(schema: z.ZodType<T>, value: string | undefined) {
 
 export function getNodeEnv() {
   return nodeEnvSchema.parse(process.env.NODE_ENV ?? "development");
+}
+
+function getSessionSecretSchema() {
+  return getNodeEnv() === "production" ? productionSessionSecretSchema : sessionSecretSchema;
+}
+
+function parseSessionSecret(value: string | undefined) {
+  return getSessionSecretSchema().safeParse(value);
 }
 
 export function isProductionRuntime() {
@@ -98,7 +107,7 @@ export function getRuntimeCheckIssues() {
   const appUrl = resolveAppUrlValue();
   const parsedAppUrl = appUrlSchema.safeParse(appUrl);
   const parsedDatabaseUrl = databaseUrlSchema.safeParse(process.env.DATABASE_URL);
-  const parsedSessionSecret = sessionSecretSchema.safeParse(process.env.SESSION_SECRET);
+  const parsedSessionSecret = parseSessionSecret(process.env.SESSION_SECRET);
 
   if (!parsedDatabaseUrl.success) {
     issues.push({ key: "DATABASE_URL", message: parsedDatabaseUrl.error.issues[0]?.message ?? "DATABASE_URL is required.", severity: "error" });
@@ -107,14 +116,14 @@ export function getRuntimeCheckIssues() {
   if (!parsedSessionSecret.success) {
     issues.push({
       key: "SESSION_SECRET",
-      message: parsedSessionSecret.error.issues[0]?.message ?? "SESSION_SECRET must be at least 16 characters.",
+      message: parsedSessionSecret.error.issues[0]?.message ?? "SESSION_SECRET must meet the minimum length requirement.",
       severity: "error"
     });
-  } else if (parsedSessionSecret.data.length < 32) {
+  } else if (nodeEnv !== "production" && parsedSessionSecret.data.length < 32) {
     issues.push({
       key: "SESSION_SECRET",
       message: "SESSION_SECRET should be at least 32 characters for production deployments.",
-      severity: nodeEnv === "production" ? "warning" : "warning"
+      severity: "warning"
     });
   }
 
@@ -209,7 +218,7 @@ export const env = {
     return databaseUrlSchema.parse(process.env.DATABASE_URL);
   },
   get SESSION_SECRET() {
-    return sessionSecretSchema.parse(process.env.SESSION_SECRET);
+    return getSessionSecretSchema().parse(process.env.SESSION_SECRET);
   },
   get APP_URL() {
     return appUrlSchema.parse(resolveAppUrlValue());

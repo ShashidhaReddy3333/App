@@ -1,15 +1,12 @@
 import { apiError, apiSuccess } from "@/lib/http";
-import { getCurrentSession } from "@/lib/auth/session";
-import { forbiddenError, unauthorizedError } from "@/lib/errors";
+import { requirePlatformAdminAccess } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await getCurrentSession();
-    if (!session) throw unauthorizedError();
-    if (session.user.role !== "platform_admin") throw forbiddenError();
+    await requirePlatformAdminAccess();
 
     const [
       totalBusinesses,

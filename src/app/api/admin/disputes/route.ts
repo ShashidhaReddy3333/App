@@ -1,22 +1,15 @@
 import { z } from "zod";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/http";
-import { getCurrentSession } from "@/lib/auth/session";
-import { forbiddenError, notFoundError, unauthorizedError } from "@/lib/errors";
+import { requirePlatformAdminAccess } from "@/lib/auth/api-guard";
+import { notFoundError } from "@/lib/errors";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-async function requireAdmin() {
-  const session = await getCurrentSession();
-  if (!session) throw unauthorizedError();
-  if (session.user.role !== "platform_admin") throw forbiddenError();
-  return session;
-}
-
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin();
+    await requirePlatformAdminAccess();
 
     const { searchParams } = new URL(req.url);
     const page = Number(searchParams.get("page") ?? 1);
@@ -60,7 +53,7 @@ const createDisputeSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await requireAdmin();
+    const session = await requirePlatformAdminAccess();
     const body = await req.json();
     const data = createDisputeSchema.parse(body);
 
@@ -87,7 +80,7 @@ const updateDisputeSchema = z.object({
 
 export async function PATCH(req: Request) {
   try {
-    await requireAdmin();
+    await requirePlatformAdminAccess();
     const body = await req.json();
     const { disputeId, ...data } = updateDisputeSchema.parse(body);
 

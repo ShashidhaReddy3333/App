@@ -42,3 +42,15 @@ export async function requireApiAccess(permission?: Permission, options?: Requir
     businessId: session.user.businessId as string
   };
 }
+
+export async function requirePlatformAdminAccess() {
+  const session = await getCurrentSession();
+  if (!session) {
+    throw unauthorizedError();
+  }
+  if (session.user.role !== "platform_admin") {
+    throw forbiddenError();
+  }
+
+  return session;
+}
