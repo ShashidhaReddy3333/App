@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { PaymentStatus } from "@prisma/client";
 import { stripe } from "./client";
 import { STRIPE_CONFIG } from "./config";
 import { db } from "@/lib/db";
@@ -106,7 +107,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       if (orderId) {
         await db.order.update({
           where: { id: orderId },
-          data: { paymentStatus: "failed" },
+          data: { paymentStatus: PaymentStatus.failed },
         });
       }
       break;

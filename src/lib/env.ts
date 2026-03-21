@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const demoModeSchema = z.enum(["true", "false"]).default("false");
 const databaseUrlSchema = z.string().min(1, "DATABASE_URL is required.");
+const directUrlSchema = z.string().url("DIRECT_URL must be a valid absolute URL.");
 const sessionSecretSchema = z.string().min(16, "SESSION_SECRET must be at least 16 characters.");
 const productionSessionSecretSchema = z.string().min(32, "SESSION_SECRET must be at least 32 characters in production.");
 const appUrlSchema = z.string().url("APP_URL must be a valid absolute URL.");
@@ -107,10 +108,15 @@ export function getRuntimeCheckIssues() {
   const appUrl = resolveAppUrlValue();
   const parsedAppUrl = appUrlSchema.safeParse(appUrl);
   const parsedDatabaseUrl = databaseUrlSchema.safeParse(process.env.DATABASE_URL);
+  const parsedDirectUrl = directUrlSchema.safeParse(process.env.DIRECT_URL);
   const parsedSessionSecret = parseSessionSecret(process.env.SESSION_SECRET);
 
   if (!parsedDatabaseUrl.success) {
     issues.push({ key: "DATABASE_URL", message: parsedDatabaseUrl.error.issues[0]?.message ?? "DATABASE_URL is required.", severity: "error" });
+  }
+
+  if (!parsedDirectUrl.success) {
+    issues.push({ key: "DIRECT_URL", message: parsedDirectUrl.error.issues[0]?.message ?? "DIRECT_URL must be a valid absolute URL.", severity: "error" });
   }
 
   if (!parsedSessionSecret.success) {
@@ -216,6 +222,9 @@ export const env = {
   },
   get DATABASE_URL() {
     return databaseUrlSchema.parse(process.env.DATABASE_URL);
+  },
+  get DIRECT_URL() {
+    return directUrlSchema.parse(process.env.DIRECT_URL);
   },
   get SESSION_SECRET() {
     return getSessionSecretSchema().parse(process.env.SESSION_SECRET);

@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { stripe } from "./client";
 import { STRIPE_CONFIG } from "./config";
 import { db } from "@/lib/db";
-import type { Business, Order, OrderItem, Product } from "@prisma/client";
+import { PaymentStatus, type Business, type Order, type OrderItem, type Product } from "@prisma/client";
 
 type OrderWithItems = Order & {
   items: (OrderItem & { product: Product })[];
@@ -116,7 +116,7 @@ export async function handleSuccessfulPayment(
 
   await db.order.update({
     where: { id: orderId },
-    data: { paymentStatus: "paid" },
+    data: { paymentStatus: PaymentStatus.settled },
   });
 
   if (paymentIntentId) {

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import bcrypt from "bcryptjs";
-import { Prisma, PrismaClient, RefundStatus, SaleStatus, UserRole, UserStatus } from "@prisma/client";
+import { PaymentStatus, Prisma, PrismaClient, RefundStatus, SaleStatus, UserRole, UserStatus } from "@prisma/client";
 
 if (existsSync(".env")) {
   process.loadEnvFile?.(".env");
@@ -543,7 +543,7 @@ async function main() {
       discountAmount: money(0),
       deliveryFee: money(0),
       totalAmount: money(21.45),
-      paymentStatus: "paid",
+      paymentStatus: PaymentStatus.settled,
       fulfillmentType: "delivery"
     }
   });

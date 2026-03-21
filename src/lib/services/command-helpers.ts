@@ -6,6 +6,29 @@ import { computeAvailableQuantity } from "@/lib/domain/inventory";
 import { formatOrderNumber, formatPurchaseOrderNumber, formatReceiptNumber } from "@/lib/domain/sales";
 import { toDecimal } from "@/lib/money";
 
+type BusinessSequenceField = "nextReceiptNumber" | "nextOrderNumber" | "nextPurchaseOrderNumber";
+
+async function allocateBusinessSequenceNumber(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  column: BusinessSequenceField
+) {
+  const quotedColumn = Prisma.raw(`"${column}"`);
+  const rows = await tx.$queryRaw<Array<{ allocatedNumber: number }>>(Prisma.sql`
+    UPDATE "Business"
+    SET ${quotedColumn} = ${quotedColumn} + 1
+    WHERE id = ${businessId}
+    RETURNING ${quotedColumn} - 1 AS "allocatedNumber"
+  `);
+
+  const allocatedNumber = rows[0]?.allocatedNumber;
+  if (typeof allocatedNumber !== "number") {
+    throw notFoundError("Business not found.");
+  }
+
+  return allocatedNumber;
+}
+
 export async function getOwnedLocation(tx: Prisma.TransactionClient, businessId: string, locationId: string) {
   const location = await tx.location.findFirst({
     where: {
@@ -99,39 +122,15 @@ export async function createIdempotencyRecord(
 }
 
 export async function allocateReceiptNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const receiptNumber = formatReceiptNumber(business.nextReceiptNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextReceiptNumber: { increment: 1 } }
-  });
-  return receiptNumber;
+  return formatReceiptNumber(await allocateBusinessSequenceNumber(tx, businessId, "nextReceiptNumber"));
 }
 
 export async function allocateOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const orderNumber = formatOrderNumber(business.nextOrderNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextOrderNumber: { increment: 1 } }
-  });
-  return orderNumber;
+  return formatOrderNumber(await allocateBusinessSequenceNumber(tx, businessId, "nextOrderNumber"));
 }
 
 export async function allocatePurchaseOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
-  const business = await tx.business.findUniqueOrThrow({
-    where: { id: businessId }
-  });
-  const poNumber = formatPurchaseOrderNumber(business.nextPurchaseOrderNumber);
-  await tx.business.update({
-    where: { id: businessId },
-    data: { nextPurchaseOrderNumber: { increment: 1 } }
-  });
-  return poNumber;
+  return formatPurchaseOrderNumber(await allocateBusinessSequenceNumber(tx, businessId, "nextPurchaseOrderNumber"));
 }
 
 export async function reserveInventory(

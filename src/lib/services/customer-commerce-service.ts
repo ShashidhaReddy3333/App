@@ -271,7 +271,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           taxAmount: toDecimal(pricing.taxAmount),
           discountAmount: toDecimal(pricing.discountAmount),
           totalAmount: toDecimal(pricing.totalAmount),
-          paymentStatus: "paid",
+          paymentStatus: PaymentStatus.settled,
           fulfillmentType: values.fulfillmentType,
           notes: values.notes || null
         }
