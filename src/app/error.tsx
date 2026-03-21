@@ -11,13 +11,12 @@ export default function RootError({
 }) {
   return (
     <main className="page-shell py-10">
-      <div onClick={reset}>
-        <ErrorState
-          title="We couldn’t load this page"
-          description={error.message || "An unexpected error occurred while loading the application."}
-          onRetryLabel="Reload page"
-        />
-      </div>
+      <ErrorState
+        title="We couldn't load this page"
+        description={error.message || "An unexpected error occurred while loading the application."}
+        onRetryLabel="Reload page"
+        onRetry={reset}
+      />
     </main>
   );
 }

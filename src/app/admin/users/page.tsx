@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Admin Users | Human Pulse",
+  description: "Review and monitor platform user accounts in the Human Pulse admin portal."
+};
 
 export const dynamic = "force-dynamic";
 

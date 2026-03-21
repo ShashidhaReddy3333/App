@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
+
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AcceptInviteForm } from "@/components/forms/accept-invite-form";
+
+export const metadata: Metadata = {
+  title: "Accept Invite | Human Pulse",
+  description: "Accept a Human Pulse staff invitation and activate your account."
+};
 
 export default async function AcceptInvitePage({
   searchParams

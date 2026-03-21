@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Admin Announcements | Human Pulse",
+  description: "Publish and review platform announcements for Human Pulse users."
+};
 
 export const dynamic = "force-dynamic";
 

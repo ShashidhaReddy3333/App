@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Admin Disputes | Human Pulse",
+  description: "Track and resolve platform disputes across businesses and customers."
+};
 
 export const dynamic = "force-dynamic";
 

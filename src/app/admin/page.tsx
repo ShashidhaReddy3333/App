@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Users, ShoppingCart, TrendingUp } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Platform Dashboard | Human Pulse",
+  description: "Monitor platform-wide business, user, order, and revenue activity."
+};
 
 export const dynamic = "force-dynamic";
 

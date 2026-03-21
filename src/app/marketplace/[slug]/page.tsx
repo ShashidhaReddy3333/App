@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Star, MapPin, Globe, Phone, Mail, Tag } from "lucide-react";
@@ -5,6 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
 import { getBusinessProfile, listReviews } from "@/lib/services/marketplace-service";
+
+export const metadata: Metadata = {
+  title: "Marketplace Business | Human Pulse",
+  description: "Browse business details, products, and reviews in the Human Pulse marketplace."
+};
 
 export const dynamic = "force-dynamic";
 
