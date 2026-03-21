@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const { session, businessId } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
+      request: req,
     });
 
     const formData = await req.formData();

@@ -26,7 +26,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess("supplier_portal", { roles: ["supplier"] });
+    const { session, businessId } = await requireApiAccess("supplier_portal", { roles: ["supplier"], request });
     if (!session.user.supplierId) {
       return apiError(forbiddenError("Supplier account not linked"));
     }

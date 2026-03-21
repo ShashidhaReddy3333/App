@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess("suppliers");
+    const { session, businessId } = await requireApiAccess("suppliers", { request });
     const payload = await request.json();
     const supplier = await createSupplier(session.user.id, businessId, payload);
     return apiSuccess({ supplier }, { status: 201, message: "Supplier created." });

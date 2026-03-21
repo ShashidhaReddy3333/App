@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
-    const { session, businessId } = await requireApiAccess("sessions");
+    const { session, businessId } = await requireApiAccess("sessions", { request: _request });
     const { sessionId } = await params;
     const revoked = await revokeSessionRecord(session.user.id, businessId, sessionId);
     return apiSuccess({ session: revoked }, { message: "Session revoked." });

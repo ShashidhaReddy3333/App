@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { Star, MapPin, Globe, Phone, Mail, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
 import { getBusinessProfile, listReviews } from "@/lib/services/marketplace-service";
 
 export const dynamic = "force-dynamic";
@@ -23,16 +25,21 @@ export default async function BusinessProfilePage({ params }: Props) {
   const reviewsData = await listReviews(profile.businessId, 1, 10);
 
   const { business } = profile;
+  const safeBannerUrl = getSafeMarketplaceImageUrl(profile.bannerUrl);
+  const safeLogoUrl = getSafeMarketplaceImageUrl(profile.logoUrl);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Banner */}
       <div className="h-48 bg-gradient-to-r from-primary/20 to-primary/10 relative">
-        {profile.bannerUrl && (
-          <img
-            src={profile.bannerUrl}
+        {safeBannerUrl && (
+          <Image
+            src={safeBannerUrl}
             alt="Business banner"
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -42,9 +49,15 @@ export default async function BusinessProfilePage({ params }: Props) {
         {/* Header card */}
         <div className="-mt-16 relative z-10 mb-6">
           <div className="flex items-end gap-4">
-            <div className="h-24 w-24 rounded-xl bg-background border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
-              {profile.logoUrl ? (
-                <img src={profile.logoUrl} alt={business.businessName} className="h-full w-full object-cover" />
+            <div className="relative h-24 w-24 rounded-xl bg-background border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
+              {safeLogoUrl ? (
+                <Image
+                  src={safeLogoUrl}
+                  alt={business.businessName}
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                />
               ) : (
                 <span className="text-3xl font-bold text-muted-foreground">
                   {business.businessName.charAt(0)}
@@ -90,21 +103,29 @@ export default async function BusinessProfilePage({ params }: Props) {
                 <CardHeader><CardTitle>Products</CardTitle></CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {business.products.map((product) => (
-                      <div key={product.id} className="border rounded-lg p-3">
-                        {product.imageUrl && (
-                          <img
-                            src={product.imageUrl}
-                            alt={product.name}
-                            className="h-20 w-full object-cover rounded mb-2"
-                          />
-                        )}
-                        <p className="text-sm font-medium line-clamp-2">{product.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {business.currency} {Number(product.sellingPrice).toFixed(2)}
-                        </p>
-                      </div>
-                    ))}
+                    {business.products.map((product) => {
+                      const safeProductImageUrl = getSafeMarketplaceImageUrl(product.imageUrl);
+
+                      return (
+                        <div key={product.id} className="border rounded-lg p-3">
+                          {safeProductImageUrl && (
+                            <div className="relative mb-2 h-20 w-full overflow-hidden rounded">
+                              <Image
+                                src={safeProductImageUrl}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 640px) 50vw, 33vw"
+                              />
+                            </div>
+                          )}
+                          <p className="text-sm font-medium line-clamp-2">{product.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {business.currency} {Number(product.sellingPrice).toFixed(2)}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

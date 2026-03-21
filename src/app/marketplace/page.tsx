@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Search, Star, MapPin, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
 
 interface Category {
   id: string;
@@ -132,65 +134,73 @@ export default function MarketplacePage() {
                   </CardContent>
                 </Card>
               ))
-            : data?.profiles.map((profile) => (
-                <Link key={profile.id} href={`/marketplace/${profile.slug}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                    <CardContent className="p-4">
-                      {/* Logo / Banner placeholder */}
-                      <div className="h-28 bg-muted rounded-md flex items-center justify-center mb-3 overflow-hidden">
-                        {profile.logoUrl ? (
-                          <img
-                            src={profile.logoUrl}
-                            alt={profile.business.businessName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-2xl font-bold text-muted-foreground">
-                            {profile.business.businessName.charAt(0)}
-                          </span>
-                        )}
-                      </div>
+            : data?.profiles.map((profile) => {
+                const safeLogoUrl = getSafeMarketplaceImageUrl(profile.logoUrl);
 
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-semibold text-sm leading-tight">
-                          {profile.business.businessName}
-                        </h3>
-                        {profile.isFeatured && (
-                          <Badge variant="secondary" className="text-xs shrink-0">Featured</Badge>
-                        )}
-                      </div>
+                return (
+                  <Link key={profile.id} href={`/marketplace/${profile.slug}`}>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                      <CardContent className="p-4">
+                        {/* Logo / Banner placeholder */}
+                        <div className="h-28 bg-muted rounded-md flex items-center justify-center mb-3 overflow-hidden">
+                          {safeLogoUrl ? (
+                            <div className="relative h-full w-full">
+                              <Image
+                                src={safeLogoUrl}
+                                alt={profile.business.businessName}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-2xl font-bold text-muted-foreground">
+                              {profile.business.businessName.charAt(0)}
+                            </span>
+                          )}
+                        </div>
 
-                      {profile.tagline && (
-                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                          {profile.tagline}
-                        </p>
-                      )}
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-semibold text-sm leading-tight">
+                            {profile.business.businessName}
+                          </h3>
+                          {profile.isFeatured && (
+                            <Badge variant="secondary" className="text-xs shrink-0">Featured</Badge>
+                          )}
+                        </div>
 
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {profile.reviewCount > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            {Number(profile.averageRating).toFixed(1)}
-                            <span>({profile.reviewCount})</span>
-                          </span>
+                        {profile.tagline && (
+                          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                            {profile.tagline}
+                          </p>
                         )}
-                        {profile.city && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {profile.city}
-                          </span>
-                        )}
-                        {profile.category && (
-                          <span className="flex items-center gap-1">
-                            <Tag className="h-3 w-3" />
-                            {profile.category.name}
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          {profile.reviewCount > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              {Number(profile.averageRating).toFixed(1)}
+                              <span>({profile.reviewCount})</span>
+                            </span>
+                          )}
+                          {profile.city && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {profile.city}
+                            </span>
+                          )}
+                          {profile.category && (
+                            <span className="flex items-center gap-1">
+                              <Tag className="h-3 w-3" />
+                              {profile.category.name}
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
         </div>
 
         {/* Pagination */}

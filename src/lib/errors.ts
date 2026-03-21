@@ -6,6 +6,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "DUPLICATE_RECORD"
   | "VALIDATION_ERROR"
   | "RESERVATION_EXPIRED"
   | "STALE_INVENTORY"
@@ -67,9 +68,19 @@ export function toAppError(error: unknown) {
     return notFoundError();
   }
 
-  if (error instanceof Error) {
-    return new AppError(error.message || "Unexpected error.", { status: 500, code: "UNEXPECTED_ERROR" });
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    const target = Array.isArray(error.meta?.target) ? error.meta.target.join(", ") : "field";
+    return new AppError(`A record with that ${target} already exists.`, {
+      status: 409,
+      code: "DUPLICATE_RECORD"
+    });
   }
 
-  return new AppError("Unexpected error.", { status: 500, code: "UNEXPECTED_ERROR" });
+  if (error instanceof Error) {
+    console.error("[Unexpected Error]", error);
+    return new AppError("An unexpected error occurred.", { status: 500, code: "UNEXPECTED_ERROR" });
+  }
+
+  console.error("[Unexpected Error]", error);
+  return new AppError("An unexpected error occurred.", { status: 500, code: "UNEXPECTED_ERROR" });
 }

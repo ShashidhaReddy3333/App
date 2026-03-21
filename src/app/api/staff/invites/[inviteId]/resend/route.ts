@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ inviteId: string }> }) {
   try {
-    const { session, businessId } = await requireApiAccess("staff");
+    const { session, businessId } = await requireApiAccess("staff", { request });
     const context = getRequestContext(request);
     const { inviteId } = await params;
     const result = await resendPendingInvite(session.user.id, businessId, inviteId, context.ipAddress);

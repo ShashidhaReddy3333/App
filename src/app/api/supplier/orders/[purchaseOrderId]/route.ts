@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   try {
     const { purchaseOrderId } = await params;
-    const { session } = await requireApiAccess("supplier_portal", { roles: ["supplier"] });
+    const { session } = await requireApiAccess("supplier_portal", { roles: ["supplier"], request });
     if (!session.user.supplierId) {
       return apiError(forbiddenError("Supplier account not linked"));
     }

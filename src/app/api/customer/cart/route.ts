@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { session } = await requireApiAccess(undefined, { allowMissingBusiness: true, roles: ["customer"] });
+    const { session } = await requireApiAccess(undefined, { allowMissingBusiness: true, roles: ["customer"], request });
     const payload = await request.json();
     const cart = await addItemToCustomerCart(session.user.id, payload);
     return apiSuccess({ cartId: cart.id }, { message: "Added to cart." });
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { session } = await requireApiAccess(undefined, { allowMissingBusiness: true, roles: ["customer"] });
+    const { session } = await requireApiAccess(undefined, { allowMissingBusiness: true, roles: ["customer"], request });
     const payload = await request.json();
     const cart = await removeItemFromCustomerCart(session.user.id, payload);
     return apiSuccess({ cartId: cart.id }, { message: "Removed from cart." });

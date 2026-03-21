@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ notificationId: string }> }) {
   try {
-    const { session, businessId } = await requireApiAccess("owner_dashboard");
+    const { session, businessId } = await requireApiAccess("owner_dashboard", { request: _request });
     const { notificationId } = await params;
     const notification = await retryFailedNotification(session.user.id, businessId, notificationId);
     return apiSuccess({ notification }, { message: "Notification requeued." });
