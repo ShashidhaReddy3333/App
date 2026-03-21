@@ -43,7 +43,11 @@ export async function requireApiAccess(permission?: Permission, options?: Requir
   };
 }
 
-export async function requirePlatformAdminAccess() {
+export async function requirePlatformAdminAccess(request?: Request) {
+  if (request && !isSafeMethod(request.method) && !isAllowedOrigin(getRequestOrigin(request))) {
+    throw forbiddenError("CSRF validation failed.");
+  }
+
   const session = await getCurrentSession();
   if (!session) {
     throw unauthorizedError();

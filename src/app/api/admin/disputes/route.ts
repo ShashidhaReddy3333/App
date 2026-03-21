@@ -2,14 +2,14 @@ import { z } from "zod";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/http";
 import { requirePlatformAdminAccess } from "@/lib/auth/api-guard";
-import { notFoundError } from "@/lib/errors";
+import { notFoundError, validationError } from "@/lib/errors";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    await requirePlatformAdminAccess();
+    await requirePlatformAdminAccess(req);
 
     const { searchParams } = new URL(req.url);
     const page = Number(searchParams.get("page") ?? 1);
@@ -53,7 +53,7 @@ const createDisputeSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await requirePlatformAdminAccess();
+    const session = await requirePlatformAdminAccess(req);
     const body = await req.json();
     const data = createDisputeSchema.parse(body);
 
@@ -76,20 +76,44 @@ const updateDisputeSchema = z.object({
   status: z.string().optional(),
   resolution: z.string().optional(),
   assignedAdminId: z.string().optional(),
+  assignToMe: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {
   try {
-    await requirePlatformAdminAccess();
+    const session = await requirePlatformAdminAccess(req);
     const body = await req.json();
     const { disputeId, ...data } = updateDisputeSchema.parse(body);
 
     const dispute = await db.platformDispute.findUnique({ where: { id: disputeId } });
     if (!dispute) throw notFoundError("Dispute not found.");
 
+    if (!data.assignToMe && data.status === undefined && data.resolution === undefined && data.assignedAdminId === undefined) {
+      throw validationError("No dispute update action was provided.");
+    }
+
     const updateData: Record<string, unknown> = { ...data };
+    delete updateData.assignToMe;
+
+    if (data.assignToMe) {
+      updateData.assignedAdminId = session.user.id;
+      if (dispute.status === "open" && data.status === undefined) {
+        updateData.status = "in_review";
+      }
+    }
+
+    if (data.status === "resolved" && !data.resolution?.trim() && !dispute.resolution) {
+      throw validationError("Resolution notes are required when resolving a dispute.");
+    }
+
     if (data.status === "resolved" && !dispute.resolvedAt) {
       updateData.resolvedAt = new Date();
+    }
+    if (data.status && data.status !== "resolved") {
+      updateData.resolvedAt = null;
+    }
+    if (data.resolution !== undefined) {
+      updateData.resolution = data.resolution.trim() || null;
     }
 
     const updated = await db.platformDispute.update({
