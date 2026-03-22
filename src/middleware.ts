@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
-import { ALLOWED_ORIGINS, getRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
+import { getRequestOrigin, isAllowedRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
 
 function buildContentSecurityPolicy() {
   const isDev = process.env.NODE_ENV === "development";
@@ -138,13 +138,16 @@ export function middleware(request: NextRequest) {
 
   if (!isSafeMethod(method) && !shouldSkipCsrf) {
     const requestOrigin = getRequestOrigin(request);
-    const isAllowedRequestOrigin = requestOrigin ? ALLOWED_ORIGINS.includes(requestOrigin) : false;
+    const isAllowedOrigin = isAllowedRequestOrigin(request, requestOrigin);
 
-    if (!isAllowedRequestOrigin) {
-      return new NextResponse(JSON.stringify({ error: "CSRF validation failed" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (!isAllowedOrigin) {
+      return new NextResponse(
+        JSON.stringify({ message: "CSRF validation failed.", code: "FORBIDDEN" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
 

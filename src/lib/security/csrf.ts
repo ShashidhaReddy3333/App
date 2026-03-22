@@ -68,3 +68,23 @@ export function getRequestOrigin(request: Request) {
 export function isAllowedOrigin(requestOrigin: string | null) {
   return requestOrigin ? ALLOWED_ORIGINS.includes(requestOrigin) : false;
 }
+
+export function getAllowedOriginsForRequest(request: Request) {
+  const allowedOrigins = new Set(ALLOWED_ORIGINS);
+
+  try {
+    allowedOrigins.add(new URL(request.url).origin);
+  } catch {
+    // Ignore malformed request URLs and fall back to static allowlist.
+  }
+
+  return Array.from(allowedOrigins);
+}
+
+export function isAllowedRequestOrigin(request: Request, requestOrigin: string | null) {
+  if (!requestOrigin) {
+    return false;
+  }
+
+  return getAllowedOriginsForRequest(request).includes(requestOrigin);
+}

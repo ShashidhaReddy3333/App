@@ -4,7 +4,7 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { validateCsrfToken } from "@/lib/csrf";
 import { forbiddenError, unauthorizedError } from "@/lib/errors";
-import { getRequestOrigin, isAllowedOrigin, isSafeMethod } from "@/lib/security/csrf";
+import { getRequestOrigin, isAllowedRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
 
 let hasWarnedAboutMissingRequest = false;
 
@@ -42,7 +42,7 @@ async function validateRequestCsrf(request: Request) {
     return;
   }
 
-  if (!isAllowedOrigin(getRequestOrigin(request))) {
+  if (!isAllowedRequestOrigin(request, getRequestOrigin(request))) {
     throw forbiddenError("CSRF validation failed.");
   }
 
