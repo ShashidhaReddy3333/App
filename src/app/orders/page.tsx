@@ -11,29 +11,12 @@ export const metadata: Metadata = {
 import { CustomerShell } from "@/components/customer-shell";
 import { Pagination } from "@/components/pagination";
 import { SearchFilter } from "@/components/search-filter";
+import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth/guards";
+import { getStatusBorderClass } from "@/lib/status-semantics";
 import { listCustomerOrders } from "@/lib/services/customer-commerce-query-service";
-
-function getStatusBadgeVariant(status: string) {
-  if (status.includes("pending") || status.includes("placed")) return "warning" as const;
-  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled"))
-    return "success" as const;
-  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed"))
-    return "destructive" as const;
-  return "secondary" as const;
-}
-
-function getStatusBorderColor(status: string) {
-  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled"))
-    return "border-l-green-500";
-  if (status.includes("pending") || status.includes("placed")) return "border-l-amber-500";
-  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed"))
-    return "border-l-red-500";
-  return "border-l-gray-300";
-}
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -87,7 +70,7 @@ export default async function OrdersPage({
 
         {orders.items.length === 0 ? (
           <EmptyState
-            icon="package"
+            illustration="order"
             title="No orders yet"
             description="Your completed checkouts will appear here."
             action={
@@ -102,14 +85,12 @@ export default async function OrdersPage({
           {orders.items.map((order) => (
             <div
               key={order.id}
-              className={`data-row border-l-4 ${getStatusBorderColor(order.status)} rounded-none first:rounded-t-[22px] last:rounded-b-[22px]`}
+              className={`data-row border-l-4 ${getStatusBorderClass(order.status)} rounded-none first:rounded-t-[22px] last:rounded-b-[22px]`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="font-semibold">{order.orderNumber}</span>
-                  <Badge variant={getStatusBadgeVariant(order.status)}>
-                    {order.status.replaceAll("_", " ")}
-                  </Badge>
+                  <StatusBadge status={order.status} />
                 </div>
                 <span className="text-lg font-bold">${Number(order.totalAmount).toFixed(2)}</span>
               </div>

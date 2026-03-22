@@ -31,6 +31,7 @@ export default async function SalesPage() {
       />
       {items.length === 0 ? (
         <EmptyState
+          illustration="receipt"
           title="No sales yet"
           description="Completed and pending sales will appear here after the first checkout is created."
         />

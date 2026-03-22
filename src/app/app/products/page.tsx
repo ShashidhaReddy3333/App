@@ -15,7 +15,15 @@ export default async function ProductsPage() {
   const supplierOptions = toSupplierOptions(data.suppliers);
   const productOptions = toProductOptions(data.products);
 
-  const exportHeaders = ["Name", "SKU", "Category", "Supplier", "Selling Price", "Available Qty", "Reorder Qty"];
+  const exportHeaders = [
+    "Name",
+    "SKU",
+    "Category",
+    "Supplier",
+    "Selling Price",
+    "Available Qty",
+    "Reorder Qty",
+  ];
   const exportRows = rows.map((row: (typeof rows)[number]) => [
     row.name,
     row.sku,
@@ -23,7 +31,7 @@ export default async function ProductsPage() {
     row.supplierName,
     row.sellingPrice,
     row.availableQuantity,
-    row.reorderQuantity
+    row.reorderQuantity,
   ]);
 
   return (
@@ -38,7 +46,7 @@ export default async function ProductsPage() {
         <div className="space-y-6 animate-fade-in-up stagger-1">
           {rows.length === 0 ? (
             <EmptyState
-              icon="package"
+              illustration="inventory"
               title="No products yet"
               description="Create the first product on the right to begin tracking inventory and checkout availability."
             />

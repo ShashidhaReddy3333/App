@@ -1,7 +1,7 @@
 import { Bell, Mail, MessageSquare, Smartphone, Monitor } from "lucide-react";
 import { isToday, isYesterday, format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
 import { PageHeader } from "@/components/page-header";
 import { requireAppSession } from "@/lib/auth/guards";
@@ -20,13 +20,6 @@ const channelLabels: Record<NotificationChannel, string> = {
   sms: "SMS",
   push: "Push",
   in_app: "In-App",
-};
-
-const statusVariants: Record<NotificationStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  queued: "secondary",
-  sent: "outline",
-  failed: "destructive",
-  read: "default",
 };
 
 function groupLabel(date: Date): string {
@@ -76,7 +69,7 @@ export default async function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <EmptyState
-          icon="inbox"
+          illustration="inbox"
           title="No notifications"
           description="You have no notifications yet. Notifications will appear here when there are updates relevant to you."
         />
@@ -98,16 +91,18 @@ export default async function NotificationsPage() {
                       <Card
                         key={notification.id}
                         className={`gradient-panel transition-colors ${
-                          isUnread
-                            ? "border-primary/20 bg-primary/[0.02]"
-                            : ""
+                          isUnread ? "border-primary/20 bg-primary/[0.02]" : ""
                         }`}
                       >
                         <CardHeader className="flex flex-row items-start gap-3 pb-2">
-                          <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${
-                            isUnread ? "bg-primary/10" : "bg-muted"
-                          }`}>
-                            <ChannelIcon className={`size-4 ${isUnread ? "text-primary" : "text-muted-foreground"}`} />
+                          <div
+                            className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${
+                              isUnread ? "bg-primary/10" : "bg-muted"
+                            }`}
+                          >
+                            <ChannelIcon
+                              className={`size-4 ${isUnread ? "text-primary" : "text-muted-foreground"}`}
+                            />
                           </div>
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center justify-between gap-2">
@@ -118,12 +113,11 @@ export default async function NotificationsPage() {
                                 )}
                               </CardTitle>
                               <div className="flex items-center gap-2 shrink-0">
-                                <Badge variant={statusVariants[notification.status]}>
-                                  {notification.status}
-                                </Badge>
-                                <Badge variant="outline">
-                                  {channelLabels[notification.channel]}
-                                </Badge>
+                                <StatusBadge status={notification.status} />
+                                <StatusBadge
+                                  status="draft"
+                                  label={channelLabels[notification.channel]}
+                                />
                               </div>
                             </div>
                             <p className="text-sm text-muted-foreground leading-relaxed">

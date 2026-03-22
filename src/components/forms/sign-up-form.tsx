@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Clock3, CreditCard, ImageIcon, MapPin, ReceiptText, Store } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,6 +40,26 @@ const STEP_FIELDS: Array<Array<keyof Values>> = [
   ["businessName", "businessType", "primaryCountry", "timezone", "currency", "taxMode"],
   ["addressLine1", "city", "provinceOrState", "postalCode", "defaultTaxName", "defaultTaxRate"],
 ];
+
+const NEXT_SETUP_CARDS = [
+  {
+    title: "Brand and logo",
+    description: "Add storefront identity and business profile details from settings after launch.",
+    icon: ImageIcon,
+  },
+  {
+    title: "Store hours",
+    description:
+      "Publish opening hours and customer-facing availability once the location is live.",
+    icon: Clock3,
+  },
+  {
+    title: "Payments",
+    description:
+      "Connect payment rails and review receipts, taxes, and operational defaults after setup.",
+    icon: CreditCard,
+  },
+] as const;
 
 export function SignUpForm() {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -156,6 +177,44 @@ export function SignUpForm() {
                   Tell us how your business operates so the platform can be configured correctly.
                 </p>
               </div>
+              <div className="rounded-[24px] border border-border/30 bg-[hsl(var(--surface-lowest))]/90 p-4 md:col-span-2">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Business setup preview
+                    </div>
+                    <div className="text-base font-semibold">What launches with this account</div>
+                    <p className="max-w-xl text-sm text-muted-foreground">
+                      We&apos;ll use these defaults to prepare your first dashboard, storefront tax
+                      behavior, and operational workspace.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Business
+                      </div>
+                      <div className="mt-1 font-medium">
+                        {form.watch("businessName") || "Your business name"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Tax behavior
+                      </div>
+                      <div className="mt-1 font-medium">
+                        {form.watch("taxMode").replaceAll("_", " ")}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Currency
+                      </div>
+                      <div className="mt-1 font-medium">{form.watch("currency") || "CAD"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="businessName">Business name</Label>
                 <Input id="businessName" {...form.register("businessName")} />
@@ -246,6 +305,49 @@ export function SignUpForm() {
                   Add the first business location and the default tax rule for new sales.
                 </p>
               </div>
+              <div className="rounded-[24px] border border-primary/12 bg-primary/[0.05] p-4 md:col-span-2">
+                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                  <div className="space-y-2">
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Launch snapshot
+                    </div>
+                    <div className="text-base font-semibold">
+                      Your first store opens with these defaults
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      This location becomes your primary operating space for checkout, staff
+                      workflows, receipts, and tax calculations.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-primary/10 bg-[hsl(var(--surface-lowest))]/85 px-3 py-3 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Store className="size-4" />
+                        <span className="text-xs uppercase tracking-[0.16em]">Storefront</span>
+                      </div>
+                      <div className="mt-2 font-medium">
+                        {form.watch("businessName") || "New business"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-primary/10 bg-[hsl(var(--surface-lowest))]/85 px-3 py-3 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="size-4" />
+                        <span className="text-xs uppercase tracking-[0.16em]">Location</span>
+                      </div>
+                      <div className="mt-2 font-medium">{form.watch("city") || "Primary city"}</div>
+                    </div>
+                    <div className="rounded-2xl border border-primary/10 bg-[hsl(var(--surface-lowest))]/85 px-3 py-3 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <ReceiptText className="size-4" />
+                        <span className="text-xs uppercase tracking-[0.16em]">Tax mode</span>
+                      </div>
+                      <div className="mt-2 font-medium">
+                        {form.watch("taxMode").replaceAll("_", " ")}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="addressLine1">Address</Label>
                 <Input id="addressLine1" {...form.register("addressLine1")} />
@@ -315,6 +417,37 @@ export function SignUpForm() {
                       {form.formState.errors.defaultTaxRate.message}
                     </p>
                   ) : null}
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-border/30 bg-[hsl(var(--surface-lowest))]/90 p-4 md:col-span-2">
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Configure next after launch
+                    </div>
+                    <div className="mt-1 text-base font-semibold">
+                      Finish the business profile without blocking account creation
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {NEXT_SETUP_CARDS.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.title}
+                          className="rounded-[20px] border border-border/25 bg-[hsl(var(--surface-low))] px-4 py-4"
+                        >
+                          <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <Icon className="size-[18px]" />
+                          </div>
+                          <div className="mt-3 text-sm font-semibold">{item.title}</div>
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </>

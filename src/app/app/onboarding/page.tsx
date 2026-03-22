@@ -15,6 +15,9 @@ import {
   BarChart3,
   Package,
   Users,
+  Clock3,
+  CreditCard,
+  ImageIcon,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +41,24 @@ const TAX_MODE_OPTIONS = [
   { value: "inclusive_tax", label: "Tax Inclusive", description: "Prices already include tax" },
   { value: "exclusive_tax", label: "Tax Exclusive", description: "Tax is added on top of prices" },
 ];
+
+const NEXT_CONFIGURATION = [
+  {
+    icon: ImageIcon,
+    title: "Brand and logo",
+    description: "Add storefront identity and profile details once the business is live.",
+  },
+  {
+    icon: Clock3,
+    title: "Store hours",
+    description: "Publish opening hours and customer-facing availability from settings.",
+  },
+  {
+    icon: CreditCard,
+    title: "Payments",
+    description: "Connect payment rails and review receipt defaults after setup.",
+  },
+] as const;
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -150,6 +171,39 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="rounded-[24px] border border-primary/12 bg-primary/[0.05] p-4">
+                <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="space-y-2 text-left">
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Setup preview
+                    </div>
+                    <div className="text-base font-semibold">What you are locking in right now</div>
+                    <p className="text-sm text-muted-foreground">
+                      These defaults shape the first location, receipts, taxes, and operational
+                      views. You can keep refining the business profile after launch.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-primary/10 bg-[hsl(var(--surface-lowest))]/85 px-4 py-3 text-left">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Location
+                      </div>
+                      <div className="mt-1 font-medium text-foreground">
+                        {locationName || "Main Store"}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-primary/10 bg-[hsl(var(--surface-lowest))]/85 px-4 py-3 text-left">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                        Tax mode
+                      </div>
+                      <div className="mt-1 font-medium text-foreground">
+                        {TAX_MODE_OPTIONS.find((option) => option.value === taxMode)?.label ??
+                          "No Tax"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="locationName" className="text-sm font-medium">
                   Default Location Name
@@ -161,7 +215,8 @@ export default function OnboardingPage() {
                   placeholder="e.g. Main Store, Downtown Branch"
                 />
                 <p className="text-xs text-muted-foreground">
-                  This is the name of your primary business location. You can add more locations later.
+                  This is the name of your primary business location. You can add more locations
+                  later.
                 </p>
               </div>
 
@@ -200,6 +255,38 @@ export default function OnboardingPage() {
                 <p className="text-xs text-muted-foreground">
                   You can change this anytime in your business settings.
                 </p>
+              </div>
+
+              <div className="rounded-[24px] border border-border/30 bg-[hsl(var(--surface-lowest))]/90 p-4">
+                <div className="space-y-3 text-left">
+                  <div>
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Configure next
+                    </div>
+                    <div className="mt-1 text-base font-semibold">
+                      Complete the business profile after the dashboard opens
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {NEXT_CONFIGURATION.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.title}
+                          className="rounded-[20px] border border-border/25 bg-[hsl(var(--surface-low))] px-4 py-4"
+                        >
+                          <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <Icon className="size-4" />
+                          </div>
+                          <div className="mt-3 text-sm font-semibold">{item.title}</div>
+                          <div className="mt-1 text-sm leading-6 text-muted-foreground">
+                            {item.description}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-between pt-2">

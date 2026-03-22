@@ -8,16 +8,10 @@ export const metadata: Metadata = {
 import { Pagination } from "@/components/pagination";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listRefunds } from "@/lib/services/sales-query-service";
-
-function getRefundBadgeVariant(status: string): "destructive" | "warning" | "default" {
-  if (status.includes("failed") || status.includes("cancelled")) return "destructive";
-  if (status.includes("pending")) return "warning";
-  return "default";
-}
 
 export default async function RefundsPage({
   searchParams,
@@ -39,6 +33,7 @@ export default async function RefundsPage({
       <div className="grid gap-4">
         {refunds.items.length === 0 ? (
           <EmptyState
+            illustration="receipt"
             title="No refunds yet"
             description="Refunded sales will appear here once processed."
           />
@@ -49,9 +44,7 @@ export default async function RefundsPage({
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle>{refund.sale.receiptNumber ?? refund.sale.id.slice(0, 8)}</CardTitle>
-                  <Badge variant={getRefundBadgeVariant(refund.status)}>
-                    {refund.status.replaceAll("_", " ")}
-                  </Badge>
+                  <StatusBadge status={refund.status} />
                 </div>
                 <CardDescription>
                   Refund created {new Date(refund.createdAt).toLocaleDateString()}

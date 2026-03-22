@@ -28,7 +28,12 @@
       "Bash(grep -v \"^$\")",
       "Bash(npx next:*)",
       "Bash(vercel --version)",
-      "Bash(vercel whoami:*)"
+      "Bash(vercel whoami:*)",
+      "Bash(xargs wc:*)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|WIP\\\\|unfinished\\\\|placeholder\" C:UsersOwnerDesktopSRJApp/src --include=*.ts --include=*.tsx)",
+      "Bash(xargs ls:*)",
+      "Bash(wc -l \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\"/*.ts)",
+      "Bash(find \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\" -name \"*.ts\" -exec wc -l {} +)"
     ]
   }
 }

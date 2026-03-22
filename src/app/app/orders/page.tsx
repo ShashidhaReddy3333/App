@@ -11,13 +11,13 @@ export default async function OnlineOrdersPage() {
     include: {
       items: {
         include: {
-          product: true
-        }
+          product: true,
+        },
       },
       customer: true,
-      fulfillment: true
+      fulfillment: true,
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
   });
 
   const orderItems = orders.map((order) => ({
@@ -27,7 +27,9 @@ export default async function OnlineOrdersPage() {
     customerName: order.customer?.fullName ?? "Guest",
     fulfillmentType: order.fulfillmentType,
     totalAmount: Number(order.totalAmount).toFixed(2),
-    itemsSummary: order.items.map((item) => `${item.product.name} x ${Number(item.quantity).toFixed(0)}`).join(", ")
+    itemsSummary: order.items
+      .map((item) => `${item.product.name} x ${Number(item.quantity).toFixed(0)}`)
+      .join(", "),
   }));
 
   return (
@@ -38,7 +40,11 @@ export default async function OnlineOrdersPage() {
         breadcrumbs={[{ label: "Online Orders" }]}
       />
       {orders.length === 0 ? (
-        <EmptyState icon="cart" title="No online orders yet" description="Customer web checkouts will appear here as soon as the storefront goes live." />
+        <EmptyState
+          illustration="order"
+          title="No online orders yet"
+          description="Customer web checkouts will appear here as soon as the storefront goes live."
+        />
       ) : (
         <OrdersList orders={orderItems} />
       )}

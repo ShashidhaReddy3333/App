@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
 import { listReorderItems } from "@/lib/services/catalog-query-service";
@@ -23,14 +23,21 @@ export default async function ReorderPage() {
       />
       <div className="grid gap-4">
         {items.length === 0 ? (
-          <EmptyState icon="package" title="No reorder items" description="Current available stock meets or exceeds all par levels." />
+          <EmptyState
+            illustration="inventory"
+            title="No reorder items"
+            description="Current available stock meets or exceeds all par levels."
+          />
         ) : (
           items.map((item, index) => {
             const ratio = item.parLevel > 0 ? item.availableQuantity / item.parLevel : 1;
             const isCritical = ratio < 0.25;
             const isLow = ratio < 0.5;
             return (
-              <Card key={item.productId} className={`${isCritical ? "border-l-4 border-l-red-500" : isLow ? "border-l-4 border-l-amber-500" : ""}`}>
+              <Card
+                key={item.productId}
+                className={`${isCritical ? "border-l-4 border-l-red-500" : isLow ? "border-l-4 border-l-amber-500" : ""}`}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -38,28 +45,38 @@ export default async function ReorderPage() {
                       <CardDescription>{item.supplierName}</CardDescription>
                     </div>
                     {isCritical ? (
-                      <Badge variant="destructive">Critical</Badge>
+                      <StatusBadge status="failed" label="Critical" />
                     ) : isLow ? (
-                      <Badge variant="warning">Low stock</Badge>
+                      <StatusBadge status="pending" label="Low stock" />
                     ) : (
-                      <Badge variant="outline">Below par</Badge>
+                      <StatusBadge status="draft" label="Below par" />
                     )}
                   </div>
                 </CardHeader>
                 <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
                   <div>
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Available</span>
-                    <div className={`font-semibold ${isCritical ? "text-red-600" : isLow ? "text-amber-600" : "text-foreground"}`}>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+                      Available
+                    </span>
+                    <div
+                      className={`font-semibold ${isCritical ? "text-red-600" : isLow ? "text-amber-600" : "text-foreground"}`}
+                    >
                       {item.availableQuantity}
                     </div>
                   </div>
                   <div>
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Par level</span>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+                      Par level
+                    </span>
                     <div className="font-medium">{item.parLevel}</div>
                   </div>
                   <div>
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Suggested reorder</span>
-                    <div className="font-semibold text-primary">{item.suggestedReorderQuantity}</div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+                      Suggested reorder
+                    </span>
+                    <div className="font-semibold text-primary">
+                      {item.suggestedReorderQuantity}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -70,5 +87,3 @@ export default async function ReorderPage() {
     </div>
   );
 }
-
-

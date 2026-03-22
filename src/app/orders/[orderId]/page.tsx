@@ -3,17 +3,11 @@ import type { Route } from "next";
 import { Check, ChevronRight, CreditCard, MapPin, Truck } from "lucide-react";
 
 import { CustomerShell } from "@/components/customer-shell";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/guards";
+import { getStatusDotClass } from "@/lib/status-semantics";
 import { getCustomerOrderDetail } from "@/lib/services/customer-commerce-query-service";
-
-function getStatusBadgeVariant(status: string) {
-  if (status.includes("pending") || status.includes("placed")) return "warning" as const;
-  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled") || status.includes("paid")) return "success" as const;
-  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed")) return "destructive" as const;
-  return "secondary" as const;
-}
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -21,7 +15,7 @@ function formatDate(date: Date | string) {
     day: "numeric",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
@@ -31,17 +25,14 @@ function getStepIndex(status: string): number {
   if (status.includes("placed")) return 0;
   if (status.includes("confirmed") || status.includes("paid")) return 1;
   if (status.includes("preparing") || status.includes("in_progress")) return 2;
-  if (status.includes("ready") || status.includes("fulfilled") || status.includes("delivered")) return 3;
+  if (status.includes("ready") || status.includes("fulfilled") || status.includes("delivered"))
+    return 3;
   if (status.includes("completed")) return 4;
   return 0;
 }
 
-function isStatusDone(status: string): boolean {
-  return status.includes("completed") || status.includes("delivered") || status.includes("fulfilled") || status.includes("paid");
-}
-
 export default async function OrderDetailPage({
-  params
+  params,
 }: {
   params: Promise<{ orderId: string }>;
 }) {
@@ -54,24 +45,30 @@ export default async function OrderDetailPage({
     <CustomerShell customerName={session.user.fullName}>
       <div className="space-y-6">
         <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href={"/orders" as Route} className="transition hover:text-foreground">My Orders</Link>
+          <Link href={"/orders" as Route} className="transition hover:text-foreground">
+            My Orders
+          </Link>
           <ChevronRight className="size-3.5" />
           <span className="font-medium text-foreground">{order.orderNumber}</span>
         </nav>
 
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight">{order.orderNumber}</h1>
-          <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm">
-            {order.status.replaceAll("_", " ")}
-          </Badge>
-          <Badge variant="outline" className="text-sm">
-            {order.fulfillmentType.replaceAll("_", " ")}
-          </Badge>
+          <StatusBadge status={order.status} className="text-sm" />
+          <StatusBadge
+            status="draft"
+            label={order.fulfillmentType.replaceAll("_", " ")}
+            className="text-sm"
+          />
         </div>
 
         {/* Horizontal progress stepper */}
         <div className="rounded-lg border border-border bg-background p-4">
-          <div className="flex items-center justify-between" role="list" aria-label="Order progress">
+          <div
+            className="flex items-center justify-between"
+            role="list"
+            aria-label="Order progress"
+          >
             {ORDER_STEPS.map((step, index) => (
               <div
                 key={step}
@@ -87,13 +84,11 @@ export default async function OrderDetailPage({
                         : "bg-secondary text-muted-foreground"
                     }`}
                   >
-                    {index < currentStepIndex ? (
-                      <Check className="size-4" />
-                    ) : (
-                      index + 1
-                    )}
+                    {index < currentStepIndex ? <Check className="size-4" /> : index + 1}
                   </div>
-                  <span className={`text-xs capitalize ${index <= currentStepIndex ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                  <span
+                    className={`text-xs capitalize ${index <= currentStepIndex ? "font-medium text-foreground" : "text-muted-foreground"}`}
+                  >
                     {step}
                   </span>
                 </div>
@@ -117,7 +112,10 @@ export default async function OrderDetailPage({
               </CardHeader>
               <CardContent>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-sm font-bold text-foreground">
                         {item.product.name.charAt(0)}
@@ -125,14 +123,20 @@ export default async function OrderDetailPage({
                       <span className="font-medium">{item.product.name}</span>
                     </div>
                     <div className="text-right text-sm">
-                      <div className="font-medium">${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}</div>
-                      <div className="text-muted-foreground">{Number(item.quantity).toFixed(0)} x ${Number(item.unitPrice).toFixed(2)}</div>
+                      <div className="font-medium">
+                        ${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {Number(item.quantity).toFixed(0)} x ${Number(item.unitPrice).toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 ))}
                 <div className="flex items-center justify-between border-t border-border pt-4 mt-1">
                   <span className="font-medium">Total</span>
-                  <span className="text-2xl font-bold">${Number(order.totalAmount).toFixed(2)}</span>
+                  <span className="text-2xl font-bold">
+                    ${Number(order.totalAmount).toFixed(2)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -149,20 +153,23 @@ export default async function OrderDetailPage({
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Status:</span>
-                  <Badge variant={getStatusBadgeVariant(order.fulfillment?.status ?? "pending")}>
-                    {order.fulfillment?.status.replaceAll("_", " ") ?? "pending"}
-                  </Badge>
+                  <StatusBadge status={order.fulfillment?.status ?? "pending"} />
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">Type:</span>
-                  <span className="font-medium capitalize">{order.fulfillmentType.replaceAll("_", " ")}</span>
+                  <span className="font-medium capitalize">
+                    {order.fulfillmentType.replaceAll("_", " ")}
+                  </span>
                 </div>
                 {order.fulfillment?.deliveryAddress ? (
                   <div className="flex items-start gap-2 rounded-lg border bg-secondary/50 p-3 text-sm">
                     <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div>
                       <div className="font-medium">Delivery Address</div>
-                      <div className="text-muted-foreground">{order.fulfillment.deliveryAddress.line1}, {order.fulfillment.deliveryAddress.city}</div>
+                      <div className="text-muted-foreground">
+                        {order.fulfillment.deliveryAddress.line1},{" "}
+                        {order.fulfillment.deliveryAddress.city}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -186,14 +193,19 @@ export default async function OrderDetailPage({
               </CardHeader>
               <CardContent className="space-y-3">
                 {order.payments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between border-b border-border pb-3 last:border-b-0 last:pb-0">
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between border-b border-border pb-3 last:border-b-0 last:pb-0"
+                  >
                     <div className="space-y-0.5">
-                      <div className="text-sm font-medium capitalize">{payment.method.replaceAll("_", " ")}</div>
-                      <Badge variant={getStatusBadgeVariant(payment.status)} className="text-[10px]">
-                        {payment.status.replaceAll("_", " ")}
-                      </Badge>
+                      <div className="text-sm font-medium capitalize">
+                        {payment.method.replaceAll("_", " ")}
+                      </div>
+                      <StatusBadge status={payment.status} className="text-[10px]" />
                     </div>
-                    <span className="text-lg font-semibold">${Number(payment.amount).toFixed(2)}</span>
+                    <span className="text-lg font-semibold">
+                      ${Number(payment.amount).toFixed(2)}
+                    </span>
                   </div>
                 ))}
               </CardContent>
@@ -211,15 +223,17 @@ export default async function OrderDetailPage({
                         <div className="absolute left-[9px] top-5 h-full w-0.5 bg-border" />
                       ) : null}
                       <div className="relative mt-1 flex size-[18px] shrink-0 items-center justify-center">
-                        <div className={`size-3 rounded-full ${isStatusDone(entry.newStatus) ? "bg-[#06C167] ring-4 ring-green-100" : "bg-muted-foreground/30"}`} />
+                        <div
+                          className={`size-3 rounded-full ${getStatusDotClass(entry.newStatus)}`}
+                        />
                       </div>
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={getStatusBadgeVariant(entry.newStatus)} className="text-[10px]">
-                            {entry.newStatus.replaceAll("_", " ")}
-                          </Badge>
+                          <StatusBadge status={entry.newStatus} className="text-[10px]" />
                         </div>
-                        <div className="text-xs text-muted-foreground">{formatDate(entry.changedAt)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(entry.changedAt)}
+                        </div>
                       </div>
                     </div>
                   ))}
