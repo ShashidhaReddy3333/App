@@ -1,11 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { getPostSignInPath } from "@/lib/auth/guards";
 import { getCurrentSession } from "@/lib/auth/session";
+import { getCanonicalPath } from "@/lib/public-metadata";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Store, Truck, ArrowRight, Zap, Shield, BarChart3, Globe } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Human Pulse | Commerce Operating System",
+  description:
+    "Run customer ordering, POS checkout, inventory, supplier procurement, and analytics from one commerce platform.",
+  alternates: {
+    canonical: getCanonicalPath("/"),
+  },
+};
 
 export default async function HomePage() {
   const session = await getCurrentSession();
@@ -267,37 +278,25 @@ export default async function HomePage() {
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold">Connect</h4>
+              <h4 className="text-sm font-semibold">Resources</h4>
               <ul className="mt-3 space-y-2 text-sm text-white/50">
                 <li>
-                  <a
-                    href="#"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors hover:text-white"
-                  >
-                    Twitter
-                  </a>
+                  <Link href="/privacy" className="transition-colors hover:text-white">
+                    Privacy Policy
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="#"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors hover:text-white"
-                  >
-                    LinkedIn
-                  </a>
+                  <Link href="/terms" className="transition-colors hover:text-white">
+                    Terms of Service
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="#"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href={"/marketplace" as Route}
                     className="transition-colors hover:text-white"
                   >
-                    GitHub
-                  </a>
+                    Marketplace
+                  </Link>
                 </li>
               </ul>
             </div>

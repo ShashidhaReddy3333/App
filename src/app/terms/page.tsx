@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+import { getCanonicalPath } from "@/lib/public-metadata";
+
+export const metadata: Metadata = {
+  title: "Terms of Service | Human Pulse",
+  description: "Review the terms that govern use of the Human Pulse commerce platform.",
+  alternates: {
+    canonical: getCanonicalPath("/terms"),
+  },
+};
+
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">

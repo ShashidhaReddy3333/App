@@ -3,7 +3,6 @@
 import { ErrorState } from "@/components/state-card";
 
 export default function AppError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -12,10 +11,7 @@ export default function AppError({
   return (
     <ErrorState
       title="This business page failed to load"
-      description={
-        error.message ||
-        "Please try again. If the issue persists, verify that the demo data has been seeded and your session is still active."
-      }
+      description="We couldn't finish loading this page right now. Please retry in a moment."
       onRetryLabel="Retry load"
       onRetry={reset}
     />

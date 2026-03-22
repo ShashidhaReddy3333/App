@@ -7,12 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
+import { getCanonicalPath } from "@/lib/public-metadata";
 import { getBusinessProfile, listReviews } from "@/lib/services/marketplace-service";
 
-export const metadata: Metadata = {
-  title: "Marketplace Business | Human Pulse",
-  description: "Browse business details, products, and reviews in the Human Pulse marketplace.",
-};
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  return {
+    title: "Marketplace Business | Human Pulse",
+    description: "Browse business details, products, and reviews in the Human Pulse marketplace.",
+    alternates: {
+      canonical: getCanonicalPath(`/marketplace/${slug}`),
+    },
+  };
+}
 
 export const dynamic = "force-dynamic";
 

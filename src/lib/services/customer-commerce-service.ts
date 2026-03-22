@@ -50,7 +50,30 @@ async function getStorefrontBusiness() {
 }
 
 export async function getStorefrontData() {
-  const { business, location } = await getStorefrontBusiness();
+  const storefront = await db.business.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "asc" },
+    include: {
+      locations: {
+        where: { isActive: true },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+      },
+    },
+  });
+
+  if (!storefront || !storefront.locations[0]) {
+    return {
+      available: false as const,
+      business: null,
+      location: null,
+      categories: [],
+      products: [],
+    };
+  }
+
+  const business = storefront;
+  const location = storefront.locations[0];
   const products = await db.product.findMany({
     where: {
       businessId: business.id,
@@ -67,6 +90,7 @@ export async function getStorefrontData() {
   const categories = [...new Set(products.map((product) => product.category))];
 
   return {
+    available: true as const,
     business,
     location,
     categories,

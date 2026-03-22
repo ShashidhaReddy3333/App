@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { Route } from "next";
 import { ArrowRight, DollarSign, Package, Percent, ShoppingCart, Store, User } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Supplier Dashboard | Human Pulse",
 };
 
-import { SupplierRevenueChart, SupplierTopProductsChart } from "@/components/supplier-dashboard-charts";
+import {
+  SupplierRevenueChart,
+  SupplierTopProductsChart,
+} from "@/components/supplier-dashboard-charts";
 import { SupplierShell } from "@/components/supplier-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireRole } from "@/lib/auth/guards";
 import { formatCurrency } from "@/lib/utils";
-import { getSupplierAnalytics, listSupplierPortalData } from "@/lib/services/procurement-query-service";
+import {
+  getSupplierAnalytics,
+  listSupplierPortalData,
+} from "@/lib/services/procurement-query-service";
 
 export default async function SupplierDashboardPage() {
-  const session = await requireRole("supplier", "/sign-in");
+  const session = await requireRole("supplier", "/supplier/forbidden" as Route);
   const data = await listSupplierPortalData(session.user.id);
   const analytics = await getSupplierAnalytics(data.supplier.id);
 
@@ -28,13 +35,17 @@ export default async function SupplierDashboardPage() {
       <div className="space-y-8">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold">Supplier dashboard</h1>
-          <p className="text-muted-foreground">Manage your wholesale catalog and respond to retailer purchase orders.</p>
+          <p className="text-muted-foreground">
+            Manage your wholesale catalog and respond to retailer purchase orders.
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Wholesale products</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Wholesale products
+              </CardTitle>
               <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <Package className="size-5" />
               </div>
@@ -47,7 +58,9 @@ export default async function SupplierDashboardPage() {
 
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Open retailer orders</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Open retailer orders
+              </CardTitle>
               <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <ShoppingCart className="size-5" />
               </div>
@@ -60,7 +73,9 @@ export default async function SupplierDashboardPage() {
 
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Supplier profile</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Supplier profile
+              </CardTitle>
               <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                 <User className="size-5" />
               </div>
@@ -84,7 +99,9 @@ export default async function SupplierDashboardPage() {
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-foreground">Wholesale Catalog</div>
-                  <div className="text-sm text-muted-foreground">Manage products, pricing, and availability</div>
+                  <div className="text-sm text-muted-foreground">
+                    Manage products, pricing, and availability
+                  </div>
                 </div>
                 <ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </CardContent>
@@ -99,7 +116,9 @@ export default async function SupplierDashboardPage() {
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-foreground">Retailer Orders</div>
-                  <div className="text-sm text-muted-foreground">Review and fulfill purchase orders</div>
+                  <div className="text-sm text-muted-foreground">
+                    Review and fulfill purchase orders
+                  </div>
                 </div>
                 <ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </CardContent>
@@ -111,20 +130,26 @@ export default async function SupplierDashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Card className="rounded-xl border border-border bg-white shadow-sm">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Revenue
+                </CardTitle>
                 <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <DollarSign className="size-5" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">{formatCurrency(analytics.totalRevenue)}</div>
+                <div className="text-3xl font-semibold">
+                  {formatCurrency(analytics.totalRevenue)}
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">Completed wholesale orders</p>
               </CardContent>
             </Card>
 
             <Card className="rounded-xl border border-border bg-white shadow-sm">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Open Orders</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Open Orders
+                </CardTitle>
                 <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <ShoppingCart className="size-5" />
                 </div>
@@ -137,20 +162,26 @@ export default async function SupplierDashboardPage() {
 
             <Card className="rounded-xl border border-border bg-white shadow-sm">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Fulfillment Rate</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Fulfillment Rate
+                </CardTitle>
                 <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Percent className="size-5" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">{analytics.fulfillmentRate.toFixed(1)}%</div>
+                <div className="text-3xl font-semibold">
+                  {analytics.fulfillmentRate.toFixed(1)}%
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">Completed vs active orders</p>
               </CardContent>
             </Card>
 
             <Card className="rounded-xl border border-border bg-white shadow-sm">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Active Retailers</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Active Retailers
+                </CardTitle>
                 <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <Store className="size-5" />
                 </div>
@@ -166,7 +197,9 @@ export default async function SupplierDashboardPage() {
             <Card className="rounded-xl border border-border bg-white shadow-sm">
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle>Monthly Revenue</CardTitle>
-                <Badge variant="outline">{analytics.averageFulfillmentDays.toFixed(1)} day avg fulfillment</Badge>
+                <Badge variant="outline">
+                  {analytics.averageFulfillmentDays.toFixed(1)} day avg fulfillment
+                </Badge>
               </CardHeader>
               <CardContent>
                 <SupplierRevenueChart data={analytics.monthlyRevenue} />
@@ -187,5 +220,3 @@ export default async function SupplierDashboardPage() {
     </SupplierShell>
   );
 }
-
-

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 import { Package, DollarSign, Clock, Link2 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -16,10 +17,10 @@ import { listSupplierPortalData } from "@/lib/services/procurement-query-service
 import { toProductOptions } from "@/lib/view-models/app";
 
 export default async function SupplierCatalogPage() {
-  const session = await requireRole("supplier", "/sign-in");
+  const session = await requireRole("supplier", "/supplier/forbidden" as Route);
   const [supplierData, catalog] = await Promise.all([
     listSupplierPortalData(session.user.id),
-    listCatalogData(session.user.businessId!)
+    listCatalogData(session.user.businessId!),
   ]);
   const mappedProducts = toProductOptions(catalog.products);
 
@@ -31,7 +32,8 @@ export default async function SupplierCatalogPage() {
           <div>
             <h2 className="text-xl font-semibold">Your Products</h2>
             <p className="text-sm text-muted-foreground">
-              {supplierData.supplierProducts.length} item{supplierData.supplierProducts.length !== 1 ? "s" : ""} in your wholesale catalog
+              {supplierData.supplierProducts.length} item
+              {supplierData.supplierProducts.length !== 1 ? "s" : ""} in your wholesale catalog
             </p>
           </div>
           <div className="grid gap-4">
@@ -43,10 +45,7 @@ export default async function SupplierCatalogPage() {
               />
             ) : null}
             {supplierData.supplierProducts.map((product) => (
-              <Card
-                key={product.id}
-                className="rounded-xl"
-              >
+              <Card key={product.id} className="rounded-xl">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -61,7 +60,9 @@ export default async function SupplierCatalogPage() {
                         Linked
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="shrink-0">Not linked</Badge>
+                      <Badge variant="outline" className="shrink-0">
+                        Not linked
+                      </Badge>
                     )}
                   </div>
                 </CardHeader>
@@ -71,14 +72,18 @@ export default async function SupplierCatalogPage() {
                       <Package className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">MOQ</div>
-                        <div className="font-medium">{Number(product.minimumOrderQuantity).toFixed(0)}</div>
+                        <div className="font-medium">
+                          {Number(product.minimumOrderQuantity).toFixed(0)}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
                       <DollarSign className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">Wholesale</div>
-                        <div className="font-medium">${Number(product.wholesalePrice).toFixed(2)}</div>
+                        <div className="font-medium">
+                          ${Number(product.wholesalePrice).toFixed(2)}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1">
@@ -92,7 +97,9 @@ export default async function SupplierCatalogPage() {
                       <Link2 className="size-3.5 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">Mapped to</div>
-                        <div className="truncate font-medium">{product.mappedProduct?.name ?? "None"}</div>
+                        <div className="truncate font-medium">
+                          {product.mappedProduct?.name ?? "None"}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -105,5 +112,3 @@ export default async function SupplierCatalogPage() {
     </SupplierShell>
   );
 }
-
-

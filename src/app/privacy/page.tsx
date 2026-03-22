@@ -1,3 +1,15 @@
+import type { Metadata } from "next";
+
+import { getCanonicalPath } from "@/lib/public-metadata";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy | Human Pulse",
+  description: "Read how Human Pulse collects, uses, and protects customer and business data.",
+  alternates: {
+    canonical: getCanonicalPath("/privacy"),
+  },
+};
+
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">

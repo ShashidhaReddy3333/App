@@ -61,16 +61,24 @@ export function CustomerSignUpForm() {
           <div className="space-y-2">
             <Label htmlFor="fullName">Full name</Label>
             <Input id="fullName" {...form.register("fullName")} />
-            {form.formState.errors.fullName ? (
-              <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p>
-            ) : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.fullName ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {form.formState.errors.fullName.message}
+                </p>
+              ) : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
-            {form.formState.errors.email ? (
-              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-            ) : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {form.formState.errors.email.message}
+                </p>
+              ) : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
@@ -78,11 +86,24 @@ export function CustomerSignUpForm() {
             <p className="text-xs text-muted-foreground">
               Must be at least 10 characters with uppercase, lowercase, and a digit.
             </p>
-            {form.formState.errors.password ? (
-              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
-            ) : null}
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.password ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {form.formState.errors.password.message}
+                </p>
+              ) : null}
+            </div>
           </div>
-          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {serverError ? (
+            <p
+              className="text-sm text-destructive"
+              aria-live="polite"
+              aria-atomic="true"
+              role="alert"
+            >
+              {serverError}
+            </p>
+          ) : null}
           <Button className="w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Creating..." : "Create customer account"}
           </Button>

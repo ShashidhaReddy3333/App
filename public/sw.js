@@ -1,12 +1,19 @@
 // Human Pulse Service Worker - Offline support
-const CACHE_NAME = "human-pulse-v2";
+const CACHE_NAME = "human-pulse-v3";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_ASSETS = [
-  "/",
   "/offline",
   "/manifest.json",
-  "/favicon.ico"
+  "/favicon.ico",
+  "/icons/icon-72x72.png",
+  "/icons/icon-96x96.png",
+  "/icons/icon-128x128.png",
+  "/icons/icon-144x144.png",
+  "/icons/icon-152x152.png",
+  "/icons/icon-192x192.png",
+  "/icons/icon-384x384.png",
+  "/icons/icon-512x512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -50,14 +57,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
+        .then((response) => response)
         .catch(async () => {
-          const cachedPage = await caches.match(request);
-          return cachedPage ?? caches.match(OFFLINE_URL);
+          return (await caches.match(OFFLINE_URL)) || Response.error();
         })
     );
     return;
@@ -71,14 +73,16 @@ self.addEventListener("fetch", (event) => {
     /\.(png|jpg|jpeg|svg|gif|webp|woff2?|ttf|css|ico)$/.test(url.pathname)
   ) {
     event.respondWith(
-      caches.match(request).then((cached) => {
+      caches.match(request, { ignoreSearch: true }).then((cached) => {
         if (cached) {
           return cached;
         }
 
         return fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         });
       })
@@ -86,5 +90,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(fetch(request));
+  event.respondWith(
+    fetch(request).catch(async () => {
+      const cached = await caches.match(request);
+      return cached || Response.error();
+    })
+  );
 });

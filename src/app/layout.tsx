@@ -5,12 +5,17 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { CsrfProvider } from "@/components/csrf-provider";
 import { MonitoringClient } from "@/components/monitoring-client";
 import { Toaster } from "@/components/ui/sonner";
+import { getCanonicalPath, getMetadataBase } from "@/lib/public-metadata";
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "Human Pulse | Commerce Operating System",
   description:
     "Customer ordering, POS, inventory, supplier procurement, and owner analytics in one unified platform.",
   keywords: ["commerce", "POS", "inventory", "retail", "supplier", "management"],
+  alternates: {
+    canonical: getCanonicalPath("/"),
+  },
   openGraph: {
     title: "Human Pulse | Commerce Operating System",
     description:
@@ -36,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Human Pulse" />
+        <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body>
         <a

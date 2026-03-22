@@ -13,6 +13,9 @@ export function getPostSignInPath(role: UserRole): Route {
   if (role === "supplier") {
     return "/supplier/dashboard" as Route;
   }
+  if (role === "platform_admin") {
+    return "/admin" as Route;
+  }
   return "/app/dashboard" as Route;
 }
 
@@ -40,7 +43,10 @@ export async function requirePermission(permission: Permission) {
   return session;
 }
 
-export async function requireRole(role: UserRole, forbiddenPath: Route = "/app/forbidden" as Route) {
+export async function requireRole(
+  role: UserRole,
+  forbiddenPath: Route = "/app/forbidden" as Route
+) {
   const session = await requireAnySession();
   if (session.user.role !== role) {
     redirect(forbiddenPath);
@@ -48,7 +54,10 @@ export async function requireRole(role: UserRole, forbiddenPath: Route = "/app/f
   return session;
 }
 
-export async function requireRoles(roles: UserRole[], forbiddenPath: Route = "/app/forbidden" as Route) {
+export async function requireRoles(
+  roles: UserRole[],
+  forbiddenPath: Route = "/app/forbidden" as Route
+) {
   const session = await requireAnySession();
   if (!roles.includes(session.user.role)) {
     redirect(forbiddenPath);

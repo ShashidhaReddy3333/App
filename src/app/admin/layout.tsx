@@ -5,8 +5,11 @@ import { AdminShell } from "@/components/admin/admin-shell";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentSession();
 
-  if (!session || session.user.role !== "platform_admin") {
+  if (!session) {
     redirect("/sign-in");
+  }
+  if (session.user.role !== "platform_admin") {
+    redirect("/admin/forbidden");
   }
 
   return <AdminShell email={session.user.email}>{children}</AdminShell>;

@@ -3,7 +3,6 @@
 import { ErrorState } from "@/components/state-card";
 
 export default function SupplierError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -17,9 +16,7 @@ export default function SupplierError({
       <div className="page-shell py-8">
         <ErrorState
           title="The supplier portal hit an error"
-          description={
-            error.message || "We couldn't finish loading this supplier page. Please retry."
-          }
+          description="We couldn't finish loading this supplier page. Please retry."
           onRetryLabel="Retry supplier page"
           onRetry={reset}
         />
