@@ -26,7 +26,9 @@
       "Bash(VERCEL_CONFIG_DIR=/c/Users/Owner/AppData/Roaming/com.vercel.cli/Data npx vercel deploy --prod)",
       "Bash(find /c/Users/Owner/Desktop/SRJ/App/.claude/worktrees/happy-chebyshev/src/app -type d -name \"\\(\\\\*\")",
       "Bash(grep -v \"^$\")",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami:*)"
     ]
   }
 }
