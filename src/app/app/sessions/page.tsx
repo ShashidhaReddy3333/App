@@ -12,13 +12,16 @@ export const metadata: Metadata = {
 export default async function SessionsPage() {
   const session = await requirePermission("sessions");
   const sessions = await listBusinessSessions(session.user.businessId!);
-  const cards = toSessionCards(sessions);
+  const cards = toSessionCards(sessions, {
+    currentSessionId: session.id,
+    currentUserId: session.user.id,
+  });
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Session management"
-        description="Owners can review device sessions and revoke any active session."
+        description="Owners can review device sessions, revoke any active session, and sign out their account everywhere else."
         breadcrumbs={[{ label: "Sessions" }]}
       />
       <div>
@@ -27,5 +30,3 @@ export default async function SessionsPage() {
     </div>
   );
 }
-
-

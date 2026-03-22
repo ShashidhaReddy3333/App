@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ReorderCreatePoButton } from "@/components/reorder-create-po-button";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
@@ -77,6 +78,20 @@ export default async function ReorderPage() {
                     <div className="font-semibold text-primary">
                       {item.suggestedReorderQuantity}
                     </div>
+                  </div>
+                  <div className="sm:col-span-3">
+                    {item.supplierId && item.supplierProductId ? (
+                      <ReorderCreatePoButton
+                        supplierId={item.supplierId}
+                        supplierProductId={item.supplierProductId}
+                        locationId={item.locationId}
+                        quantity={item.suggestedReorderQuantity}
+                      />
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
+                        {item.reorderBlockedReason}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

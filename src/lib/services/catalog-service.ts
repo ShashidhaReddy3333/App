@@ -10,16 +10,19 @@ import {
   createIdempotencyRecord,
   ensureSupplierOwnership,
   getOwnedLocation,
-  getOwnedProduct
+  getOwnedProduct,
 } from "@/lib/services/command-helpers";
 import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
 
-export async function listCatalogData(businessId: string, options?: { page?: number; pageSize?: number }) {
+export async function listCatalogData(
+  businessId: string,
+  options?: { page?: number; pageSize?: number }
+) {
   const location = await getDefaultLocation(businessId);
   const where = { businessId, isArchived: false };
   const suppliersPromise = db.supplier.findMany({
     where: { businessId },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
   });
 
   if (typeof options?.page === "number" || typeof options?.pageSize === "number") {
@@ -33,12 +36,12 @@ export async function listCatalogData(businessId: string, options?: { page?: num
         include: {
           supplier: true,
           inventoryBalances: {
-            where: { locationId: location.id }
-          }
+            where: { locationId: location.id },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
-        take: pageSize
+        take: pageSize,
       }),
       db.product.count({ where }),
       db.product.findMany({
@@ -46,12 +49,12 @@ export async function listCatalogData(businessId: string, options?: { page?: num
         include: {
           supplier: true,
           inventoryBalances: {
-            where: { locationId: location.id }
-          }
+            where: { locationId: location.id },
+          },
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
       }),
-      suppliersPromise
+      suppliersPromise,
     ]);
 
     return {
@@ -62,7 +65,7 @@ export async function listCatalogData(businessId: string, options?: { page?: num
         return {
           ...product,
           availableQuantity,
-          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity),
         };
       }),
       allProducts: allProducts.map((product) => {
@@ -71,13 +74,13 @@ export async function listCatalogData(businessId: string, options?: { page?: num
         return {
           ...product,
           availableQuantity,
-          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+          reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity),
         };
       }),
       suppliers,
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize),
-      currentPage: page
+      currentPage: page,
     };
   }
 
@@ -87,12 +90,12 @@ export async function listCatalogData(businessId: string, options?: { page?: num
       include: {
         supplier: true,
         inventoryBalances: {
-          where: { locationId: location.id }
-        }
+          where: { locationId: location.id },
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     }),
-    suppliersPromise
+    suppliersPromise,
   ]);
 
   const mappedProducts = products.map((product) => {
@@ -101,7 +104,7 @@ export async function listCatalogData(businessId: string, options?: { page?: num
     return {
       ...product,
       availableQuantity,
-      reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity)
+      reorderQuantity: computeReorderQuantity(Number(product.parLevel), availableQuantity),
     };
   });
 
@@ -112,7 +115,7 @@ export async function listCatalogData(businessId: string, options?: { page?: num
     suppliers,
     totalCount: mappedProducts.length,
     totalPages: 1,
-    currentPage: 1
+    currentPage: 1,
   };
 }
 
@@ -127,8 +130,8 @@ export async function createSupplier(actorUserId: string, businessId: string, in
         contactName: values.contactName || null,
         email: values.email || null,
         phone: values.phone || null,
-        notes: values.notes || null
-      }
+        notes: values.notes || null,
+      },
     });
 
     await logAudit({
@@ -138,7 +141,7 @@ export async function createSupplier(actorUserId: string, businessId: string, in
       action: "supplier_created",
       resourceType: "supplier",
       resourceId: supplier.id,
-      metadata: { name: supplier.name }
+      metadata: { name: supplier.name },
     });
 
     return supplier;
@@ -155,14 +158,14 @@ export async function createProduct(actorUserId: string, businessId: string, inp
     const existingSku = await tx.product.findFirst({
       where: {
         businessId,
-        sku: values.sku
-      }
+        sku: values.sku,
+      },
     });
     if (existingSku) {
       throw validationError("SKU already exists for this business.", {
         fieldErrors: {
-          sku: ["SKU already exists for this business."]
-        }
+          sku: ["SKU already exists for this business."],
+        },
       });
     }
 
@@ -179,8 +182,8 @@ export async function createProduct(actorUserId: string, businessId: string, inp
         sellingPrice: toDecimal(values.sellingPrice),
         taxCategory: values.taxCategory || null,
         parLevel: toDecimal(values.parLevel),
-        allowOversell: values.allowOversell
-      }
+        allowOversell: values.allowOversell,
+      },
     });
 
     const availableQuantity = computeAvailableQuantity(values.openingStock, 0);
@@ -191,8 +194,8 @@ export async function createProduct(actorUserId: string, businessId: string, inp
         locationId: values.locationId,
         onHandQuantity: toDecimal(values.openingStock),
         reservedQuantity: toDecimal(0),
-        availableQuantity: toDecimal(availableQuantity)
-      }
+        availableQuantity: toDecimal(availableQuantity),
+      },
     });
 
     await tx.inventoryMovement.create({
@@ -204,8 +207,8 @@ export async function createProduct(actorUserId: string, businessId: string, inp
         referenceType: "product",
         referenceId: product.id,
         reason: "opening_stock",
-        createdById: actorUserId
-      }
+        createdById: actorUserId,
+      },
     });
 
     await logAudit({
@@ -215,7 +218,7 @@ export async function createProduct(actorUserId: string, businessId: string, inp
       action: "product_created",
       resourceType: "product",
       resourceId: product.id,
-      metadata: { name: product.name, sku: product.sku }
+      metadata: { name: product.name, sku: product.sku },
     });
 
     return product;
@@ -224,10 +227,14 @@ export async function createProduct(actorUserId: string, businessId: string, inp
 
 export async function adjustInventory(actorUserId: string, businessId: string, input: unknown) {
   const values = inventoryAdjustmentSchema.parse(input);
-  const existing = await findIdempotentResult(businessId, "manual_stock_adjustment", values.idempotencyKey);
+  const existing = await findIdempotentResult(
+    businessId,
+    "manual_stock_adjustment",
+    values.idempotencyKey
+  );
   if (existing) {
     return db.inventoryMovement.findUniqueOrThrow({
-      where: { id: existing.resourceId }
+      where: { id: existing.resourceId },
     });
   }
 
@@ -238,17 +245,17 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
       where: {
         productId_locationId: {
           productId: values.productId,
-          locationId: values.locationId
-        }
-      }
+          locationId: values.locationId,
+        },
+      },
     });
 
     const nextOnHand = Number(balance.onHandQuantity) + values.quantityDelta;
     if (!product.allowOversell && nextOnHand < 0) {
       throw validationError("Adjustment would reduce stock below zero.", {
         fieldErrors: {
-          quantityDelta: ["Adjustment would reduce stock below zero."]
-        }
+          quantityDelta: ["Adjustment would reduce stock below zero."],
+        },
       });
     }
 
@@ -257,14 +264,14 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
       where: {
         productId_locationId: {
           productId: values.productId,
-          locationId: values.locationId
-        }
+          locationId: values.locationId,
+        },
       },
       data: {
         onHandQuantity: toDecimal(nextOnHand),
         availableQuantity: toDecimal(nextAvailable),
-        versionNumber: { increment: 1 }
-      }
+        versionNumber: { increment: 1 },
+      },
     });
 
     const movement = await tx.inventoryMovement.create({
@@ -279,11 +286,18 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
         referenceType: "stock_adjustment",
         referenceId: values.idempotencyKey,
         reason: values.reason,
-        createdById: actorUserId
-      }
+        createdById: actorUserId,
+      },
     });
 
-    await createIdempotencyRecord(tx, businessId, "manual_stock_adjustment", values.idempotencyKey, "inventory_movement", movement.id);
+    await createIdempotencyRecord(
+      tx,
+      businessId,
+      "manual_stock_adjustment",
+      values.idempotencyKey,
+      "inventory_movement",
+      movement.id
+    );
 
     await logAudit({
       tx,
@@ -295,8 +309,8 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
       metadata: {
         productId: values.productId,
         quantityDelta: values.quantityDelta,
-        reason: values.reason
-      }
+        reason: values.reason,
+      },
     });
 
     return movement;
@@ -308,7 +322,7 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
 export async function listReorderItems(businessId: string, locationId?: string) {
   const location = locationId
     ? await db.location.findFirstOrThrow({
-        where: { id: locationId, businessId }
+        where: { id: locationId, businessId },
       })
     : await getDefaultLocation(businessId);
 
@@ -321,29 +335,59 @@ export async function listReorderItems(businessId: string, locationId?: string) 
       locationId: location.id,
       product: {
         businessId,
-        isArchived: false
-      }
+        isArchived: false,
+      },
     },
     include: {
       product: {
         include: {
-          supplier: true
-        }
-      }
+          supplier: true,
+          supplierProducts: {
+            where: { isActive: true },
+            orderBy: { updatedAt: "desc" },
+            take: 10,
+          },
+        },
+      },
     },
     orderBy: {
-      updatedAt: "asc"
-    }
+      updatedAt: "asc",
+    },
   });
 
   return balances
-    .map((balance) => ({
-      productId: balance.productId,
-      productName: balance.product.name,
-      supplierName: balance.product.supplier?.name ?? "Unassigned",
-      availableQuantity: Number(balance.availableQuantity),
-      parLevel: Number(balance.product.parLevel),
-      suggestedReorderQuantity: computeReorderQuantity(Number(balance.product.parLevel), Number(balance.availableQuantity))
-    }))
+    .map((balance) => {
+      const mappedSupplierProduct =
+        balance.product.supplierId == null
+          ? null
+          : (balance.product.supplierProducts.find(
+              (supplierProduct) =>
+                supplierProduct.supplierId === balance.product.supplierId &&
+                supplierProduct.mappedProductId === balance.productId
+            ) ?? null);
+
+      const reorderBlockedReason =
+        balance.product.supplierId == null
+          ? "Assign a supplier before creating a purchase order."
+          : !mappedSupplierProduct
+            ? "Link an active supplier catalog item before creating a purchase order."
+            : null;
+
+      return {
+        productId: balance.productId,
+        locationId: location.id,
+        productName: balance.product.name,
+        supplierId: balance.product.supplierId,
+        supplierProductId: mappedSupplierProduct?.id ?? null,
+        supplierName: balance.product.supplier?.name ?? "Unassigned",
+        availableQuantity: Number(balance.availableQuantity),
+        parLevel: Number(balance.product.parLevel),
+        suggestedReorderQuantity: computeReorderQuantity(
+          Number(balance.product.parLevel),
+          Number(balance.availableQuantity)
+        ),
+        reorderBlockedReason,
+      };
+    })
     .filter((item) => item.suggestedReorderQuantity > 0);
 }

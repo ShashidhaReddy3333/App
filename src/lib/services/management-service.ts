@@ -84,3 +84,50 @@ export async function revokeSessionRecord(
     return revokedSession;
   });
 }
+
+export async function revokeOtherSessions(
+  actorUserId: string,
+  businessId: string,
+  currentSessionId: string
+) {
+  return db.$transaction(async (tx) => {
+    const sessions = await tx.session.findMany({
+      where: {
+        userId: actorUserId,
+        revokedAt: null,
+        id: { not: currentSessionId },
+      },
+      select: { id: true },
+      take: 100,
+    });
+
+    if (sessions.length === 0) {
+      return { revokedSessionIds: [], count: 0 };
+    }
+
+    await tx.session.updateMany({
+      where: {
+        id: { in: sessions.map((session) => session.id) },
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "other_sessions_revoked",
+      resourceType: "session",
+      resourceId: currentSessionId,
+      metadata: {
+        revokedSessionIds: sessions.map((session) => session.id),
+      },
+    });
+
+    return {
+      revokedSessionIds: sessions.map((session) => session.id),
+      count: sessions.length,
+    };
+  });
+}

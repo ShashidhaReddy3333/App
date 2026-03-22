@@ -4,14 +4,21 @@ import { db } from "@/lib/db";
 
 export { listProcurementData, listSupplierPortalData } from "@/lib/services/procurement-service";
 
-const COMPLETED_ORDER_STATUSES: PurchaseOrderStatus[] = [PurchaseOrderStatus.received, PurchaseOrderStatus.closed];
+const COMPLETED_ORDER_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.received,
+  PurchaseOrderStatus.closed,
+];
 const OPEN_ORDER_STATUSES: PurchaseOrderStatus[] = [
   PurchaseOrderStatus.ordered,
   PurchaseOrderStatus.sent,
   PurchaseOrderStatus.accepted,
-  PurchaseOrderStatus.partially_received
+  PurchaseOrderStatus.shipped,
+  PurchaseOrderStatus.partially_received,
 ];
-const EXCLUDED_FULFILLMENT_STATUSES: PurchaseOrderStatus[] = [PurchaseOrderStatus.draft, PurchaseOrderStatus.cancelled];
+const EXCLUDED_FULFILLMENT_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.draft,
+  PurchaseOrderStatus.cancelled,
+];
 
 export type SupplierAnalytics = {
   totalRevenue: number;
@@ -30,7 +37,10 @@ function getMonthKey(date: Date) {
 
 export async function getSupplierAnalytics(supplierId: string): Promise<SupplierAnalytics> {
   const now = new Date();
-  const monthAnchors = Array.from({ length: 6 }, (_, index) => new Date(now.getFullYear(), now.getMonth() - 5 + index, 1));
+  const monthAnchors = Array.from(
+    { length: 6 },
+    (_, index) => new Date(now.getFullYear(), now.getMonth() - 5 + index, 1)
+  );
   const monthlyRevenueStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
   const [
@@ -41,77 +51,77 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
     uniqueBusinessIds,
     monthlyRevenueOrders,
     topProductGroups,
-    completedOrderDates
+    completedOrderDates,
   ] = await Promise.all([
     db.purchaseOrder.aggregate({
       where: {
         supplierId,
-        status: { in: COMPLETED_ORDER_STATUSES }
+        status: { in: COMPLETED_ORDER_STATUSES },
       },
-      _sum: { totalCost: true }
+      _sum: { totalCost: true },
     }),
     db.purchaseOrder.count({
       where: {
         supplierId,
-        status: { in: OPEN_ORDER_STATUSES }
-      }
+        status: { in: OPEN_ORDER_STATUSES },
+      },
     }),
     db.purchaseOrder.count({
       where: {
         supplierId,
-        status: { in: COMPLETED_ORDER_STATUSES }
-      }
+        status: { in: COMPLETED_ORDER_STATUSES },
+      },
     }),
     db.purchaseOrder.count({
       where: {
         supplierId,
-        status: { notIn: EXCLUDED_FULFILLMENT_STATUSES }
-      }
+        status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
+      },
     }),
     db.purchaseOrder.findMany({
       where: {
         supplierId,
-        status: { notIn: EXCLUDED_FULFILLMENT_STATUSES }
+        status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
       },
       select: { businessId: true },
-      distinct: ["businessId"]
+      distinct: ["businessId"],
     }),
     db.purchaseOrder.findMany({
       where: {
         supplierId,
         status: { in: COMPLETED_ORDER_STATUSES },
-        createdAt: { gte: monthlyRevenueStart }
+        createdAt: { gte: monthlyRevenueStart },
       },
       select: {
         createdAt: true,
-        totalCost: true
-      }
+        totalCost: true,
+      },
     }),
     db.purchaseOrderItem.groupBy({
       by: ["productId"],
       where: {
         purchaseOrder: {
           supplierId,
-          status: { notIn: EXCLUDED_FULFILLMENT_STATUSES }
-        }
+          status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
+        },
       },
       _sum: { orderedQuantity: true },
       orderBy: {
-        _sum: { orderedQuantity: "desc" }
+        _sum: { orderedQuantity: "desc" },
       },
-      take: 5
+      take: 5,
     }),
     db.purchaseOrder.findMany({
       where: {
         supplierId,
-        status: { in: COMPLETED_ORDER_STATUSES }
+        status: { in: COMPLETED_ORDER_STATUSES },
       },
       select: {
         id: true,
         createdAt: true,
-        updatedAt: true
-      }
-    })
+        updatedAt: true,
+      },
+    }),
   ]);
 
   const completedOrderIds = completedOrderDates.map((order) => order.id);
@@ -121,13 +131,13 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
           where: {
             action: "purchase_order_received",
             resourceType: "purchase_order",
-            resourceId: { in: completedOrderIds }
+            resourceId: { in: completedOrderIds },
           },
           select: {
             resourceId: true,
-            createdAt: true
+            createdAt: true,
           },
-          orderBy: { createdAt: "asc" }
+          orderBy: { createdAt: "asc" },
         })
       : [];
 
@@ -148,7 +158,9 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
       ? fulfillmentDurations.reduce((sum, value) => sum + value, 0) / fulfillmentDurations.length
       : 0;
 
-  const monthlyRevenueByKey = new Map<string, number>(monthAnchors.map((month) => [getMonthKey(month), 0]));
+  const monthlyRevenueByKey = new Map<string, number>(
+    monthAnchors.map((month) => [getMonthKey(month), 0])
+  );
   for (const order of monthlyRevenueOrders) {
     const monthKey = getMonthKey(order.createdAt);
     const current = monthlyRevenueByKey.get(monthKey) ?? 0;
@@ -157,7 +169,7 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
 
   const monthlyRevenue = monthAnchors.map((month) => ({
     month: month.toLocaleString("en-CA", { month: "short" }),
-    revenue: monthlyRevenueByKey.get(getMonthKey(month)) ?? 0
+    revenue: monthlyRevenueByKey.get(getMonthKey(month)) ?? 0,
   }));
 
   const productIds = topProductGroups.map((group) => group.productId);
@@ -165,14 +177,14 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
     productIds.length > 0
       ? await db.product.findMany({
           where: { id: { in: productIds } },
-          select: { id: true, name: true }
+          select: { id: true, name: true },
         })
       : [];
   const productNameById = new Map(products.map((product) => [product.id, product.name]));
 
   const topProducts = topProductGroups.map((group) => ({
     name: productNameById.get(group.productId) ?? "Unknown product",
-    quantity: Number(group._sum.orderedQuantity ?? 0)
+    quantity: Number(group._sum.orderedQuantity ?? 0),
   }));
 
   return {
@@ -183,6 +195,7 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
     monthlyRevenue,
     topProducts,
     activeRetailers: uniqueBusinessIds.length,
-    fulfillmentRate: fulfillmentEligibleOrders > 0 ? (completedOrders / fulfillmentEligibleOrders) * 100 : 0
+    fulfillmentRate:
+      fulfillmentEligibleOrders > 0 ? (completedOrders / fulfillmentEligibleOrders) * 100 : 0,
   };
 }

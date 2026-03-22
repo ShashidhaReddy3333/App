@@ -68,6 +68,12 @@ export default async function ProcurementPage() {
                     </div>
                   </div>
                 </div>
+                {purchaseOrder.trackingNumber ? (
+                  <div className="rounded-xl border border-border/60 bg-white/70 p-3 text-sm">
+                    <span className="font-medium text-foreground">Tracking number:</span>{" "}
+                    <span className="text-muted-foreground">{purchaseOrder.trackingNumber}</span>
+                  </div>
+                ) : null}
                 <div className="space-y-2 text-sm">
                   {purchaseOrder.items.map((item) => (
                     <div

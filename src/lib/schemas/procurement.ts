@@ -10,12 +10,12 @@ export const supplierProductSchema = z.object({
   leadTimeDays: z.coerce.number().int().min(0),
   deliveryFee: z.coerce.number().min(0).optional(),
   serviceArea: z.string().max(120).optional().or(z.literal("")),
-  imageUrl: z.string().url().optional().or(z.literal(""))
+  imageUrl: z.string().url().optional().or(z.literal("")),
 });
 
 export const purchaseOrderItemInputSchema = z.object({
   supplierProductId: z.string().min(1),
-  quantity: z.coerce.number().positive()
+  quantity: z.coerce.number().positive(),
 });
 
 export const purchaseOrderSchema = z.object({
@@ -23,19 +23,30 @@ export const purchaseOrderSchema = z.object({
   locationId: z.string().min(1),
   expectedDeliveryDate: z.string().optional().or(z.literal("")),
   items: z.array(purchaseOrderItemInputSchema).min(1),
-  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID"),
 });
 
 export const receivePurchaseOrderSchema = z.object({
   items: z.array(
     z.object({
       itemId: z.string().min(1),
-      receivedQuantity: z.coerce.number().min(0)
+      receivedQuantity: z.coerce.number().min(0),
     })
   ),
-  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID"),
 });
 
-export const supplierOrderStatusSchema = z.object({
-  status: z.enum(["accepted", "rejected"])
-});
+export const supplierOrderStatusSchema = z
+  .object({
+    status: z.enum(["accepted", "rejected", "shipped"]),
+    trackingNumber: z.string().max(120).optional().or(z.literal("")),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "shipped" && !value.trackingNumber?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["trackingNumber"],
+        message: "Tracking number is required when marking an order as shipped.",
+      });
+    }
+  });

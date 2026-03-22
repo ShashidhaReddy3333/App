@@ -2,6 +2,7 @@ import { OrdersList } from "@/components/orders-list";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
 import { requirePermission } from "@/lib/auth/guards";
+import { canCancelOrder } from "@/lib/domain/orders";
 import { db } from "@/lib/db";
 
 export default async function OnlineOrdersPage() {
@@ -30,6 +31,7 @@ export default async function OnlineOrdersPage() {
     itemsSummary: order.items
       .map((item) => `${item.product.name} x ${Number(item.quantity).toFixed(0)}`)
       .join(", "),
+    canCancel: canCancelOrder(order.status, order.fulfillment?.status),
   }));
 
   return (

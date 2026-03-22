@@ -22,6 +22,8 @@ export function getStatusTone(status: string): StatusTone {
       "out_for_delivery",
       "in_progress",
       "in_transit",
+      "accepted",
+      "shipped",
       "authorized",
       "scheduled",
       "running",
@@ -42,7 +44,6 @@ export function getStatusTone(status: string): StatusTone {
       "sent",
       "paid",
       "read",
-      "accepted",
       "closed",
       "captured",
     ])

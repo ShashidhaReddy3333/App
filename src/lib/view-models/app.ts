@@ -1,15 +1,33 @@
 import { decimalToNumber } from "@/lib/money";
 import { formatDateTime } from "@/lib/utils";
 
-type CatalogData = Awaited<ReturnType<typeof import("@/lib/services/catalog-query-service").listCatalogData>>;
-type DashboardMetrics = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getDashboardMetrics>>;
-type ReportsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/reporting-query-service").getReportsSnapshot>>;
-type SalesListResponse = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").listSales>>;
-type SaleDetail = Awaited<ReturnType<typeof import("@/lib/services/sales-query-service").getSaleDetail>>;
-type StaffList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listStaff>>;
-type PendingInviteList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listPendingInvites>>;
-type SessionList = Awaited<ReturnType<typeof import("@/lib/services/management-query-service").listBusinessSessions>>;
-type OperationsSnapshot = Awaited<ReturnType<typeof import("@/lib/services/operations-query-service").getOperationsSnapshot>>;
+type CatalogData = Awaited<
+  ReturnType<typeof import("@/lib/services/catalog-query-service").listCatalogData>
+>;
+type DashboardMetrics = Awaited<
+  ReturnType<typeof import("@/lib/services/reporting-query-service").getDashboardMetrics>
+>;
+type ReportsSnapshot = Awaited<
+  ReturnType<typeof import("@/lib/services/reporting-query-service").getReportsSnapshot>
+>;
+type SalesListResponse = Awaited<
+  ReturnType<typeof import("@/lib/services/sales-query-service").listSales>
+>;
+type SaleDetail = Awaited<
+  ReturnType<typeof import("@/lib/services/sales-query-service").getSaleDetail>
+>;
+type StaffList = Awaited<
+  ReturnType<typeof import("@/lib/services/management-query-service").listStaff>
+>;
+type PendingInviteList = Awaited<
+  ReturnType<typeof import("@/lib/services/management-query-service").listPendingInvites>
+>;
+type SessionList = Awaited<
+  ReturnType<typeof import("@/lib/services/management-query-service").listBusinessSessions>
+>;
+type OperationsSnapshot = Awaited<
+  ReturnType<typeof import("@/lib/services/operations-query-service").getOperationsSnapshot>
+>;
 
 export function toProductTableRows(products: CatalogData["products"]) {
   return products.map((product) => ({
@@ -20,7 +38,7 @@ export function toProductTableRows(products: CatalogData["products"]) {
     sellingPrice: decimalToNumber(product.sellingPrice),
     availableQuantity: product.availableQuantity,
     reorderQuantity: product.reorderQuantity,
-    supplierName: product.supplier?.name ?? "Unassigned"
+    supplierName: product.supplier?.name ?? "Unassigned",
   }));
 }
 
@@ -29,7 +47,7 @@ export function toCheckoutProductOptions(products: CatalogData["products"]) {
     id: product.id,
     name: product.name,
     label: `${product.name} - ${product.sku}`,
-    sellingPrice: decimalToNumber(product.sellingPrice)
+    sellingPrice: decimalToNumber(product.sellingPrice),
   }));
 }
 
@@ -37,7 +55,7 @@ export function toProductOptions(products: CatalogData["products"]) {
   return products.map((product) => ({
     id: product.id,
     name: product.name,
-    label: `${product.name} - ${product.sku}`
+    label: `${product.name} - ${product.sku}`,
   }));
 }
 
@@ -45,7 +63,7 @@ export function toSupplierOptions(suppliers: CatalogData["suppliers"]) {
   return suppliers.map((supplier) => ({
     id: supplier.id,
     name: supplier.name,
-    label: supplier.name
+    label: supplier.name,
   }));
 }
 
@@ -57,14 +75,16 @@ export function toSalesListItems(sales: SalesListResponse["items"]) {
     totalAmount: sale.totalAmount.toString(),
     amountPaid: sale.amountPaid.toString(),
     cashierName: sale.cashier.fullName,
-    completedAtLabel: sale.completedAt ? new Date(sale.completedAt).toLocaleString() : "Pending completion"
+    completedAtLabel: sale.completedAt
+      ? new Date(sale.completedAt).toLocaleString()
+      : "Pending completion",
   }));
 }
 
 export function toRefundItemOptions(items: SaleDetail["items"]) {
   return items.map((item) => ({
     id: item.id,
-    label: `${item.product.name} (${item.quantity.toString()})`
+    label: `${item.product.name} (${item.quantity.toString()})`,
   }));
 }
 
@@ -74,7 +94,7 @@ export function toStaffCards(staff: StaffList) {
     fullName: user.fullName,
     email: user.email,
     roleLabel: user.role.replaceAll("_", " "),
-    status: user.status
+    status: user.status,
   }));
 }
 
@@ -85,20 +105,28 @@ export function toPendingInviteCards(invites: PendingInviteList) {
     roleLabel: invite.role.replaceAll("_", " "),
     statusLabel: "pending",
     createdAtLabel: formatDateTime(invite.createdAt),
-    expiresAtLabel: formatDateTime(invite.expiresAt)
+    expiresAtLabel: formatDateTime(invite.expiresAt),
   }));
 }
 
-export function toSessionCards(sessions: SessionList) {
+export function toSessionCards(
+  sessions: SessionList,
+  options: { currentSessionId: string; currentUserId: string }
+) {
   return sessions.map((session) => ({
     id: session.id,
+    userId: session.userId,
     userName: session.user.fullName,
     deviceName: session.deviceName,
-    lastSeenLabel: session.lastSeenAt ? formatDateTime(session.lastSeenAt) : "Never"
+    lastSeenLabel: session.lastSeenAt ? formatDateTime(session.lastSeenAt) : "Never",
+    isCurrentSession: session.id === options.currentSessionId,
+    isCurrentUser: session.userId === options.currentUserId,
   }));
 }
 
-export function toFailedNotificationCards(notifications: OperationsSnapshot["recentFailedNotifications"]) {
+export function toFailedNotificationCards(
+  notifications: OperationsSnapshot["recentFailedNotifications"]
+) {
   return notifications.map((notification) => ({
     id: notification.id,
     title: notification.title,
@@ -108,7 +136,7 @@ export function toFailedNotificationCards(notifications: OperationsSnapshot["rec
     status: notification.status.replaceAll("_", " "),
     userName: notification.user.fullName,
     userEmail: notification.user.email,
-    createdAtLabel: formatDateTime(notification.createdAt)
+    createdAtLabel: formatDateTime(notification.createdAt),
   }));
 }
 
@@ -117,7 +145,7 @@ export function toAuditActivityCards(entries: OperationsSnapshot["recentAudit"])
     id: entry.id,
     actionLabel: entry.action.replaceAll("_", " "),
     resourceLabel: `${entry.resourceType} - ${entry.resourceId}`,
-    createdAtLabel: formatDateTime(entry.createdAt)
+    createdAtLabel: formatDateTime(entry.createdAt),
   }));
 }
 
@@ -129,7 +157,7 @@ export function toDashboardCards(metrics: DashboardMetrics) {
     { title: "Low-stock alerts", value: metrics.lowStockAlerts.toString() },
     { title: "Pending payments", value: metrics.pendingPayments.toString() },
     { title: "Open purchase orders", value: metrics.openPurchaseOrders.toString() },
-    { title: "Supplier SKUs", value: metrics.supplierCatalogCount.toString() }
+    { title: "Supplier SKUs", value: metrics.supplierCatalogCount.toString() },
   ];
 }
 
@@ -139,6 +167,6 @@ export function toReportCards(report: ReportsSnapshot) {
     { title: "Monthly revenue", value: `$${report.monthlyRevenue.toFixed(2)}` },
     { title: "Transactions", value: report.transactionCount.toString() },
     { title: "Online orders", value: report.onlineOrderCount.toString() },
-    { title: "Open purchase orders", value: report.openPurchaseOrders.toString() }
+    { title: "Open purchase orders", value: report.openPurchaseOrders.toString() },
   ];
 }

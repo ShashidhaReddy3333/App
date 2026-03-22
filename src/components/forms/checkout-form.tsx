@@ -11,6 +11,7 @@ import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
 import { checkoutSchema } from "@/lib/schemas/sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckoutCustomerField } from "@/components/forms/checkout-customer-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -32,6 +33,8 @@ export function CheckoutForm({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       locationId,
+      customerId: "",
+      loyaltyPointsToRedeem: 0,
       items: [
         {
           productId: products[0]?.id ?? "",
@@ -141,6 +144,43 @@ export function CheckoutForm({
       <CardContent>
         <form className="space-y-5 pt-6" onSubmit={onSubmit}>
           <input type="hidden" {...form.register("locationId")} />
+          <input type="hidden" {...form.register("customerId")} />
+          <input
+            type="hidden"
+            {...form.register("loyaltyPointsToRedeem", { valueAsNumber: true })}
+          />
+          <CheckoutCustomerField
+            customerId={form.watch("customerId") ?? ""}
+            loyaltyPointsToRedeem={Number(form.watch("loyaltyPointsToRedeem") ?? 0)}
+            onCustomerChange={(customerId) => {
+              form.setValue("customerId", customerId, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              if (!customerId) {
+                form.setValue("loyaltyPointsToRedeem", 0, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }
+            }}
+            onLoyaltyPointsChange={(points) =>
+              form.setValue("loyaltyPointsToRedeem", Math.max(0, Math.floor(points)), {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          />
+          {form.formState.errors.customerId?.message ? (
+            <p className="text-sm text-destructive" role="alert">
+              {form.formState.errors.customerId.message}
+            </p>
+          ) : null}
+          {form.formState.errors.loyaltyPointsToRedeem?.message ? (
+            <p className="text-sm text-destructive" role="alert">
+              {form.formState.errors.loyaltyPointsToRedeem.message}
+            </p>
+          ) : null}
           {items.fields.map((field, index) => (
             <div key={field.id} className="grid gap-3 rounded-lg border p-4 md:grid-cols-3">
               <div className="rounded-[24px] border border-border/25 bg-[hsl(var(--surface-lowest))]/95 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] md:col-span-3">

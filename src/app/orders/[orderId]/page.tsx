@@ -3,9 +3,11 @@ import type { Route } from "next";
 import { Check, ChevronRight, CreditCard, MapPin, Truck } from "lucide-react";
 
 import { CustomerShell } from "@/components/customer-shell";
+import { CancelOrderButton } from "@/components/cancel-order-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/guards";
+import { canCancelOrder } from "@/lib/domain/orders";
 import { getStatusDotClass } from "@/lib/status-semantics";
 import { getCustomerOrderDetail } from "@/lib/services/customer-commerce-query-service";
 
@@ -40,6 +42,7 @@ export default async function OrderDetailPage({
   const { orderId } = await params;
   const order = await getCustomerOrderDetail(session.user.id, orderId);
   const currentStepIndex = getStepIndex(order.status);
+  const canCancel = canCancelOrder(order.status, order.fulfillment?.status);
 
   return (
     <CustomerShell customerName={session.user.fullName}>
@@ -60,6 +63,9 @@ export default async function OrderDetailPage({
             label={order.fulfillmentType.replaceAll("_", " ")}
             className="text-sm"
           />
+          {canCancel ? (
+            <CancelOrderButton endpoint={`/api/customer/orders/${order.id}/cancel`} />
+          ) : null}
         </div>
 
         {/* Horizontal progress stepper */}

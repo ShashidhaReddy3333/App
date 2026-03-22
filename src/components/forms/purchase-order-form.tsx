@@ -29,6 +29,7 @@ export function PurchaseOrderForm({
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [submitMode, setSubmitMode] = useState<"create" | "quick-receive" | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(purchaseOrderSchema),
     defaultValues: {
@@ -53,15 +54,20 @@ export function PurchaseOrderForm({
     [supplierId, supplierProducts]
   );
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const submitOrder = async (
+    values: Values,
+    endpoint: string,
+    successMessage: string,
+    fallbackErrorMessage: string
+  ) => {
     setServerError(null);
     try {
-      await requestJson<{ purchaseOrder: { id: string } }>("/api/procurement/purchase-orders", {
+      await requestJson<{ purchaseOrder: { id: string } }>(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-      toast.success("Purchase order created.");
+      toast.success(successMessage);
       form.reset({
         supplierId: values.supplierId,
         locationId,
@@ -84,9 +90,31 @@ export function PurchaseOrderForm({
         toast.error(error.message);
         return;
       }
-      setServerError("Unable to create purchase order.");
-      toast.error("Unable to create purchase order.");
+      setServerError(fallbackErrorMessage);
+      toast.error(fallbackErrorMessage);
+    } finally {
+      setSubmitMode(null);
     }
+  };
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setSubmitMode("create");
+    await submitOrder(
+      values,
+      "/api/procurement/purchase-orders",
+      "Purchase order created.",
+      "Unable to create purchase order."
+    );
+  });
+
+  const onQuickReceive = form.handleSubmit(async (values) => {
+    setSubmitMode("quick-receive");
+    await submitOrder(
+      values,
+      "/api/procurement/purchase-orders/quick-receive",
+      "Stock received and inventory updated.",
+      "Unable to receive stock."
+    );
   });
 
   return (
@@ -197,9 +225,24 @@ export function PurchaseOrderForm({
               {serverError}
             </p>
           ) : null}
-          <Button className="w-full" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? "Creating..." : "Create purchase order"}
-          </Button>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Button className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting && submitMode === "create"
+                ? "Creating..."
+                : "Create purchase order"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              disabled={form.formState.isSubmitting}
+              onClick={() => void onQuickReceive()}
+            >
+              {form.formState.isSubmitting && submitMode === "quick-receive"
+                ? "Receiving..."
+                : "Receive stock now"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { Route } from "next";
-import { MapPin, DollarSign, Package, Check, Truck, XCircle, Clock } from "lucide-react";
+import { MapPin, DollarSign, Package, Check } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Retailer Orders | Human Pulse",
@@ -8,36 +8,24 @@ export const metadata: Metadata = {
 
 import { SupplierOrderStatusForm } from "@/components/forms/supplier-order-status-form";
 import { SupplierShell } from "@/components/supplier-shell";
+import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { requireRole } from "@/lib/auth/guards";
 import { listSupplierPortalData } from "@/lib/services/procurement-query-service";
 
-const statusConfig: Record<
-  string,
-  { variant: "warning" | "default" | "success" | "destructive"; icon: typeof Clock }
-> = {
-  draft: { variant: "default", icon: Clock },
-  submitted: { variant: "warning", icon: Clock },
-  approved: { variant: "default", icon: Check },
-  shipped: { variant: "default", icon: Truck },
-  received: { variant: "success", icon: Check },
-  closed: { variant: "success", icon: Check },
-  cancelled: { variant: "destructive", icon: XCircle },
-};
-
-const statusSteps = ["submitted", "approved", "shipped", "received"] as const;
+const statusSteps = ["sent", "accepted", "shipped", "partially_received", "received"] as const;
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
-  const isCancelled = currentStatus === "cancelled";
-  const currentIndex = statusSteps.indexOf(currentStatus as (typeof statusSteps)[number]);
+  const isCancelled = currentStatus === "cancelled" || currentStatus === "rejected";
+  const normalizedStatus = currentStatus === "closed" ? "received" : currentStatus;
+  const currentIndex = statusSteps.indexOf(normalizedStatus as (typeof statusSteps)[number]);
 
   return (
     <div className="flex items-center gap-1">
       {statusSteps.map((step, index) => {
         const isCompleted = !isCancelled && currentIndex >= 0 && index <= currentIndex;
-        const isCurrent = !isCancelled && step === currentStatus;
+        const isCurrent = !isCancelled && step === normalizedStatus;
         return (
           <div key={step} className="flex items-center gap-1">
             <div className="flex flex-col items-center">
@@ -55,7 +43,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               <span
                 className={`mt-1 text-[10px] capitalize ${isCompleted ? "font-medium text-foreground" : "text-muted-foreground"}`}
               >
-                {step}
+                {step.replaceAll("_", " ")}
               </span>
             </div>
             {index < statusSteps.length - 1 ? (
@@ -95,11 +83,6 @@ export default async function SupplierOrdersPage() {
         ) : null}
         <div className="grid gap-4">
           {data.purchaseOrders.map((purchaseOrder) => {
-            const config = statusConfig[purchaseOrder.status] ?? {
-              variant: "default" as const,
-              icon: Clock,
-            };
-            const StatusIcon = config.icon;
             return (
               <Card key={purchaseOrder.id}>
                 <CardHeader className="pb-4">
@@ -119,12 +102,7 @@ export default async function SupplierOrdersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge variant={config.variant} className="gap-1">
-                        <StatusIcon className="size-3" />
-                        <span className="capitalize">
-                          {purchaseOrder.status.replaceAll("_", " ")}
-                        </span>
-                      </Badge>
+                      <StatusBadge status={purchaseOrder.status} />
                       <div className="flex items-center gap-1 text-sm font-semibold text-foreground">
                         <DollarSign className="size-3.5" />
                         {Number(purchaseOrder.totalCost).toFixed(2)}
@@ -134,6 +112,13 @@ export default async function SupplierOrdersPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <StatusTimeline currentStatus={purchaseOrder.status} />
+
+                  {purchaseOrder.trackingNumber ? (
+                    <div className="rounded-2xl border border-border/60 bg-white/70 px-4 py-3 text-sm">
+                      <span className="font-medium text-foreground">Tracking number:</span>{" "}
+                      <span className="text-muted-foreground">{purchaseOrder.trackingNumber}</span>
+                    </div>
+                  ) : null}
 
                   <div className="space-y-2">
                     <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

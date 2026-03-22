@@ -1,6 +1,7 @@
 export {
   createPurchaseOrder,
   createSupplierProduct,
+  quickReceivePurchaseOrder,
   receivePurchaseOrder,
-  updateSupplierPurchaseOrderStatus
+  updateSupplierPurchaseOrderStatus,
 } from "@/lib/services/procurement-service";

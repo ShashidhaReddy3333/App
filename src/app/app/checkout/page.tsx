@@ -63,6 +63,23 @@ export default async function CheckoutPage({
                     ${activePendingSale.amountDue.toString()}
                   </div>
                 </div>
+                {activePendingSale.customer ? (
+                  <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-lowest))]/95 p-4">
+                    <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Customer
+                    </div>
+                    <div className="mt-2 font-medium text-foreground">
+                      {activePendingSale.customer.fullName}
+                    </div>
+                    <div className="text-muted-foreground">{activePendingSale.customer.email}</div>
+                    {activePendingSale.loyaltyPointsRedeemed > 0 ? (
+                      <div className="mt-3 rounded-2xl bg-primary/[0.06] px-3 py-3 text-sm">
+                        Redeeming {activePendingSale.loyaltyPointsRedeemed} points for $
+                        {(activePendingSale.loyaltyPointsRedeemed / 100).toFixed(2)} off.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {activePendingSale.items.map((item) => (
                   <div
                     key={item.id}

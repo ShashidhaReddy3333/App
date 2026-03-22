@@ -111,6 +111,7 @@ enum PurchaseOrderStatus {
   ordered
   sent
   accepted
+  shipped
   rejected
   partially_received
   received
@@ -152,6 +153,7 @@ enum FulfillmentStatus {
   ready
   in_transit
   completed
+  cancelled
 }
 
 enum NotificationChannel {
@@ -190,6 +192,7 @@ model User {
   invitesSent      StaffInviteToken[] @relation("InviteSender")
   auditLogs        AuditLog[]
   cashSales        Sale[]             @relation("SaleCashier")
+  customerSales    Sale[]             @relation("SaleCustomer")
   createdRefunds   Refund[]
   movements        InventoryMovement[] @relation("InventoryMovementActor")
   customerProfile  CustomerProfile?
@@ -406,6 +409,7 @@ model CustomerProfile {
   updatedAt        DateTime @updatedAt
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   preferredStore   Location? @relation(fields: [preferredStoreId], references: [id], onDelete: SetNull)
+  loyaltyTransactions LoyaltyTransaction[]
 }
 
 model Address {
@@ -636,6 +640,7 @@ model Sale {
   businessId            String
   locationId            String
   cashierUserId         String
+  customerId            String?
   status                SaleStatus
   subtotalAmount        Decimal      @db.Decimal(12, 2)
   discountAmount        Decimal      @db.Decimal(12, 2)
@@ -643,6 +648,7 @@ model Sale {
   totalAmount           Decimal      @db.Decimal(12, 2)
   amountPaid            Decimal      @db.Decimal(12, 2) @default(0)
   amountDue             Decimal      @db.Decimal(12, 2)
+  loyaltyPointsRedeemed Int          @default(0)
   completedAt           DateTime?
   businessTimezoneDate  DateTime?
   receiptNumber         String?
@@ -655,13 +661,16 @@ model Sale {
   business              Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
   location              Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
   cashier               User         @relation("SaleCashier", fields: [cashierUserId], references: [id], onDelete: Restrict)
+  customer              User?        @relation("SaleCustomer", fields: [customerId], references: [id], onDelete: SetNull)
   items                 SaleItem[]
+  loyaltyTransactions   LoyaltyTransaction[]
   payments              Payment[]
   refunds               Refund[]
 
   @@index([businessId, status, completedAt])
   @@unique([businessId, receiptNumber])
   @@index([businessId, cashierUserId])
+  @@index([customerId, createdAt])
 }
 
 model SaleItem {
@@ -744,6 +753,21 @@ model RefundPayment {
   @@index([refundId, paymentId])
 }
 
+model LoyaltyTransaction {
+  id                String          @id @default(cuid())
+  customerProfileId String
+  saleId            String?
+  pointsDelta       Int
+  amountDelta       Decimal         @db.Decimal(12, 2)
+  note              String?
+  createdAt         DateTime        @default(now())
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  sale              Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([customerProfileId, createdAt])
+  @@index([saleId])
+}
+
 model PurchaseOrder {
   id          String              @id @default(cuid())
   businessId  String
@@ -757,6 +781,8 @@ model PurchaseOrder {
   shippingAmount Decimal          @db.Decimal(12, 2) @default(0)
   totalCost   Decimal             @db.Decimal(12, 2)
   expectedDeliveryDate DateTime?
+  trackingNumber String?
+  shippedAt   DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   business    Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)

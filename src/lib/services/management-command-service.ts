@@ -1,1 +1,1 @@
-export { revokeSessionRecord } from "@/lib/services/management-service";
+export { revokeOtherSessions, revokeSessionRecord } from "@/lib/services/management-service";

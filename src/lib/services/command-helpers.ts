@@ -362,6 +362,8 @@ export async function restockInventory(
     referenceId: string;
     createdById: string;
     reason: string;
+    referenceType?: string;
+    movementType?: InventoryMovementType;
   }
 ) {
   const balance = await tx.inventoryBalance.findUniqueOrThrow({
@@ -390,9 +392,9 @@ export async function restockInventory(
     data: {
       productId: input.productId,
       locationId: input.locationId,
-      movementType: InventoryMovementType.refund_restock,
+      movementType: input.movementType ?? InventoryMovementType.refund_restock,
       quantityDelta: toDecimal(input.quantity),
-      referenceType: "refund",
+      referenceType: input.referenceType ?? "refund",
       referenceId: input.referenceId,
       reason: input.reason,
       createdById: input.createdById,

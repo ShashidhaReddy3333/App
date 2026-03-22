@@ -35,6 +35,15 @@ function taxRateCategories(value: Prisma.JsonValue | null) {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+function normalizeCustomerId(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function loyaltyPointsToCurrency(points: number) {
+  return roundMoney(points / 100);
+}
+
 export async function releaseExpiredReservations(tx: Prisma.TransactionClient, businessId: string) {
   const expiredSales = await tx.sale.findMany({
     where: {
@@ -110,6 +119,28 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
       });
       await getOwnedLocation(tx, businessId, values.locationId);
 
+      const customerId = normalizeCustomerId(values.customerId);
+      const requestedLoyaltyPoints = Math.max(0, Math.floor(values.loyaltyPointsToRedeem ?? 0));
+      if (!customerId && requestedLoyaltyPoints > 0) {
+        throw validationError("Select a customer before applying loyalty points.", {
+          fieldErrors: {
+            customerId: ["Select a customer before applying loyalty points."],
+          },
+        });
+      }
+      if (requestedLoyaltyPoints > 0 && values.saleDiscount) {
+        throw validationError(
+          "Loyalty redemption cannot be combined with another sale-level discount.",
+          {
+            fieldErrors: {
+              loyaltyPointsToRedeem: [
+                "Loyalty redemption cannot be combined with another sale-level discount.",
+              ],
+            },
+          }
+        );
+      }
+
       const products = await tx.product.findMany({
         where: {
           id: { in: values.items.map((item) => item.productId) },
@@ -124,29 +155,75 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
       });
 
       const productMap = new Map(products.map((product) => [product.id, product]));
+      const checkoutItems = values.items.map((item) => {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          throw notFoundError("One or more products could not be found.");
+        }
+        return {
+          productId: product.id,
+          productName: product.name,
+          category: product.category,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+        };
+      });
+
+      const taxRateInputs = business.taxRates.map((rate) => ({
+        name: rate.name,
+        ratePercent: Number(rate.ratePercent),
+        appliesToCategories: taxRateCategories(rate.appliesToCategories),
+        compoundOrder: rate.compoundOrder,
+      }));
+
+      const basePricing = priceCheckout(checkoutItems, taxRateInputs, business.taxMode);
+
+      let loyaltyPointsRedeemed = 0;
+      if (customerId) {
+        const customer = await tx.user.findFirst({
+          where: {
+            id: customerId,
+            role: "customer",
+          },
+          include: {
+            customerProfile: true,
+          },
+        });
+
+        if (!customer?.customerProfile) {
+          throw validationError("Customer not found.", {
+            fieldErrors: {
+              customerId: ["Customer not found."],
+            },
+          });
+        }
+
+        const maxRedeemablePoints = Math.floor(
+          Math.max(basePricing.subtotalAmount - basePricing.discountAmount, 0) * 100
+        );
+        loyaltyPointsRedeemed = Math.min(
+          requestedLoyaltyPoints,
+          customer.customerProfile.loyaltyPoints,
+          maxRedeemablePoints
+        );
+      }
+
+      const effectiveSaleDiscount =
+        loyaltyPointsRedeemed > 0
+          ? {
+              type: "fixed_amount" as const,
+              value: loyaltyPointsToCurrency(loyaltyPointsRedeemed),
+              scope: "sale" as const,
+              reason: "Loyalty points redemption",
+            }
+          : values.saleDiscount;
+
       const pricing = priceCheckout(
-        values.items.map((item) => {
-          const product = productMap.get(item.productId);
-          if (!product) {
-            throw notFoundError("One or more products could not be found.");
-          }
-          return {
-            productId: product.id,
-            productName: product.name,
-            category: product.category,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount,
-          };
-        }),
-        business.taxRates.map((rate) => ({
-          name: rate.name,
-          ratePercent: Number(rate.ratePercent),
-          appliesToCategories: taxRateCategories(rate.appliesToCategories),
-          compoundOrder: rate.compoundOrder,
-        })),
+        checkoutItems,
+        taxRateInputs,
         business.taxMode,
-        values.saleDiscount
+        effectiveSaleDiscount
       );
 
       const sale = await tx.sale.create({
@@ -154,15 +231,17 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
           businessId,
           locationId: values.locationId,
           cashierUserId: actorUserId,
+          customerId,
           status: SaleStatus.pending_payment,
           subtotalAmount: toDecimal(pricing.subtotalAmount),
           discountAmount: toDecimal(pricing.discountAmount),
           taxAmount: toDecimal(pricing.taxAmount),
           totalAmount: toDecimal(pricing.totalAmount),
           amountDue: toDecimal(pricing.totalAmount),
-          saleDiscountType: values.saleDiscount?.type ?? null,
-          saleDiscountValue: values.saleDiscount ? toDecimal(values.saleDiscount.value) : null,
-          saleDiscountReason: values.saleDiscount?.reason ?? null,
+          loyaltyPointsRedeemed,
+          saleDiscountType: effectiveSaleDiscount?.type ?? null,
+          saleDiscountValue: effectiveSaleDiscount ? toDecimal(effectiveSaleDiscount.value) : null,
+          saleDiscountReason: effectiveSaleDiscount?.reason ?? null,
           reservationExpiresAt: new Date(
             Date.now() + business.reservationDurationMinutes * 60 * 1000
           ),
@@ -233,10 +312,26 @@ export async function completeSale(
     async (tx) => {
       const record = await tx.sale.findFirstOrThrow({
         where: { id: saleId, businessId },
-        include: { items: true, payments: true, business: true },
+        include: {
+          items: true,
+          payments: true,
+          business: true,
+          customer: {
+            include: {
+              customerProfile: true,
+            },
+          },
+        },
       });
 
-      if (record.status !== SaleStatus.pending_payment && record.status !== SaleStatus.completed) {
+      if (record.status === SaleStatus.completed) {
+        return tx.sale.findUniqueOrThrow({
+          where: { id: saleId },
+          include: { items: true, payments: true },
+        });
+      }
+
+      if (record.status !== SaleStatus.pending_payment) {
         throw conflictError("Only pending-payment sales can be completed.");
       }
 
@@ -282,6 +377,45 @@ export async function completeSale(
             amountDue: toDecimal(amountDue),
           },
           include: { items: true, payments: true },
+        });
+      }
+
+      if (record.customerId && record.loyaltyPointsRedeemed > 0) {
+        const customerProfile = record.customer?.customerProfile;
+        if (!customerProfile) {
+          throw conflictError(
+            "The selected customer no longer has a loyalty profile. Rebuild the cart and try again."
+          );
+        }
+
+        const updatedProfile = await tx.customerProfile.updateMany({
+          where: {
+            id: customerProfile.id,
+            loyaltyPoints: {
+              gte: record.loyaltyPointsRedeemed,
+            },
+          },
+          data: {
+            loyaltyPoints: {
+              decrement: record.loyaltyPointsRedeemed,
+            },
+          },
+        });
+
+        if (updatedProfile.count !== 1) {
+          throw conflictError(
+            "The customer's loyalty balance changed before payment was completed. Rebuild the cart to continue."
+          );
+        }
+
+        await tx.loyaltyTransaction.create({
+          data: {
+            customerProfileId: customerProfile.id,
+            saleId: record.id,
+            pointsDelta: -record.loyaltyPointsRedeemed,
+            amountDelta: toDecimal(loyaltyPointsToCurrency(record.loyaltyPointsRedeemed)),
+            note: "Points redeemed at POS checkout.",
+          },
         });
       }
 
@@ -513,6 +647,11 @@ export async function getSaleDetail(businessId: string, saleId: string) {
       business: true,
       location: true,
       cashier: true,
+      customer: {
+        include: {
+          customerProfile: true,
+        },
+      },
       items: {
         include: {
           product: true,
@@ -846,6 +985,7 @@ export async function getDashboardMetrics(businessId: string) {
             PurchaseOrderStatus.draft,
             PurchaseOrderStatus.sent,
             PurchaseOrderStatus.accepted,
+            PurchaseOrderStatus.shipped,
             PurchaseOrderStatus.ordered,
             PurchaseOrderStatus.partially_received,
           ],
@@ -983,6 +1123,7 @@ export async function getReportsSnapshot(businessId: string) {
             PurchaseOrderStatus.draft,
             PurchaseOrderStatus.sent,
             PurchaseOrderStatus.accepted,
+            PurchaseOrderStatus.shipped,
             PurchaseOrderStatus.ordered,
             PurchaseOrderStatus.partially_received,
           ],
