@@ -125,6 +125,9 @@ export function PurchaseOrderForm({
                 </option>
               ))}
             </Select>
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.supplierId ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.supplierId.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="items.0.supplierProductId">Supplier product</Label>
@@ -135,15 +138,24 @@ export function PurchaseOrderForm({
                 </option>
               ))}
             </Select>
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.items?.[0]?.supplierProductId ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.items[0].supplierProductId?.message}</p> : null}
+            </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="items.0.quantity">Quantity</Label>
               <Input id="items.0.quantity" type="number" step="1" {...form.register("items.0.quantity")} />
+              <div aria-live="polite" aria-atomic="true">
+                {form.formState.errors.items?.[0]?.quantity ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.items[0].quantity?.message}</p> : null}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="expectedDeliveryDate">Expected delivery</Label>
               <Input id="expectedDeliveryDate" type="date" {...form.register("expectedDeliveryDate")} />
+              <div aria-live="polite" aria-atomic="true">
+                {form.formState.errors.expectedDeliveryDate ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.expectedDeliveryDate.message}</p> : null}
+              </div>
             </div>
           </div>
           {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}

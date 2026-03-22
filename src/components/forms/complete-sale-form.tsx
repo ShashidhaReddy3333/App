@@ -12,11 +12,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/sonner";
 
 export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amountDue: number }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const form = useForm<CompleteSaleDraftValues>({
     defaultValues: {
       idempotencyKey: crypto.randomUUID(),
@@ -30,6 +41,41 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
   const watchedPayments = form.watch("payments");
   const enteredTotal = getPaymentTotal(watchedPayments ?? []);
   const remainingAmount = Math.max(amountDue - enteredTotal, 0);
+
+  async function submitSale() {
+    const values = form.getValues();
+    setServerError(null);
+    const parsed = completeSaleDraftSchema.safeParse(values);
+    if (!parsed.success) {
+      const firstFieldError = parsed.error.flatten().fieldErrors.payments?.[0] ?? parsed.error.flatten().fieldErrors.idempotencyKey?.[0];
+      setServerError(firstFieldError ?? "Review the payment details before completing the sale.");
+      toast.error(firstFieldError ?? "Review the payment details before completing the sale.");
+      return;
+    }
+
+    const result = buildCompleteSalePayload(parsed.data, amountDue);
+    if (!result.ok) {
+      setServerError(result.message);
+      toast.error(result.message);
+      return;
+    }
+
+    try {
+      setConfirmOpen(false);
+      const payload = await requestJson<{ sale: { id: string } }>(`/api/sales/${saleId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(result.payload)
+      });
+      toast.success("Sale completed.");
+      router.push(`/app/sales/${payload.sale.id}`);
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to complete sale.";
+      setServerError(message);
+      toast.error(message);
+    }
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
@@ -48,24 +94,12 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
       return;
     }
 
-    try {
-      const payload = await requestJson<{ sale: { id: string } }>(`/api/sales/${saleId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(result.payload)
-      });
-      toast.success("Sale completed.");
-      router.push(`/app/sales/${payload.sale.id}`);
-      router.refresh();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to complete sale.";
-      setServerError(message);
-      toast.error(message);
-    }
+    setConfirmOpen(true);
   });
 
   return (
-    <Card>
+    <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Card>
       <CardHeader>
         <CardTitle>Take payment</CardTitle>
         <CardDescription>Split payments are represented as multiple records on the sale.</CardDescription>
@@ -140,6 +174,21 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
           </div>
         </form>
       </CardContent>
-    </Card>
+      </Card>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Complete sale</AlertDialogTitle>
+          <AlertDialogDescription>
+            Confirm this payment for ${amountDue.toFixed(2)}. This records a financial transaction and should only be submitted once.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={form.formState.isSubmitting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => void submitSale()} disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? "Completing..." : "Confirm sale"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

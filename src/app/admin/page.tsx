@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { Building2, ShoppingCart, TrendingUp, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getPlatformMetrics } from "@/lib/services/platform-service";
+import { getPlatformMetrics, getPlatformSystemHealth } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Platform Dashboard | Human Pulse",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const metrics = await getPlatformMetrics();
+  const [metrics, systemHealth] = await Promise.all([getPlatformMetrics(), getPlatformSystemHealth()]);
 
   const stats = [
     {
@@ -54,6 +54,16 @@ export default async function AdminDashboard() {
     { href: "/admin/announcements" as Route, label: "Announcements" }
   ] as const;
 
+  function getHealthBadgeClass(status: "healthy" | "error" | "degraded") {
+    if (status === "healthy") {
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    }
+    if (status === "degraded") {
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+    }
+    return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -83,14 +93,13 @@ export default async function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { label: "Database", status: "healthy" },
-                { label: "API Server", status: "healthy" },
-                { label: "Job Queue", status: "healthy" }
-              ].map((item) => (
+              {systemHealth.map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm">{item.label}</span>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  <div>
+                    <span className="text-sm">{item.label}</span>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getHealthBadgeClass(item.status)}`}>
                     {item.status}
                   </span>
                 </div>

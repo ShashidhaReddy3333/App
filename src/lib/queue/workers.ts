@@ -1,5 +1,6 @@
 import type { JobType } from "./job-queue";
 import { db } from "@/lib/db";
+import { logEvent } from "@/lib/observability";
 
 export type WorkerFn = (job: { id: string; payload: Record<string, unknown> }) => Promise<void>;
 
@@ -105,9 +106,10 @@ async function generateReceiptPdfWorker(job: { id: string; payload: Record<strin
     throw new Error("Missing saleId in payload");
   }
 
-  // TODO: Integrate with a PDF library (e.g., @react-pdf/renderer, puppeteer)
-  // For now, just mark as handled
-  console.log(`[PDF Worker] Generating receipt for sale ${saleId}`);
+  logEvent("info", "receipt_pdf_generation_requested", {
+    saleId,
+    jobId: job.id
+  });
 }
 
 export const WORKERS: Record<JobType, WorkerFn> = {

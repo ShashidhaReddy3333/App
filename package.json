@@ -16,6 +16,7 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "env:check": "tsx scripts/check-runtime.ts",
+    "preflight": "tsx scripts/preflight-check.ts",
     "db:health": "tsx scripts/check-db.ts",
     "ops:cleanup-reservations": "tsx scripts/release-expired-reservations.ts",
     "ops:check-data": "tsx scripts/check-data-integrity.ts",

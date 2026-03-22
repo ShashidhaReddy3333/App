@@ -72,18 +72,30 @@ export function SupplierForm() {
           <div className="space-y-2">
             <Label htmlFor="contactName">Contact name</Label>
             <Input id="contactName" {...form.register("contactName")} />
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.contactName ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.contactName.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" {...form.register("email")} />
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.email ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.email.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" {...form.register("phone")} />
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.phone ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.phone.message}</p> : null}
+            </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
+            <div aria-live="polite" aria-atomic="true">
+              {form.formState.errors.notes ? <p className="text-sm text-destructive" role="alert">{form.formState.errors.notes.message}</p> : null}
+            </div>
           </div>
           {serverError ? <p className="text-sm text-destructive md:col-span-2" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
           <div className="md:col-span-2">

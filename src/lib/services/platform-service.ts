@@ -1,5 +1,13 @@
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { notFoundError } from "@/lib/errors";
+import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
+
+export type PlatformSystemHealthCheck = {
+  label: "Database" | "API Server" | "Job Queue";
+  status: "healthy" | "error" | "degraded";
+  detail: string;
+};
 
 export async function getDefaultLocation(businessId: string) {
   const location = await db.location.findFirst({
@@ -53,6 +61,16 @@ export async function getPlatformMetrics() {
   };
 }
 
+export async function getPlatformSystemHealth(): Promise<PlatformSystemHealthCheck[]> {
+  const [database, apiServer, jobQueue] = await Promise.all([
+    checkDatabaseHealth(),
+    checkApiHealth(),
+    checkJobQueueHealth()
+  ]);
+
+  return [database, apiServer, jobQueue];
+}
+
 export async function listPlatformBusinesses(options?: { page?: number; limit?: number }) {
   const page = Math.max(1, options?.page ?? 1);
   const limit = Math.min(Math.max(1, options?.limit ?? 25), 100);
@@ -81,6 +99,82 @@ export async function listPlatformBusinesses(options?: { page?: number; limit?: 
     limit,
     totalPages: Math.max(1, Math.ceil(total / limit))
   };
+}
+
+async function checkDatabaseHealth(): Promise<PlatformSystemHealthCheck> {
+  try {
+    await db.$queryRaw`SELECT 1`;
+    return { label: "Database", status: "healthy", detail: "Database query succeeded." };
+  } catch (error) {
+    return {
+      label: "Database",
+      status: "error",
+      detail: error instanceof Error ? error.message : "Database query failed."
+    };
+  }
+}
+
+async function checkApiHealth(): Promise<PlatformSystemHealthCheck> {
+  try {
+    const response = await fetch(new URL("/api/health", env.APP_URL), {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      return {
+        label: "API Server",
+        status: "error",
+        detail: `Health endpoint returned ${response.status}.`
+      };
+    }
+
+    return {
+      label: "API Server",
+      status: "healthy",
+      detail: "Health endpoint responded successfully."
+    };
+  } catch (error) {
+    return {
+      label: "API Server",
+      status: "error",
+      detail: error instanceof Error ? error.message : "Health endpoint request failed."
+    };
+  }
+}
+
+async function checkJobQueueHealth(): Promise<PlatformSystemHealthCheck> {
+  if (!isRedisAvailable()) {
+    return {
+      label: "Job Queue",
+      status: "degraded",
+      detail: "Redis is not configured; queue processing is running in degraded mode."
+    };
+  }
+
+  try {
+    const redis = getRedisClient();
+    if (!redis) {
+      return {
+        label: "Job Queue",
+        status: "error",
+        detail: "Redis client could not be created."
+      };
+    }
+
+    await redis.ping();
+    return {
+      label: "Job Queue",
+      status: "healthy",
+      detail: "Redis responded to ping."
+    };
+  } catch (error) {
+    return {
+      label: "Job Queue",
+      status: "error",
+      detail: error instanceof Error ? error.message : "Redis ping failed."
+    };
+  }
 }
 
 export async function listPlatformUsers(options?: { page?: number; limit?: number }) {
