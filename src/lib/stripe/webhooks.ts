@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { PaymentStatus } from "@prisma/client";
 import { stripe } from "./client";
 import { STRIPE_CONFIG } from "./config";
 import { db } from "@/lib/db";
@@ -7,10 +8,7 @@ import { handleSuccessfulPayment } from "./checkout";
 /**
  * Construct and verify a Stripe webhook event from raw payload and signature.
  */
-export function constructEvent(
-  payload: Buffer | string,
-  signature: string
-): Stripe.Event {
+export function constructEvent(payload: Buffer | string, signature: string): Stripe.Event {
   const secret = STRIPE_CONFIG.webhookSecret;
   if (!secret) {
     throw new Error("STRIPE_WEBHOOK_SECRET is not configured.");
@@ -106,7 +104,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       if (orderId) {
         await db.order.update({
           where: { id: orderId },
-          data: { paymentStatus: "failed" },
+          data: { paymentStatus: PaymentStatus.failed },
         });
       }
       break;

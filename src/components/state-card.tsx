@@ -7,14 +7,14 @@ const emptyIcons = {
   default: FileQuestion,
   cart: ShoppingCart,
   inbox: Inbox,
-  package: PackageOpen
+  package: PackageOpen,
 } as const;
 
 export function EmptyState({
   title,
   description,
   action,
-  icon = "default"
+  icon = "default",
 }: {
   title: string;
   description: string;
@@ -39,11 +39,13 @@ export function EmptyState({
 export function ErrorState({
   title,
   description,
-  onRetryLabel = "Try again"
+  onRetryLabel = "Try again",
+  onRetry,
 }: {
   title: string;
   description: string;
   onRetryLabel?: string;
+  onRetry?: () => void;
 }) {
   return (
     <Card>
@@ -55,11 +57,15 @@ export function ErrorState({
         <CardDescription className="max-w-md">{description}</CardDescription>
       </CardHeader>
       <CardContent className="flex justify-center">
-        <form action="">
-          <Button type="submit">
+        {onRetry ? (
+          <Button type="button" onClick={onRetry}>
             {onRetryLabel}
           </Button>
-        </form>
+        ) : (
+          <form action="">
+            <Button type="submit">{onRetryLabel}</Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );

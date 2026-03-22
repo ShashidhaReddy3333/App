@@ -5,16 +5,7 @@ import { redirect } from "next/navigation";
 import { getPostSignInPath } from "@/lib/auth/guards";
 import { getCurrentSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
-import {
-  ShoppingBag,
-  Store,
-  Truck,
-  ArrowRight,
-  Zap,
-  Shield,
-  BarChart3,
-  Globe,
-} from "lucide-react";
+import { ShoppingBag, Store, Truck, ArrowRight, Zap, Shield, BarChart3, Globe } from "lucide-react";
 
 export default async function HomePage() {
   const session = await getCurrentSession();
@@ -31,10 +22,20 @@ export default async function HomePage() {
             <span className="text-xl font-bold tracking-tight text-white">Human Pulse</span>
           </Link>
           <div className="hidden items-center gap-2 sm:flex">
-            <Button asChild variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10"
+            >
               <Link href="/sign-in">Sign In</Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10"
+            >
               <Link href="/sign-up">Create Business</Link>
             </Button>
             <Button asChild size="sm" className="bg-white text-black hover:bg-white/90">
@@ -42,7 +43,12 @@ export default async function HomePage() {
             </Button>
           </div>
           <div className="flex items-center gap-2 sm:hidden">
-            <Button asChild variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10"
+            >
               <Link href="/sign-in">Sign In</Link>
             </Button>
             <Button asChild size="sm" className="bg-white text-black hover:bg-white/90">
@@ -64,8 +70,8 @@ export default async function HomePage() {
                 <span className="text-uber-green">one platform</span>
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-lg text-white/60">
-                Customer ordering, POS checkout, inventory management, supplier procurement,
-                and owner analytics — unified on a single operational data layer.
+                Customer ordering, POS checkout, inventory management, supplier procurement, and
+                owner analytics — unified on a single operational data layer.
               </p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                 <Button asChild size="lg" className="bg-white text-black hover:bg-white/90">
@@ -74,10 +80,20 @@ export default async function HomePage() {
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="border-white/20 bg-transparent text-white hover:bg-white/10"
+                >
                   <Link href="/sign-in">Sign In</Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="border-white/20 bg-transparent text-white hover:bg-white/10"
+                >
                   <Link href={"/shop" as Route}>Browse Store</Link>
                 </Button>
               </div>
@@ -103,7 +119,8 @@ export default async function HomePage() {
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Shop</h3>
                 <p className="mt-2 flex-1 text-sm text-muted-foreground">
-                  Browse products, place orders, and track deliveries as a customer in any connected store.
+                  Browse products, place orders, and track deliveries as a customer in any connected
+                  store.
                 </p>
                 <div className="mt-5 flex items-center gap-1 text-sm font-medium text-foreground">
                   Browse Store
@@ -119,7 +136,8 @@ export default async function HomePage() {
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Retail</h3>
                 <p className="mt-2 flex-1 text-sm text-muted-foreground">
-                  Manage POS checkout, inventory, staff roles, refunds, and real-time owner dashboards.
+                  Manage POS checkout, inventory, staff roles, refunds, and real-time owner
+                  dashboards.
                 </p>
                 <div className="mt-5 flex items-center gap-1 text-sm font-medium text-foreground">
                   Open Dashboard
@@ -135,7 +153,8 @@ export default async function HomePage() {
                 </div>
                 <h3 className="text-xl font-bold tracking-tight">Supply</h3>
                 <p className="mt-2 flex-1 text-sm text-muted-foreground">
-                  Publish wholesale catalogs, fulfill purchase orders, and manage goods delivery as a supplier.
+                  Publish wholesale catalogs, fulfill purchase orders, and manage goods delivery as
+                  a supplier.
                 </p>
                 <div className="mt-5 flex items-center gap-1 text-sm font-medium text-foreground">
                   Become a Supplier
@@ -152,9 +171,7 @@ export default async function HomePage() {
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
                 Built for real retail operations
               </h2>
-              <p className="mt-2 text-muted-foreground">
-                Everything you need, nothing you don't.
-              </p>
+              <p className="mt-2 text-muted-foreground">Everything you need, nothing you don't.</p>
             </div>
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               <div className="text-center">
@@ -181,7 +198,8 @@ export default async function HomePage() {
                 </div>
                 <h3 className="font-bold">Owner Analytics</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Track low stock, reorder gaps, sales trends, and session security in one dashboard.
+                  Track low stock, reorder gaps, sales trends, and session security in one
+                  dashboard.
                 </p>
               </div>
               <div className="text-center">
@@ -222,7 +240,10 @@ export default async function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={"/supplier/sign-up" as Route} className="hover:text-white transition-colors">
+                  <Link
+                    href={"/supplier/sign-up" as Route}
+                    className="hover:text-white transition-colors"
+                  >
                     Supplier Portal
                   </Link>
                 </li>
@@ -249,13 +270,34 @@ export default async function HomePage() {
               <h4 className="text-sm font-semibold">Connect</h4>
               <ul className="mt-3 space-y-2 text-sm text-white/50">
                 <li>
-                  <span className="cursor-default">Twitter</span>
+                  <a
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-white"
+                  >
+                    Twitter
+                  </a>
                 </li>
                 <li>
-                  <span className="cursor-default">LinkedIn</span>
+                  <a
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-white"
+                  >
+                    LinkedIn
+                  </a>
                 </li>
                 <li>
-                  <span className="cursor-default">GitHub</span>
+                  <a
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:text-white"
+                  >
+                    GitHub
+                  </a>
                 </li>
               </ul>
             </div>

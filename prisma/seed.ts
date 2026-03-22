@@ -1,6 +1,14 @@
 import { existsSync } from "node:fs";
 import bcrypt from "bcryptjs";
-import { Prisma, PrismaClient, RefundStatus, SaleStatus, UserRole, UserStatus } from "@prisma/client";
+import {
+  PaymentStatus,
+  Prisma,
+  PrismaClient,
+  RefundStatus,
+  SaleStatus,
+  UserRole,
+  UserStatus,
+} from "@prisma/client";
 
 if (existsSync(".env")) {
   process.loadEnvFile?.(".env");
@@ -55,7 +63,9 @@ async function main() {
   try {
     await prisma.$connect();
   } catch (error) {
-    console.error("Unable to connect to PostgreSQL. Start the database first with `corepack pnpm db:up` or your local PostgreSQL service.");
+    console.error(
+      "Unable to connect to PostgreSQL. Start the database first with `corepack pnpm db:up` or your local PostgreSQL service."
+    );
     throw error;
   }
 
@@ -70,8 +80,8 @@ async function main() {
       passwordHash,
       role: UserRole.owner,
       status: UserStatus.active,
-      emailVerifiedAt: new Date()
-    }
+      emailVerifiedAt: new Date(),
+    },
   });
 
   const business = await prisma.business.create({
@@ -84,7 +94,7 @@ async function main() {
       currency: "CAD",
       taxMode: "exclusive_tax",
       users: {
-        connect: { id: owner.id }
+        connect: { id: owner.id },
       },
       locations: {
         create: {
@@ -94,17 +104,17 @@ async function main() {
           provinceOrState: "ON",
           postalCode: "M5V 2T6",
           country: "CA",
-          timezone: "America/Toronto"
-        }
-      }
+          timezone: "America/Toronto",
+        },
+      },
     },
-    include: { locations: true }
+    include: { locations: true },
   });
 
   const location = business.locations[0]!;
   await prisma.user.update({
     where: { id: owner.id },
-    data: { businessId: business.id }
+    data: { businessId: business.id },
   });
 
   const [manager, cashier, inventoryStaff] = await Promise.all([
@@ -116,8 +126,8 @@ async function main() {
         passwordHash,
         role: UserRole.manager,
         status: UserStatus.active,
-        emailVerifiedAt: new Date()
-      }
+        emailVerifiedAt: new Date(),
+      },
     }),
     prisma.user.create({
       data: {
@@ -127,8 +137,8 @@ async function main() {
         passwordHash,
         role: UserRole.cashier,
         status: UserStatus.active,
-        emailVerifiedAt: new Date()
-      }
+        emailVerifiedAt: new Date(),
+      },
     }),
     prisma.user.create({
       data: {
@@ -138,9 +148,9 @@ async function main() {
         passwordHash,
         role: UserRole.inventory_staff,
         status: UserStatus.active,
-        emailVerifiedAt: new Date()
-      }
-    })
+        emailVerifiedAt: new Date(),
+      },
+    }),
   ]);
 
   await prisma.taxRate.create({
@@ -148,8 +158,8 @@ async function main() {
       businessId: business.id,
       name: "HST",
       ratePercent: new Prisma.Decimal("13.00"),
-      isDefault: true
-    }
+      isDefault: true,
+    },
   });
 
   const suppliers = await prisma.supplier.createManyAndReturn({
@@ -159,16 +169,16 @@ async function main() {
         name: "North Foods Wholesale",
         contactName: "Noah Patel",
         email: "northfoods@demo.local",
-        phone: "416-555-0101"
+        phone: "416-555-0101",
       },
       {
         businessId: business.id,
         name: "Urban Essentials Supply",
         contactName: "Ella Martin",
         email: "urbanessentials@demo.local",
-        phone: "416-555-0199"
-      }
-    ]
+        phone: "416-555-0199",
+      },
+    ],
   });
 
   const [supplierUser, customer] = await Promise.all([
@@ -183,9 +193,9 @@ async function main() {
         status: UserStatus.active,
         emailVerifiedAt: new Date(),
         notificationPreference: {
-          create: {}
-        }
-      }
+          create: {},
+        },
+      },
     }),
     prisma.user.create({
       data: {
@@ -197,14 +207,14 @@ async function main() {
         emailVerifiedAt: new Date(),
         customerProfile: {
           create: {
-            preferredStoreId: location.id
-          }
+            preferredStoreId: location.id,
+          },
         },
         notificationPreference: {
-          create: {}
-        }
-      }
-    })
+          create: {},
+        },
+      },
+    }),
   ]);
 
   const catalog = [
@@ -227,23 +237,34 @@ async function main() {
     ["Phone Charger", "electronics", "CHARGE-001", 6.9, 18.99, 16, 12],
     ["Battery Pack", "electronics", "BATTERY-001", 3.4, 7.99, 24, 21],
     ["Water Bottle", "grocery", "WATER-001", 0.6, 1.49, 60, 43],
-    ["Chocolate Bar", "snacks", "CHOC-001", 0.8, 1.99, 40, 33]
+    ["Chocolate Bar", "snacks", "CHOC-001", 0.8, 1.99, 40, 33],
   ] as const;
 
   const createdProducts = [];
-  for (const [name, category, sku, purchasePrice, sellingPrice, parLevel, openingStock] of catalog) {
+  for (const [
+    name,
+    category,
+    sku,
+    purchasePrice,
+    sellingPrice,
+    parLevel,
+    openingStock,
+  ] of catalog) {
     const product = await prisma.product.create({
       data: {
         businessId: business.id,
         name,
         category,
         sku,
-        supplierId: category === "clothing" || category === "electronics" ? suppliers[1]!.id : suppliers[0]!.id,
+        supplierId:
+          category === "clothing" || category === "electronics"
+            ? suppliers[1]!.id
+            : suppliers[0]!.id,
         unitType: "unit",
         purchasePrice: money(purchasePrice),
         sellingPrice: money(sellingPrice),
-        parLevel: quantity(parLevel)
-      }
+        parLevel: quantity(parLevel),
+      },
     });
     createdProducts.push(product);
 
@@ -253,8 +274,8 @@ async function main() {
         locationId: location.id,
         onHandQuantity: quantity(openingStock),
         reservedQuantity: quantity(0),
-        availableQuantity: quantity(openingStock)
-      }
+        availableQuantity: quantity(openingStock),
+      },
     });
 
     await prisma.inventoryMovement.create({
@@ -266,8 +287,8 @@ async function main() {
         referenceType: "seed",
         referenceId: product.id,
         reason: "opening_stock",
-        createdById: inventoryStaff.id
-      }
+        createdById: inventoryStaff.id,
+      },
     });
   }
 
@@ -286,10 +307,10 @@ async function main() {
       sessions: {
         create: {
           cashierUserId: cashier.id,
-          openingBalance: money(200)
-        }
-      }
-    }
+          openingBalance: money(200),
+        },
+      },
+    },
   });
 
   const supplierCatalog = await prisma.supplierProduct.createManyAndReturn({
@@ -303,7 +324,7 @@ async function main() {
         wholesalePrice: money(12.5),
         leadTimeDays: 3,
         deliveryFee: money(18),
-        serviceArea: "Greater Toronto Area"
+        serviceArea: "Greater Toronto Area",
       },
       {
         supplierId: suppliers[0]!.id,
@@ -314,7 +335,7 @@ async function main() {
         wholesalePrice: money(8.25),
         leadTimeDays: 2,
         deliveryFee: money(18),
-        serviceArea: "Greater Toronto Area"
+        serviceArea: "Greater Toronto Area",
       },
       {
         supplierId: suppliers[1]!.id,
@@ -325,9 +346,9 @@ async function main() {
         wholesalePrice: money(15.5),
         leadTimeDays: 5,
         deliveryFee: money(22),
-        serviceArea: "Ontario"
-      }
-    ]
+        serviceArea: "Ontario",
+      },
+    ],
   });
 
   const saleOne = await prisma.sale.create({
@@ -344,8 +365,8 @@ async function main() {
       amountDue: money(0),
       completedAt: new Date(),
       businessTimezoneDate: new Date(),
-      receiptNumber: "RCPT-000001"
-    }
+      receiptNumber: "RCPT-000001",
+    },
   });
 
   const saleOneRice = await prisma.saleItem.create({
@@ -358,8 +379,8 @@ async function main() {
       lineDiscountAmount: money(1),
       taxAmount: money(3.77),
       taxComponents: [{ name: "HST", rate: 13, amount: 3.77 }],
-      lineTotal: money(32.77)
-    }
+      lineTotal: money(32.77),
+    },
   });
   await prisma.saleItem.create({
     data: {
@@ -371,8 +392,8 @@ async function main() {
       lineDiscountAmount: money(0),
       taxAmount: money(0.52),
       taxComponents: [{ name: "HST", rate: 13, amount: 0.52 }],
-      lineTotal: money(4.51)
-    }
+      lineTotal: money(4.51),
+    },
   });
   await prisma.payment.createMany({
     data: [
@@ -381,16 +402,16 @@ async function main() {
         method: "cash",
         provider: "manual",
         amount: money(20),
-        status: "settled"
+        status: "settled",
       },
       {
         saleId: saleOne.id,
         method: "debit_card",
         provider: "square",
         amount: money(17.28),
-        status: "settled"
-      }
-    ]
+        status: "settled",
+      },
+    ],
   });
 
   const saleTwo = await prisma.sale.create({
@@ -407,8 +428,8 @@ async function main() {
       amountDue: money(0),
       completedAt: new Date(),
       businessTimezoneDate: new Date(),
-      receiptNumber: "RCPT-000002"
-    }
+      receiptNumber: "RCPT-000002",
+    },
   });
   await prisma.saleItem.create({
     data: {
@@ -420,8 +441,8 @@ async function main() {
       lineDiscountAmount: money(0),
       taxAmount: money(2.86),
       taxComponents: [{ name: "HST", rate: 13, amount: 2.86 }],
-      lineTotal: money(24.84)
-    }
+      lineTotal: money(24.84),
+    },
   });
   await prisma.payment.create({
     data: {
@@ -429,8 +450,8 @@ async function main() {
       method: "credit_card",
       provider: "stripe",
       amount: money(24.84),
-      status: "settled"
-    }
+      status: "settled",
+    },
   });
 
   const saleThree = await prisma.sale.create({
@@ -445,8 +466,8 @@ async function main() {
       totalAmount: money(8.46),
       amountPaid: money(0),
       amountDue: money(8.46),
-      reservationExpiresAt: new Date(Date.now() + 1000 * 60 * 10)
-    }
+      reservationExpiresAt: new Date(Date.now() + 1000 * 60 * 10),
+    },
   });
   await prisma.saleItem.create({
     data: {
@@ -458,25 +479,25 @@ async function main() {
       lineDiscountAmount: money(0),
       taxAmount: money(0.97),
       taxComponents: [{ name: "HST", rate: 13, amount: 0.97 }],
-      lineTotal: money(8.46)
-    }
+      lineTotal: money(8.46),
+    },
   });
 
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: rice.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(47), availableQuantity: quantity(47) }
+    data: { onHandQuantity: quantity(47), availableQuantity: quantity(47) },
   });
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: milk.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(21), availableQuantity: quantity(21) }
+    data: { onHandQuantity: quantity(21), availableQuantity: quantity(21) },
   });
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: oil.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(6), availableQuantity: quantity(6) }
+    data: { onHandQuantity: quantity(6), availableQuantity: quantity(6) },
   });
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: soap.id, locationId: location.id } },
-    data: { reservedQuantity: quantity(1), availableQuantity: quantity(6) }
+    data: { reservedQuantity: quantity(1), availableQuantity: quantity(6) },
   });
 
   await prisma.inventoryMovement.createMany({
@@ -489,7 +510,7 @@ async function main() {
         referenceType: "sale",
         referenceId: saleOne.id,
         reason: "sale_completed",
-        createdById: cashier.id
+        createdById: cashier.id,
       },
       {
         productId: milk.id,
@@ -499,7 +520,7 @@ async function main() {
         referenceType: "sale",
         referenceId: saleOne.id,
         reason: "sale_completed",
-        createdById: cashier.id
+        createdById: cashier.id,
       },
       {
         productId: oil.id,
@@ -509,7 +530,7 @@ async function main() {
         referenceType: "sale",
         referenceId: saleTwo.id,
         reason: "sale_completed",
-        createdById: cashier.id
+        createdById: cashier.id,
       },
       {
         productId: soap.id,
@@ -519,9 +540,9 @@ async function main() {
         referenceType: "sale",
         referenceId: saleThree.id,
         reason: "checkout_reservation",
-        createdById: cashier.id
-      }
-    ]
+        createdById: cashier.id,
+      },
+    ],
   });
 
   const customerAddress = await prisma.address.create({
@@ -532,8 +553,8 @@ async function main() {
       city: "Toronto",
       province: "ON",
       postalCode: "M5V 1E3",
-      country: "CA"
-    }
+      country: "CA",
+    },
   });
 
   const onlineOrder = await prisma.order.create({
@@ -550,9 +571,9 @@ async function main() {
       discountAmount: money(0),
       deliveryFee: money(0),
       totalAmount: money(21.45),
-      paymentStatus: "paid",
-      fulfillmentType: "delivery"
-    }
+      paymentStatus: PaymentStatus.settled,
+      fulfillmentType: "delivery",
+    },
   });
   await prisma.orderItem.createMany({
     data: [
@@ -563,7 +584,7 @@ async function main() {
         unitPrice: money(3.99),
         discountAmount: money(0),
         taxAmount: money(1.04),
-        totalAmount: money(9.02)
+        totalAmount: money(9.02),
       },
       {
         orderId: onlineOrder.id,
@@ -572,9 +593,9 @@ async function main() {
         unitPrice: money(7.49),
         discountAmount: money(0),
         taxAmount: money(0.97),
-        totalAmount: money(8.46)
-      }
-    ]
+        totalAmount: money(8.46),
+      },
+    ],
   });
   await prisma.orderPayment.create({
     data: {
@@ -582,32 +603,36 @@ async function main() {
       method: "credit_card",
       provider: "stripe",
       amount: money(21.45),
-      status: "settled"
-    }
+      status: "settled",
+    },
   });
   await prisma.orderStatusHistory.create({
     data: {
       orderId: onlineOrder.id,
       newStatus: "confirmed",
       changedByUserId: customer.id,
-      notes: "Seeded storefront checkout"
-    }
+      notes: "Seeded storefront checkout",
+    },
   });
   await prisma.orderFulfillment.create({
     data: {
       orderId: onlineOrder.id,
       status: "in_transit",
-      deliveryAddressId: customerAddress.id
-    }
+      deliveryAddressId: customerAddress.id,
+    },
   });
 
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: milk.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(19), availableQuantity: quantity(19) }
+    data: { onHandQuantity: quantity(19), availableQuantity: quantity(19) },
   });
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: soap.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(6), reservedQuantity: quantity(1), availableQuantity: quantity(5) }
+    data: {
+      onHandQuantity: quantity(6),
+      reservedQuantity: quantity(1),
+      availableQuantity: quantity(5),
+    },
   });
   await prisma.inventoryMovement.createMany({
     data: [
@@ -619,7 +644,7 @@ async function main() {
         referenceType: "order",
         referenceId: onlineOrder.id,
         reason: "online_order_completed",
-        createdById: customer.id
+        createdById: customer.id,
       },
       {
         productId: soap.id,
@@ -629,9 +654,9 @@ async function main() {
         referenceType: "order",
         referenceId: onlineOrder.id,
         reason: "online_order_completed",
-        createdById: customer.id
-      }
-    ]
+        createdById: customer.id,
+      },
+    ],
   });
 
   const purchaseOrder = await prisma.purchaseOrder.create({
@@ -646,8 +671,8 @@ async function main() {
       taxAmount: money(0),
       shippingAmount: money(18),
       totalCost: money(192),
-      expectedDeliveryDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
-    }
+      expectedDeliveryDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3),
+    },
   });
   await prisma.purchaseOrderItem.createMany({
     data: [
@@ -657,7 +682,7 @@ async function main() {
         productId: rice.id,
         orderedQuantity: quantity(10),
         receivedQuantity: quantity(0),
-        unitCost: money(12.5)
+        unitCost: money(12.5),
       },
       {
         purchaseOrderId: purchaseOrder.id,
@@ -665,9 +690,9 @@ async function main() {
         productId: oil.id,
         orderedQuantity: quantity(6),
         receivedQuantity: quantity(0),
-        unitCost: money(8.25)
-      }
-    ]
+        unitCost: money(8.25),
+      },
+    ],
   });
 
   const refund = await prisma.refund.create({
@@ -678,8 +703,8 @@ async function main() {
       status: RefundStatus.completed,
       refundTotalAmount: money(16.39),
       reasonCode: "customer_returned",
-      note: "Package unopened"
-    }
+      note: "Package unopened",
+    },
   });
   await prisma.refundItem.create({
     data: {
@@ -687,28 +712,28 @@ async function main() {
       saleItemId: saleOneRice.id,
       quantityRefunded: quantity(1),
       amountRefunded: money(16.39),
-      restockAction: "restock_to_sellable"
-    }
+      restockAction: "restock_to_sellable",
+    },
   });
   const firstPayment = await prisma.payment.findFirstOrThrow({ where: { saleId: saleOne.id } });
   await prisma.refundPayment.create({
     data: {
       refundId: refund.id,
       paymentId: firstPayment.id,
-      amountReversed: money(16.39)
-    }
+      amountReversed: money(16.39),
+    },
   });
   await prisma.payment.update({
     where: { id: firstPayment.id },
-    data: { status: "refunded_partial" }
+    data: { status: "refunded_partial" },
   });
   await prisma.sale.update({
     where: { id: saleOne.id },
-    data: { status: SaleStatus.refunded_partially }
+    data: { status: SaleStatus.refunded_partially },
   });
   await prisma.inventoryBalance.update({
     where: { productId_locationId: { productId: rice.id, locationId: location.id } },
-    data: { onHandQuantity: quantity(47), availableQuantity: quantity(47) }
+    data: { onHandQuantity: quantity(47), availableQuantity: quantity(47) },
   });
   await prisma.inventoryMovement.create({
     data: {
@@ -719,8 +744,8 @@ async function main() {
       referenceType: "refund",
       referenceId: refund.id,
       reason: "customer_returned",
-      createdById: manager.id
-    }
+      createdById: manager.id,
+    },
   });
 
   await prisma.business.update({
@@ -729,8 +754,8 @@ async function main() {
       nextReceiptNumber: 3,
       nextOrderNumber: 2,
       nextPurchaseOrderNumber: 2,
-      onboardingCompletedAt: new Date()
-    }
+      onboardingCompletedAt: new Date(),
+    },
   });
 
   await prisma.auditLog.createMany({
@@ -741,7 +766,7 @@ async function main() {
         action: "login",
         resourceType: "session",
         resourceId: "seed",
-        metadata: {}
+        metadata: {},
       },
       {
         businessId: business.id,
@@ -749,7 +774,7 @@ async function main() {
         action: "refund_created",
         resourceType: "refund",
         resourceId: refund.id,
-        metadata: {}
+        metadata: {},
       },
       {
         businessId: business.id,
@@ -757,7 +782,7 @@ async function main() {
         action: "stock_adjusted",
         resourceType: "inventory_movement",
         resourceId: "seed",
-        metadata: {}
+        metadata: {},
       },
       {
         businessId: business.id,
@@ -765,7 +790,7 @@ async function main() {
         action: "customer_order_created",
         resourceType: "order",
         resourceId: onlineOrder.id,
-        metadata: {}
+        metadata: {},
       },
       {
         businessId: business.id,
@@ -773,9 +798,9 @@ async function main() {
         action: "supplier_portal_onboarded",
         resourceType: "supplier",
         resourceId: suppliers[0]!.id,
-        metadata: {}
-      }
-    ]
+        metadata: {},
+      },
+    ],
   });
 
   console.log("Seed completed.");

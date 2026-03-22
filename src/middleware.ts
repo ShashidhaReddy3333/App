@@ -2,14 +2,26 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
+import { ALLOWED_ORIGINS, getRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
 
 function buildContentSecurityPolicy() {
+  const isDev = process.env.NODE_ENV === "development";
   const sentryDsn = getOptionalSentryDsn();
   const sentryOrigin = isProductionRuntime() && sentryDsn ? new URL(sentryDsn).origin : "";
+  const scriptSources = ["'self'", "'unsafe-inline'"];
+
+  if (isDev) {
+    scriptSources.push("'unsafe-eval'");
+  }
+
+  scriptSources.push("https://js.stripe.com");
+  if (sentryOrigin) {
+    scriptSources.push(sentryOrigin);
+  }
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    `script-src ${scriptSources.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://*.stripe.com https://public.blob.vercel-storage.com",
     "font-src 'self'",
@@ -29,15 +41,42 @@ const SUBDOMAIN_CONFIG: Record<
   }
 > = {
   shop: {
-    allowedPrefixes: ["/shop", "/customer", "/cart", "/orders", "/sign-in", "/sign-up", "/customer/sign-up", "/forgot-password", "/reset-password", "/api", "/marketplace"],
+    allowedPrefixes: [
+      "/shop",
+      "/customer",
+      "/cart",
+      "/orders",
+      "/sign-in",
+      "/sign-up",
+      "/customer/sign-up",
+      "/forgot-password",
+      "/reset-password",
+      "/api",
+      "/marketplace",
+    ],
     defaultPath: "/shop",
   },
   retail: {
-    allowedPrefixes: ["/app", "/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/api"],
+    allowedPrefixes: [
+      "/app",
+      "/sign-in",
+      "/sign-up",
+      "/forgot-password",
+      "/reset-password",
+      "/api",
+    ],
     defaultPath: "/app/dashboard",
   },
   supply: {
-    allowedPrefixes: ["/supplier", "/sign-in", "/sign-up", "/supplier/sign-up", "/forgot-password", "/reset-password", "/api"],
+    allowedPrefixes: [
+      "/supplier",
+      "/sign-in",
+      "/sign-up",
+      "/supplier/sign-up",
+      "/forgot-password",
+      "/reset-password",
+      "/api",
+    ],
     defaultPath: "/supplier/dashboard",
   },
   admin: {
@@ -45,24 +84,6 @@ const SUBDOMAIN_CONFIG: Record<
     defaultPath: "/admin",
   },
 };
-
-const ALLOWED_ORIGINS = [
-  "https://human-pulse.com",
-  "https://shop.human-pulse.com",
-  "https://retail.human-pulse.com",
-  "https://supply.human-pulse.com",
-  "https://admin.human-pulse.com",
-];
-
-if (process.env.NODE_ENV === "development") {
-  ALLOWED_ORIGINS.push(
-    "http://localhost:3000",
-    "http://shop.localhost:3000",
-    "http://retail.localhost:3000",
-    "http://supply.localhost:3000",
-    "http://admin.localhost:3000"
-  );
-}
 
 function getSubdomain(host: string): string | null {
   const [hostname = ""] = host.split(":");
@@ -115,24 +136,11 @@ export function middleware(request: NextRequest) {
     pathname === "/api/health" ||
     pathname === "/api/readiness";
 
-  if (!["GET", "HEAD", "OPTIONS"].includes(method) && !shouldSkipCsrf) {
-    const origin = request.headers.get("origin");
-    const referer = request.headers.get("referer");
-    let requestOrigin: string | null = origin;
+  if (!isSafeMethod(method) && !shouldSkipCsrf) {
+    const requestOrigin = getRequestOrigin(request);
+    const isAllowedRequestOrigin = requestOrigin ? ALLOWED_ORIGINS.includes(requestOrigin) : false;
 
-    if (!requestOrigin && referer) {
-      try {
-        requestOrigin = new URL(referer).origin;
-      } catch {
-        requestOrigin = null;
-      }
-    }
-
-    const isAllowedOrigin = requestOrigin
-      ? ALLOWED_ORIGINS.some((allowed) => requestOrigin.startsWith(allowed.replace(/\/$/, "")))
-      : false;
-
-    if (!isAllowedOrigin) {
+    if (!isAllowedRequestOrigin) {
       return new NextResponse(JSON.stringify({ error: "CSRF validation failed" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -158,8 +166,14 @@ export function middleware(request: NextRequest) {
   response.headers.set("cross-origin-opener-policy", "same-origin");
 
   if (isProductionRuntime()) {
-    response.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains; preload");
-    response.headers.set("content-security-policy", `${buildContentSecurityPolicy()}; upgrade-insecure-requests`);
+    response.headers.set(
+      "strict-transport-security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
+    response.headers.set(
+      "content-security-policy",
+      `${buildContentSecurityPolicy()}; upgrade-insecure-requests`
+    );
   }
 
   return response;

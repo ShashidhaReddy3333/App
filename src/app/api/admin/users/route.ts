@@ -1,22 +1,16 @@
+import { UserRole, UserStatus } from "@prisma/client";
 import { z } from "zod";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/http";
-import { getCurrentSession } from "@/lib/auth/session";
-import { forbiddenError, notFoundError, unauthorizedError } from "@/lib/errors";
+import { requirePlatformAdminAccess } from "@/lib/auth/api-guard";
+import { notFoundError, validationError } from "@/lib/errors";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-async function requireAdmin() {
-  const session = await getCurrentSession();
-  if (!session) throw unauthorizedError();
-  if (session.user.role !== "platform_admin") throw forbiddenError();
-  return session;
-}
-
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin();
+    await requirePlatformAdminAccess(req);
 
     const { searchParams } = new URL(req.url);
     const page = Number(searchParams.get("page") ?? 1);
@@ -59,15 +53,20 @@ export async function GET(req: NextRequest) {
 
 const updateUserSchema = z.object({
   userId: z.string(),
-  status: z.enum(["active", "suspended", "invited"]).optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  role: z.nativeEnum(UserRole).optional(),
 });
 
 export async function PATCH(req: Request) {
   try {
-    await requireAdmin();
+    await requirePlatformAdminAccess(req);
 
     const body = await req.json();
     const { userId, ...data } = updateUserSchema.parse(body);
+
+    if (data.status === undefined && data.role === undefined) {
+      throw validationError("No user update action was provided.");
+    }
 
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) throw notFoundError("User not found.");

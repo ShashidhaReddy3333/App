@@ -2,7 +2,13 @@ import Stripe from "stripe";
 import { stripe } from "./client";
 import { STRIPE_CONFIG } from "./config";
 import { db } from "@/lib/db";
-import type { Business, Order, OrderItem, Product } from "@prisma/client";
+import {
+  PaymentStatus,
+  type Business,
+  type Order,
+  type OrderItem,
+  type Product,
+} from "@prisma/client";
 
 type OrderWithItems = Order & {
   items: (OrderItem & { product: Product })[];
@@ -111,12 +117,12 @@ export async function handleSuccessfulPayment(
   if (!orderId || !businessId) return;
 
   const paymentIntentId = isSession
-    ? (sessionOrIntent as Stripe.Checkout.Session).payment_intent as string | null
+    ? ((sessionOrIntent as Stripe.Checkout.Session).payment_intent as string | null)
     : (sessionOrIntent as Stripe.PaymentIntent).id;
 
   await db.order.update({
     where: { id: orderId },
-    data: { paymentStatus: "paid" },
+    data: { paymentStatus: PaymentStatus.settled },
   });
 
   if (paymentIntentId) {
@@ -139,7 +145,9 @@ export async function handleSuccessfulPayment(
           amount: pi.amount,
           currency: pi.currency,
           status: pi.status,
-          applicationFeeAmount: (pi as Stripe.PaymentIntent & { application_fee_amount?: number }).application_fee_amount ?? null,
+          applicationFeeAmount:
+            (pi as Stripe.PaymentIntent & { application_fee_amount?: number })
+              .application_fee_amount ?? null,
           metadata: pi.metadata as Record<string, string>,
         },
       });

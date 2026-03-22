@@ -10,6 +10,29 @@ import {
 } from "@/lib/domain/sales";
 import { toDecimal } from "@/lib/money";
 
+type BusinessSequenceField = "nextReceiptNumber" | "nextOrderNumber" | "nextPurchaseOrderNumber";
+
+async function allocateBusinessSequenceNumber(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  column: BusinessSequenceField
+) {
+  const quotedColumn = Prisma.raw(`"${column}"`);
+  const rows = await tx.$queryRaw<Array<{ allocatedNumber: number }>>(Prisma.sql`
+    UPDATE "Business"
+    SET ${quotedColumn} = ${quotedColumn} + 1
+    WHERE id = ${businessId}
+    RETURNING ${quotedColumn} - 1 AS "allocatedNumber"
+  `);
+
+  const allocatedNumber = rows[0]?.allocatedNumber;
+  if (typeof allocatedNumber !== "number") {
+    throw notFoundError("Business not found.");
+  }
+
+  return allocatedNumber;
+}
+
 export async function getOwnedLocation(
   tx: Prisma.TransactionClient,
   businessId: string,
@@ -118,42 +141,22 @@ export async function createIdempotencyRecord(
 }
 
 export async function allocateReceiptNumber(tx: Prisma.TransactionClient, businessId: string) {
-  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
-  const result = await tx.$queryRaw<Array<{ nextReceiptNumber: number }>>`
-    UPDATE "Business"
-    SET "nextReceiptNumber" = "nextReceiptNumber" + 1
-    WHERE "id" = ${businessId}
-    RETURNING "nextReceiptNumber" - 1 AS "nextReceiptNumber"
-  `;
-  if (!result[0]) throw new Error("Business not found");
-  return formatReceiptNumber(result[0].nextReceiptNumber);
+  return formatReceiptNumber(
+    await allocateBusinessSequenceNumber(tx, businessId, "nextReceiptNumber")
+  );
 }
 
 export async function allocateOrderNumber(tx: Prisma.TransactionClient, businessId: string) {
-  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
-  const result = await tx.$queryRaw<Array<{ nextOrderNumber: number }>>`
-    UPDATE "Business"
-    SET "nextOrderNumber" = "nextOrderNumber" + 1
-    WHERE "id" = ${businessId}
-    RETURNING "nextOrderNumber" - 1 AS "nextOrderNumber"
-  `;
-  if (!result[0]) throw new Error("Business not found");
-  return formatOrderNumber(result[0].nextOrderNumber);
+  return formatOrderNumber(await allocateBusinessSequenceNumber(tx, businessId, "nextOrderNumber"));
 }
 
 export async function allocatePurchaseOrderNumber(
   tx: Prisma.TransactionClient,
   businessId: string
 ) {
-  // Use atomic UPDATE...RETURNING to prevent race conditions with concurrent transactions
-  const result = await tx.$queryRaw<Array<{ nextPurchaseOrderNumber: number }>>`
-    UPDATE "Business"
-    SET "nextPurchaseOrderNumber" = "nextPurchaseOrderNumber" + 1
-    WHERE "id" = ${businessId}
-    RETURNING "nextPurchaseOrderNumber" - 1 AS "nextPurchaseOrderNumber"
-  `;
-  if (!result[0]) throw new Error("Business not found");
-  return formatPurchaseOrderNumber(result[0].nextPurchaseOrderNumber);
+  return formatPurchaseOrderNumber(
+    await allocateBusinessSequenceNumber(tx, businessId, "nextPurchaseOrderNumber")
+  );
 }
 
 export async function reserveInventory(

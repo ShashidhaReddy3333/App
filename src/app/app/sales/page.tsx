@@ -9,7 +9,7 @@ import { toSalesListItems } from "@/lib/view-models/app";
 export default async function SalesPage() {
   const session = await requirePermission("sales");
   const sales = await listSales(session.user.businessId!);
-  const items = toSalesListItems(sales);
+  const items = toSalesListItems(sales.items);
 
   const exportHeaders = ["Receipt #", "Cashier", "Total", "Amount Paid", "Status", "Completed At"];
   const exportRows = items.map((item: (typeof items)[number]) => [
@@ -18,7 +18,7 @@ export default async function SalesPage() {
     item.totalAmount,
     item.amountPaid,
     item.statusLabel,
-    item.completedAtLabel
+    item.completedAtLabel,
   ]);
 
   return (
@@ -30,7 +30,10 @@ export default async function SalesPage() {
         actions={<ExportButton filename="sales.csv" headers={exportHeaders} rows={exportRows} />}
       />
       {items.length === 0 ? (
-        <EmptyState title="No sales yet" description="Completed and pending sales will appear here after the first checkout is created." />
+        <EmptyState
+          title="No sales yet"
+          description="Completed and pending sales will appear here after the first checkout is created."
+        />
       ) : (
         <SalesList items={items} />
       )}

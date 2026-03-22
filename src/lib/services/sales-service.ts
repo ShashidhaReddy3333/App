@@ -1,4 +1,13 @@
-import { InventoryMovementType, OrderStatus, PaymentStatus, Prisma, PurchaseOrderStatus, RefundStatus, RestockAction, SaleStatus } from "@prisma/client";
+import {
+  InventoryMovementType,
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+  PurchaseOrderStatus,
+  RefundStatus,
+  RestockAction,
+  SaleStatus,
+} from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -15,7 +24,7 @@ import {
   getOwnedLocation,
   releaseReservation,
   reserveInventory,
-  restockInventory
+  restockInventory,
 } from "@/lib/services/command-helpers";
 import { formatBusinessDateStamp, getBusinessDayRange, zonedDateTimeToUtc } from "@/lib/timezone";
 
@@ -31,11 +40,11 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient, b
     where: {
       businessId,
       status: SaleStatus.pending_payment,
-      reservationExpiresAt: { lt: new Date() }
+      reservationExpiresAt: { lt: new Date() },
     },
     include: {
-      items: true
-    }
+      items: true,
+    },
   });
 
   for (const sale of expiredSales) {
@@ -46,7 +55,7 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient, b
         quantity: Number(item.quantity),
         referenceId: sale.id,
         createdById: sale.cashierUserId,
-        reason: "reservation_expired"
+        reason: "reservation_expired",
       });
     }
 
@@ -54,8 +63,8 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient, b
       where: { id: sale.id },
       data: {
         status: SaleStatus.cancelled,
-        reservationExpiresAt: null
-      }
+        reservationExpiresAt: null,
+      },
     });
   }
 
@@ -69,7 +78,7 @@ export async function cleanupExpiredReservations(businessId?: string) {
         ? [{ id: businessId }]
         : await tx.business.findMany({
             where: { isActive: true },
-            select: { id: true }
+            select: { id: true },
           });
 
       let salesCancelled = 0;
@@ -79,11 +88,11 @@ export async function cleanupExpiredReservations(businessId?: string) {
 
       return {
         businessesProcessed: businesses.length,
-        salesCancelled
+        salesCancelled,
       };
     },
     {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
 }
@@ -97,7 +106,7 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
 
       const business = await tx.business.findUniqueOrThrow({
         where: { id: businessId },
-        include: { taxRates: true }
+        include: { taxRates: true },
       });
       await getOwnedLocation(tx, businessId, values.locationId);
 
@@ -105,13 +114,13 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
         where: {
           id: { in: values.items.map((item) => item.productId) },
           businessId,
-          isArchived: false
+          isArchived: false,
         },
         include: {
           inventoryBalances: {
-            where: { locationId: values.locationId }
-          }
-        }
+            where: { locationId: values.locationId },
+          },
+        },
       });
 
       const productMap = new Map(products.map((product) => [product.id, product]));
@@ -127,14 +136,14 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
             category: product.category,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            discount: item.discount
+            discount: item.discount,
           };
         }),
         business.taxRates.map((rate) => ({
           name: rate.name,
           ratePercent: Number(rate.ratePercent),
           appliesToCategories: taxRateCategories(rate.appliesToCategories),
-          compoundOrder: rate.compoundOrder
+          compoundOrder: rate.compoundOrder,
         })),
         business.taxMode,
         values.saleDiscount
@@ -154,14 +163,19 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
           saleDiscountType: values.saleDiscount?.type ?? null,
           saleDiscountValue: values.saleDiscount ? toDecimal(values.saleDiscount.value) : null,
           saleDiscountReason: values.saleDiscount?.reason ?? null,
-          reservationExpiresAt: new Date(Date.now() + business.reservationDurationMinutes * 60 * 1000)
-        }
+          reservationExpiresAt: new Date(
+            Date.now() + business.reservationDurationMinutes * 60 * 1000
+          ),
+        },
       });
 
       for (const line of pricing.items) {
         const product = productMap.get(line.productId)!;
         if (!product.inventoryBalances[0]) {
-          throw conflictError(`Inventory balance is missing for ${product.name}.`, "STALE_INVENTORY");
+          throw conflictError(
+            `Inventory balance is missing for ${product.name}.`,
+            "STALE_INVENTORY"
+          );
         }
 
         await tx.saleItem.create({
@@ -175,8 +189,8 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
             allocatedSaleDiscountAmount: toDecimal(line.allocatedSaleDiscount),
             taxAmount: toDecimal(line.taxAmount),
             taxComponents: line.taxComponents as Prisma.InputJsonValue,
-            lineTotal: toDecimal(line.lineTotal)
-          }
+            lineTotal: toDecimal(line.lineTotal),
+          },
         });
 
         await reserveInventory(tx, {
@@ -185,28 +199,33 @@ export async function createCheckoutDraft(actorUserId: string, businessId: strin
           quantity: line.quantity,
           allowOversell: product.allowOversell,
           referenceId: sale.id,
-          createdById: actorUserId
+          createdById: actorUserId,
         });
       }
 
       return tx.sale.findUniqueOrThrow({
         where: { id: sale.id },
-        include: { items: true }
+        include: { items: true },
       });
     },
     {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
 }
 
-export async function completeSale(actorUserId: string, businessId: string, saleId: string, input: unknown) {
+export async function completeSale(
+  actorUserId: string,
+  businessId: string,
+  saleId: string,
+  input: unknown
+) {
   const values = completeSaleSchema.parse(input);
   const existing = await findIdempotentResult(businessId, "complete_sale", values.idempotencyKey);
   if (existing) {
     return db.sale.findUniqueOrThrow({
       where: { id: existing.resourceId },
-      include: { items: true, payments: true }
+      include: { items: true, payments: true },
     });
   }
 
@@ -214,7 +233,7 @@ export async function completeSale(actorUserId: string, businessId: string, sale
     async (tx) => {
       const record = await tx.sale.findFirstOrThrow({
         where: { id: saleId, businessId },
-        include: { items: true, payments: true, business: true }
+        include: { items: true, payments: true, business: true },
       });
 
       if (record.status !== SaleStatus.pending_payment && record.status !== SaleStatus.completed) {
@@ -237,20 +256,20 @@ export async function completeSale(actorUserId: string, businessId: string, sale
             provider: payment.provider ?? "manual",
             amount: toDecimal(payment.amount),
             status: payment.amount > 0 ? PaymentStatus.settled : PaymentStatus.failed,
-            externalReference: payment.externalReference || null
-          }
+            externalReference: payment.externalReference || null,
+          },
         });
       }
 
       const refreshed = await tx.sale.findUniqueOrThrow({
         where: { id: saleId },
-        include: { items: true, payments: true, business: true }
+        include: { items: true, payments: true, business: true },
       });
 
       const amountPaid = sumSuccessfulPayments(
         refreshed.payments.map((payment) => ({
           amount: Number(payment.amount),
-          status: payment.status
+          status: payment.status,
         }))
       );
       const amountDue = Math.max(roundMoney(Number(refreshed.totalAmount) - amountPaid), 0);
@@ -260,9 +279,9 @@ export async function completeSale(actorUserId: string, businessId: string, sale
           where: { id: saleId },
           data: {
             amountPaid: toDecimal(amountPaid),
-            amountDue: toDecimal(amountDue)
+            amountDue: toDecimal(amountDue),
           },
-          include: { items: true, payments: true }
+          include: { items: true, payments: true },
         });
       }
 
@@ -272,7 +291,7 @@ export async function completeSale(actorUserId: string, businessId: string, sale
           locationId: refreshed.locationId,
           quantity: Number(item.quantity),
           referenceId: saleId,
-          createdById: actorUserId
+          createdById: actorUserId,
         });
       }
 
@@ -290,12 +309,19 @@ export async function completeSale(actorUserId: string, businessId: string, sale
           completedAt,
           businessTimezoneDate: start,
           reservationExpiresAt: null,
-          receiptNumber
+          receiptNumber,
         },
-        include: { items: true, payments: true }
+        include: { items: true, payments: true },
       });
 
-      await createIdempotencyRecord(tx, businessId, "complete_sale", values.idempotencyKey, "sale", saleId);
+      await createIdempotencyRecord(
+        tx,
+        businessId,
+        "complete_sale",
+        values.idempotencyKey,
+        "sale",
+        saleId
+      );
 
       await logAudit({
         tx,
@@ -304,20 +330,23 @@ export async function completeSale(actorUserId: string, businessId: string, sale
         action: "sale_completed",
         resourceType: "sale",
         resourceId: saleId,
-        metadata: { receiptNumber: completedSale.receiptNumber }
+        metadata: { receiptNumber: completedSale.receiptNumber },
       });
 
       return completedSale;
     },
     {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
 
   return sale;
 }
 
-export async function listSales(businessId: string, options?: { q?: string; page?: number; pageSize?: number }) {
+export async function listSales(
+  businessId: string,
+  options?: { q?: string; page?: number; pageSize?: number }
+) {
   const query = options?.q?.trim();
   const where = {
     businessId,
@@ -325,10 +354,10 @@ export async function listSales(businessId: string, options?: { q?: string; page
       ? {
           receiptNumber: {
             contains: query,
-            mode: "insensitive" as const
-          }
+            mode: "insensitive" as const,
+          },
         }
-      : {})
+      : {}),
   };
 
   if (typeof options?.page !== "number" && typeof options?.pageSize !== "number") {
@@ -336,16 +365,16 @@ export async function listSales(businessId: string, options?: { q?: string; page
       where,
       include: {
         cashier: true,
-        payments: true
+        payments: true,
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     return {
       items,
       totalCount: items.length,
       totalPages: 1,
-      currentPage: 1
+      currentPage: 1,
     };
   }
 
@@ -358,24 +387,63 @@ export async function listSales(businessId: string, options?: { q?: string; page
       where,
       include: {
         cashier: true,
-        payments: true
+        payments: true,
       },
       orderBy: { createdAt: "desc" },
       skip,
-      take: pageSize
+      take: pageSize,
     }),
-    db.sale.count({ where })
+    db.sale.count({ where }),
   ]);
 
   return {
     items,
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize),
-    currentPage: page
+    currentPage: page,
   };
 }
 
-export async function listOnlineOrders(businessId: string, options?: { q?: string; status?: OrderStatus; page?: number; pageSize?: number }) {
+export async function listRefunds(
+  businessId: string,
+  options?: { page?: number; pageSize?: number }
+) {
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, options?.pageSize ?? 20);
+  const skip = (page - 1) * pageSize;
+  const where = { businessId };
+
+  const [items, totalCount] = await Promise.all([
+    db.refund.findMany({
+      where,
+      include: {
+        sale: {
+          select: {
+            id: true,
+            receiptNumber: true,
+            totalAmount: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    db.refund.count({ where }),
+  ]);
+
+  return {
+    items,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize),
+    currentPage: page,
+  };
+}
+
+export async function listOnlineOrders(
+  businessId: string,
+  options?: { q?: string; status?: OrderStatus; page?: number; pageSize?: number }
+) {
   const query = options?.q?.trim();
   const page = Math.max(1, options?.page ?? 1);
   const pageSize = Math.max(1, options?.pageSize ?? 20);
@@ -384,7 +452,7 @@ export async function listOnlineOrders(businessId: string, options?: { q?: strin
     businessId,
     ...(options?.status
       ? {
-          status: options.status
+          status: options.status,
         }
       : {}),
     ...(query
@@ -393,22 +461,22 @@ export async function listOnlineOrders(businessId: string, options?: { q?: strin
             {
               orderNumber: {
                 contains: query,
-                mode: "insensitive" as const
-              }
+                mode: "insensitive" as const,
+              },
             },
             {
               customer: {
                 is: {
                   fullName: {
                     contains: query,
-                    mode: "insensitive" as const
-                  }
-                }
-              }
-            }
-          ]
+                    mode: "insensitive" as const,
+                  },
+                },
+              },
+            },
+          ],
         }
-      : {})
+      : {}),
   };
 
   const [items, totalCount] = await Promise.all([
@@ -417,24 +485,24 @@ export async function listOnlineOrders(businessId: string, options?: { q?: strin
       include: {
         items: {
           include: {
-            product: true
-          }
+            product: true,
+          },
         },
         customer: true,
-        fulfillment: true
+        fulfillment: true,
       },
       orderBy: { createdAt: "desc" },
       skip,
-      take: pageSize
+      take: pageSize,
     }),
-    db.order.count({ where })
+    db.order.count({ where }),
   ]);
 
   return {
     items,
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize),
-    currentPage: page
+    currentPage: page,
   };
 }
 
@@ -448,27 +516,32 @@ export async function getSaleDetail(businessId: string, saleId: string) {
       items: {
         include: {
           product: true,
-          refundItems: true
-        }
+          refundItems: true,
+        },
       },
       payments: true,
       refunds: {
         include: {
           items: true,
-          refundPayments: true
-        }
-      }
-    }
+          refundPayments: true,
+        },
+      },
+    },
   });
 }
 
-export async function createRefund(actorUserId: string, businessId: string, saleId: string, input: unknown) {
+export async function createRefund(
+  actorUserId: string,
+  businessId: string,
+  saleId: string,
+  input: unknown
+) {
   const values = refundSchema.parse(input);
   const existing = await findIdempotentResult(businessId, "refund_payment", values.idempotencyKey);
   if (existing) {
     return db.refund.findUniqueOrThrow({
       where: { id: existing.resourceId },
-      include: { items: true, refundPayments: true }
+      include: { items: true, refundPayments: true },
     });
   }
 
@@ -479,11 +552,11 @@ export async function createRefund(actorUserId: string, businessId: string, sale
         include: {
           items: {
             include: {
-              refundItems: true
-            }
+              refundItems: true,
+            },
           },
-          payments: true
-        }
+          payments: true,
+        },
       });
       if (sale.status !== SaleStatus.completed && sale.status !== SaleStatus.refunded_partially) {
         throw conflictError("Only completed or partially refunded sales can be refunded.");
@@ -496,13 +569,16 @@ export async function createRefund(actorUserId: string, businessId: string, sale
           throw notFoundError("Refund item not found on sale.");
         }
 
-        const alreadyRefundedQuantity = saleItem.refundItems.reduce((sum, refundItem) => sum + Number(refundItem.quantityRefunded), 0);
+        const alreadyRefundedQuantity = saleItem.refundItems.reduce(
+          (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
+          0
+        );
         const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
         if (item.quantity > remainingQuantity) {
           throw validationError("Refund quantity exceeds remaining refundable quantity.", {
             fieldErrors: {
-              items: ["Refund quantity exceeds remaining refundable quantity."]
-            }
+              items: ["Refund quantity exceeds remaining refundable quantity."],
+            },
           });
         }
 
@@ -514,11 +590,11 @@ export async function createRefund(actorUserId: string, businessId: string, sale
       const existingRefunds = await tx.refund.aggregate({
         where: {
           saleId: sale.id,
-          status: { not: RefundStatus.cancelled }
+          status: { not: RefundStatus.cancelled },
         },
         _sum: {
-          refundTotalAmount: true
-        }
+          refundTotalAmount: true,
+        },
       });
       const previousRefundTotal = existingRefunds._sum.refundTotalAmount?.toNumber() ?? 0;
       const saleTotal = sale.totalAmount.toNumber();
@@ -537,8 +613,8 @@ export async function createRefund(actorUserId: string, businessId: string, sale
           status: RefundStatus.pending,
           refundTotalAmount: toDecimal(0),
           reasonCode: values.reasonCode,
-          note: values.note
-        }
+          note: values.note,
+        },
       });
 
       let refundTotalAmount = 0;
@@ -549,13 +625,16 @@ export async function createRefund(actorUserId: string, businessId: string, sale
           throw notFoundError("Refund item not found on sale.");
         }
 
-        const alreadyRefundedQuantity = saleItem.refundItems.reduce((sum, refundItem) => sum + Number(refundItem.quantityRefunded), 0);
+        const alreadyRefundedQuantity = saleItem.refundItems.reduce(
+          (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
+          0
+        );
         const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
         if (item.quantity > remainingQuantity) {
           throw validationError("Refund quantity exceeds remaining refundable quantity.", {
             fieldErrors: {
-              items: ["Refund quantity exceeds remaining refundable quantity."]
-            }
+              items: ["Refund quantity exceeds remaining refundable quantity."],
+            },
           });
         }
 
@@ -570,8 +649,8 @@ export async function createRefund(actorUserId: string, businessId: string, sale
             saleItemId: saleItem.id,
             quantityRefunded: toDecimal(item.quantity),
             amountRefunded: toDecimal(amountRefunded),
-            restockAction: item.restockAction as RestockAction
-          }
+            restockAction: item.restockAction as RestockAction,
+          },
         });
 
         if (item.restockAction === "restock_to_sellable") {
@@ -581,7 +660,7 @@ export async function createRefund(actorUserId: string, businessId: string, sale
             quantity: item.quantity,
             referenceId: refundRecord.id,
             createdById: actorUserId,
-            reason: values.reasonCode
+            reason: values.reasonCode,
           });
         } else {
           await tx.inventoryMovement.create({
@@ -593,8 +672,8 @@ export async function createRefund(actorUserId: string, businessId: string, sale
               referenceType: "refund",
               referenceId: refundRecord.id,
               reason: item.restockAction,
-              createdById: actorUserId
-            }
+              createdById: actorUserId,
+            },
           });
         }
       }
@@ -605,9 +684,11 @@ export async function createRefund(actorUserId: string, businessId: string, sale
 
         const priorRefunded = await tx.refundPayment.aggregate({
           where: { paymentId: payment.id },
-          _sum: { amountReversed: true }
+          _sum: { amountReversed: true },
         });
-        const available = roundMoney(Number(payment.amount) - Number(priorRefunded._sum.amountReversed ?? 0));
+        const available = roundMoney(
+          Number(payment.amount) - Number(priorRefunded._sum.amountReversed ?? 0)
+        );
         if (available <= 0) continue;
         const applied = Math.min(available, remaining);
 
@@ -615,15 +696,16 @@ export async function createRefund(actorUserId: string, businessId: string, sale
           data: {
             refundId: refundRecord.id,
             paymentId: payment.id,
-            amountReversed: toDecimal(applied)
-          }
+            amountReversed: toDecimal(applied),
+          },
         });
 
         await tx.payment.update({
           where: { id: payment.id },
           data: {
-            status: applied === available ? PaymentStatus.refunded_full : PaymentStatus.refunded_partial
-          }
+            status:
+              applied === available ? PaymentStatus.refunded_full : PaymentStatus.refunded_partial,
+          },
         });
         remaining = roundMoney(remaining - applied);
       }
@@ -632,7 +714,12 @@ export async function createRefund(actorUserId: string, businessId: string, sale
       }
 
       const alreadyRefundedQuantity = sale.items.reduce(
-        (sum, item) => sum + item.refundItems.reduce((inner, refundItem) => inner + Number(refundItem.quantityRefunded), 0),
+        (sum, item) =>
+          sum +
+          item.refundItems.reduce(
+            (inner, refundItem) => inner + Number(refundItem.quantityRefunded),
+            0
+          ),
         0
       );
       const refundedQuantity = alreadyRefundedQuantity + currentRequestRefundedQuantity;
@@ -642,18 +729,28 @@ export async function createRefund(actorUserId: string, businessId: string, sale
         where: { id: refundRecord.id },
         data: {
           status: RefundStatus.completed,
-          refundTotalAmount: toDecimal(refundTotalAmount)
-        }
+          refundTotalAmount: toDecimal(refundTotalAmount),
+        },
       });
 
       await tx.sale.update({
         where: { id: saleId },
         data: {
-          status: refundedQuantity >= totalQuantity ? SaleStatus.refunded_fully : SaleStatus.refunded_partially
-        }
+          status:
+            refundedQuantity >= totalQuantity
+              ? SaleStatus.refunded_fully
+              : SaleStatus.refunded_partially,
+        },
       });
 
-      await createIdempotencyRecord(tx, businessId, "refund_payment", values.idempotencyKey, "refund", refundRecord.id);
+      await createIdempotencyRecord(
+        tx,
+        businessId,
+        "refund_payment",
+        values.idempotencyKey,
+        "refund",
+        refundRecord.id
+      );
 
       await logAudit({
         tx,
@@ -662,16 +759,16 @@ export async function createRefund(actorUserId: string, businessId: string, sale
         action: "refund_created",
         resourceType: "refund",
         resourceId: refundRecord.id,
-        metadata: { saleId, refundTotalAmount }
+        metadata: { saleId, refundTotalAmount },
       });
 
       return tx.refund.findUniqueOrThrow({
         where: { id: refundRecord.id },
-        include: { items: true, refundPayments: true }
+        include: { items: true, refundPayments: true },
       });
     },
     {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
 
@@ -682,33 +779,44 @@ export async function getDashboardMetrics(businessId: string) {
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const { start, end } = getBusinessDayRange(business.timezone);
 
-  const [sales, onlineOrders, balances, pendingPayments, topProducts, recentActivity, openPurchaseOrders, supplierProducts] = await Promise.all([
+  const [
+    sales,
+    onlineOrders,
+    balances,
+    pendingPayments,
+    topProducts,
+    recentActivity,
+    openPurchaseOrders,
+    supplierProducts,
+  ] = await Promise.all([
     db.sale.findMany({
       where: {
         businessId,
         completedAt: { gte: start, lte: end },
-        status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
-      }
+        status: {
+          in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
+        },
+      },
     }),
     db.order.findMany({
       where: {
         businessId,
         createdAt: { gte: start, lte: end },
-        status: { not: "cancelled" }
-      }
+        status: { not: "cancelled" },
+      },
     }),
     db.inventoryBalance.findMany({
       where: {
         location: { businessId },
-        product: { isArchived: false }
+        product: { isArchived: false },
       },
-      include: { product: true }
+      include: { product: true },
     }),
     db.sale.count({
       where: {
         businessId,
-        status: SaleStatus.pending_payment
-      }
+        status: SaleStatus.pending_payment,
+      },
     }),
     db.saleItem.groupBy({
       by: ["productId"],
@@ -717,31 +825,41 @@ export async function getDashboardMetrics(businessId: string) {
         sale: {
           businessId,
           completedAt: { gte: start, lte: end },
-          status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
-        }
+          status: {
+            in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
+          },
+        },
       },
       orderBy: { _sum: { quantity: "desc" } },
-      take: 5
+      take: 5,
     }),
     db.auditLog.findMany({
       where: { businessId },
       orderBy: { createdAt: "desc" },
-      take: 5
+      take: 5,
     }),
     db.purchaseOrder.count({
       where: {
         businessId,
-        status: { in: [PurchaseOrderStatus.draft, PurchaseOrderStatus.sent, PurchaseOrderStatus.accepted, PurchaseOrderStatus.ordered, PurchaseOrderStatus.partially_received] }
-      }
+        status: {
+          in: [
+            PurchaseOrderStatus.draft,
+            PurchaseOrderStatus.sent,
+            PurchaseOrderStatus.accepted,
+            PurchaseOrderStatus.ordered,
+            PurchaseOrderStatus.partially_received,
+          ],
+        },
+      },
     }),
     db.supplierProduct.count({
       where: {
         supplier: {
-          businessId
+          businessId,
         },
-        isActive: true
-      }
-    })
+        isActive: true,
+      },
+    }),
   ]);
 
   const productIds = topProducts.map((entry) => entry.productId);
@@ -755,12 +873,13 @@ export async function getDashboardMetrics(businessId: string) {
       id: balance.productId,
       name: balance.product.name,
       availableQuantity: Number(balance.availableQuantity),
-      parLevel: Number(balance.product.parLevel)
+      parLevel: Number(balance.product.parLevel),
     }));
 
   return {
     salesToday: roundMoney(
-      sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + onlineOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+      sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) +
+        onlineOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
     ),
     totalOrders: sales.length + onlineOrders.length,
     onlineOrdersToday: onlineOrders.length,
@@ -771,10 +890,10 @@ export async function getDashboardMetrics(businessId: string) {
     topSellingProducts: topProducts.map((entry) => ({
       productId: entry.productId,
       name: productMap.get(entry.productId) ?? "Unknown",
-      quantity: Number(entry._sum.quantity ?? 0)
+      quantity: Number(entry._sum.quantity ?? 0),
     })),
     reorderList: lowStockItems.slice(0, 5),
-    recentActivity
+    recentActivity,
   };
 }
 
@@ -783,34 +902,46 @@ export async function getReportsSnapshot(businessId: string) {
   const { start, end, parts } = getBusinessDayRange(business.timezone);
   const monthStart = zonedDateTimeToUtc(business.timezone, parts.year, parts.month, 1, 0, 0, 0);
 
-  const [dailySales, monthlySales, dailyOrders, monthlyOrders, paymentBreakdown, orderPaymentBreakdown, openPurchaseOrders] = await Promise.all([
+  const [
+    dailySales,
+    monthlySales,
+    dailyOrders,
+    monthlyOrders,
+    paymentBreakdown,
+    orderPaymentBreakdown,
+    openPurchaseOrders,
+  ] = await Promise.all([
     db.sale.findMany({
       where: {
         businessId,
         completedAt: { gte: start, lte: end },
-        status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
-      }
+        status: {
+          in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
+        },
+      },
     }),
     db.sale.findMany({
       where: {
         businessId,
         completedAt: { gte: monthStart },
-        status: { in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully] }
-      }
+        status: {
+          in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
+        },
+      },
     }),
     db.order.findMany({
       where: {
         businessId,
         createdAt: { gte: start, lte: end },
-        status: { not: "cancelled" }
-      }
+        status: { not: "cancelled" },
+      },
     }),
     db.order.findMany({
       where: {
         businessId,
         createdAt: { gte: monthStart },
-        status: { not: "cancelled" }
-      }
+        status: { not: "cancelled" },
+      },
     }),
     db.payment.groupBy({
       by: ["method"],
@@ -818,9 +949,15 @@ export async function getReportsSnapshot(businessId: string) {
       where: {
         sale: { businessId },
         status: {
-          in: [PaymentStatus.authorized, PaymentStatus.captured, PaymentStatus.settled, PaymentStatus.refunded_partial, PaymentStatus.refunded_full]
-        }
-      }
+          in: [
+            PaymentStatus.authorized,
+            PaymentStatus.captured,
+            PaymentStatus.settled,
+            PaymentStatus.refunded_partial,
+            PaymentStatus.refunded_full,
+          ],
+        },
+      },
     }),
     db.orderPayment.groupBy({
       by: ["method"],
@@ -828,16 +965,30 @@ export async function getReportsSnapshot(businessId: string) {
       where: {
         order: { businessId },
         status: {
-          in: [PaymentStatus.authorized, PaymentStatus.captured, PaymentStatus.settled, PaymentStatus.refunded_partial, PaymentStatus.refunded_full]
-        }
-      }
+          in: [
+            PaymentStatus.authorized,
+            PaymentStatus.captured,
+            PaymentStatus.settled,
+            PaymentStatus.refunded_partial,
+            PaymentStatus.refunded_full,
+          ],
+        },
+      },
     }),
     db.purchaseOrder.count({
       where: {
         businessId,
-        status: { in: [PurchaseOrderStatus.draft, PurchaseOrderStatus.sent, PurchaseOrderStatus.accepted, PurchaseOrderStatus.ordered, PurchaseOrderStatus.partially_received] }
-      }
-    })
+        status: {
+          in: [
+            PurchaseOrderStatus.draft,
+            PurchaseOrderStatus.sent,
+            PurchaseOrderStatus.accepted,
+            PurchaseOrderStatus.ordered,
+            PurchaseOrderStatus.partially_received,
+          ],
+        },
+      },
+    }),
   ]);
 
   const paymentTotals = new Map<string, number>();
@@ -845,23 +996,28 @@ export async function getReportsSnapshot(businessId: string) {
     paymentTotals.set(entry.method, Number(entry._sum.amount ?? 0));
   }
   for (const entry of orderPaymentBreakdown) {
-    paymentTotals.set(entry.method, Number(entry._sum.amount ?? 0) + (paymentTotals.get(entry.method) ?? 0));
+    paymentTotals.set(
+      entry.method,
+      Number(entry._sum.amount ?? 0) + (paymentTotals.get(entry.method) ?? 0)
+    );
   }
 
   return {
     dailyRevenue: roundMoney(
-      dailySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + dailyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+      dailySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) +
+        dailyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
     ),
     monthlyRevenue: roundMoney(
-      monthlySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) + monthlyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+      monthlySales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0) +
+        monthlyOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
     ),
     transactionCount: monthlySales.length + monthlyOrders.length,
     onlineOrderCount: monthlyOrders.length,
     openPurchaseOrders,
     paymentBreakdown: [...paymentTotals.entries()].map(([method, amount]) => ({
       method,
-      amount
+      amount,
     })),
-    generatedAt: formatBusinessDateStamp(business.timezone)
+    generatedAt: formatBusinessDateStamp(business.timezone),
   };
 }

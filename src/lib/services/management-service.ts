@@ -5,9 +5,10 @@ import { conflictError, notFoundError } from "@/lib/errors";
 export async function listStaff(businessId: string) {
   return db.user.findMany({
     where: {
-      businessId
+      businessId,
     },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
+    take: 100,
   });
 }
 
@@ -16,15 +17,16 @@ export async function listBusinessSessions(businessId: string) {
     where: {
       revokedAt: null,
       user: {
-        businessId
-      }
+        businessId,
+      },
     },
     include: {
-      user: true
+      user: true,
     },
     orderBy: {
-      lastSeenAt: "desc"
-    }
+      lastSeenAt: "desc",
+    },
+    take: 100,
   });
 }
 
@@ -34,21 +36,26 @@ export async function listPendingInvites(businessId: string) {
       businessId,
       acceptedAt: null,
       revokedAt: null,
-      expiresAt: { gt: new Date() }
+      expiresAt: { gt: new Date() },
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
+    take: 100,
   });
 }
 
-export async function revokeSessionRecord(actorUserId: string, businessId: string, sessionId: string) {
+export async function revokeSessionRecord(
+  actorUserId: string,
+  businessId: string,
+  sessionId: string
+) {
   return db.$transaction(async (tx) => {
     const session = await tx.session.findFirst({
       where: {
         id: sessionId,
         user: {
-          businessId
-        }
-      }
+          businessId,
+        },
+      },
     });
 
     if (!session) {
@@ -61,7 +68,7 @@ export async function revokeSessionRecord(actorUserId: string, businessId: strin
 
     const revokedSession = await tx.session.update({
       where: { id: sessionId },
-      data: { revokedAt: new Date() }
+      data: { revokedAt: new Date() },
     });
 
     await logAudit({
@@ -71,7 +78,7 @@ export async function revokeSessionRecord(actorUserId: string, businessId: strin
       action: "session_revoked",
       resourceType: "session",
       resourceId: revokedSession.id,
-      metadata: {}
+      metadata: {},
     });
 
     return revokedSession;

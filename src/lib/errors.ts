@@ -6,6 +6,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "DUPLICATE_RECORD"
   | "VALIDATION_ERROR"
   | "RESERVATION_EXPIRED"
   | "STALE_INVENTORY"
@@ -18,7 +19,10 @@ export class AppError extends Error {
   code: ErrorCode;
   issues?: Record<string, unknown>;
 
-  constructor(message: string, options?: { status?: number; code?: ErrorCode; issues?: Record<string, unknown> }) {
+  constructor(
+    message: string,
+    options?: { status?: number; code?: ErrorCode; issues?: Record<string, unknown> }
+  ) {
     super(message);
     this.name = "AppError";
     this.status = options?.status ?? 400;
@@ -57,19 +61,32 @@ export function toAppError(error: unknown) {
   }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
-    return new AppError("Database is unavailable. Check DATABASE_URL and ensure PostgreSQL is running.", {
-      status: 503,
-      code: "DATABASE_UNAVAILABLE"
-    });
+    return new AppError(
+      "Database is unavailable. Check DATABASE_URL and ensure PostgreSQL is running.",
+      {
+        status: 503,
+        code: "DATABASE_UNAVAILABLE",
+      }
+    );
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
     return notFoundError();
   }
 
-  if (error instanceof Error) {
-    return new AppError(error.message || "Unexpected error.", { status: 500, code: "UNEXPECTED_ERROR" });
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    const target = Array.isArray(error.meta?.target) ? error.meta.target.join(", ") : "field";
+    return new AppError(`A record with that ${target} already exists.`, {
+      status: 409,
+      code: "DUPLICATE_RECORD",
+    });
   }
 
-  return new AppError("Unexpected error.", { status: 500, code: "UNEXPECTED_ERROR" });
+  if (error instanceof Error) {
+    console.error("[Unexpected Error]", error);
+    return new AppError("An unexpected error occurred.", { status: 500, code: "UNEXPECTED_ERROR" });
+  }
+
+  console.error("[Unexpected Error]", error);
+  return new AppError("An unexpected error occurred.", { status: 500, code: "UNEXPECTED_ERROR" });
 }

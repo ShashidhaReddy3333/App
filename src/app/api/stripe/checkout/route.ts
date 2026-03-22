@@ -13,7 +13,10 @@ const createCheckoutSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { session } = await requireApiAccess(undefined, { allowMissingBusiness: true });
+    const { session } = await requireApiAccess(undefined, {
+      allowMissingBusiness: true,
+      request: req,
+    });
     const body = await req.json();
     const { orderId } = createCheckoutSchema.parse(body);
 
@@ -38,10 +41,7 @@ export async function POST(req: Request) {
       where: { businessId: order.businessId },
     });
 
-    const checkoutSession = await createCheckoutSession(
-      order,
-      stripeAccount?.stripeAccountId
-    );
+    const checkoutSession = await createCheckoutSession(order, stripeAccount?.stripeAccountId);
 
     return apiSuccess({
       sessionId: checkoutSession.id,

@@ -21,9 +21,9 @@ export async function GET() {
  * POST — Create or continue Stripe Connect onboarding for the authenticated business.
  * Returns an onboarding URL.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const { businessId } = await requireApiAccess();
+    const { businessId } = await requireApiAccess(undefined, { request });
 
     const stripeAccountId = await createConnectAccount(businessId);
     const onboardingUrl = await createAccountLink(stripeAccountId);

@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { getRateLimitIdentifier, rateLimit } from "@/lib/rate-limit";
+import {
+  RedisRateLimitUnavailableError,
+  checkInMemoryRateLimit,
+  checkRateLimit as checkRedisRateLimit,
+  getIdentifier,
+  getRateLimitIdentifier,
+  rateLimit as checkInMemoryWindowRateLimit,
+  type RateLimitPreset,
+  type SlidingWindowRateLimitOptions,
+} from "@/lib/rate-limit";
 
 const DEFAULT_LIMITS = {
   GET: { limit: 60, windowMs: 60_000 },
@@ -9,12 +19,18 @@ const DEFAULT_LIMITS = {
   DELETE: { limit: 20, windowMs: 60_000 },
 } as const;
 
-export interface RateLimitOptions {
-  limit?: number;
-  windowMs?: number;
+export interface RateLimitOptions extends SlidingWindowRateLimitOptions {}
+
+let hasWarnedAboutDegradedRateLimiting = false;
+
+function warnAboutDegradedRateLimiting() {
+  if (process.env.NODE_ENV === "production" && !hasWarnedAboutDegradedRateLimiting) {
+    hasWarnedAboutDegradedRateLimiting = true;
+    console.warn("[Rate Limit] Redis unavailable, using degraded in-memory rate limiting");
+  }
 }
 
-function resolveRateLimitOptions(method: string, options?: RateLimitOptions) {
+function resolveRateLimitOptions(method: string, options?: RateLimitOptions): RateLimitOptions {
   const defaults = DEFAULT_LIMITS[method as keyof typeof DEFAULT_LIMITS] ?? DEFAULT_LIMITS.POST;
   return {
     limit: options?.limit ?? defaults.limit,
@@ -45,12 +61,28 @@ function buildRateLimitResponse(limit: number, resetAt: Date) {
   );
 }
 
-export function checkRateLimit(request: Request, options?: RateLimitOptions): NextResponse | null {
+export async function checkRateLimit(
+  request: Request,
+  options?: RateLimitOptions
+): Promise<NextResponse | null> {
   const resolved = resolveRateLimitOptions(request.method.toUpperCase(), options);
-  const result = rateLimit(buildIdentifier(request), resolved);
+  const identifier = buildIdentifier(request);
 
-  if (!result.success) {
-    return buildRateLimitResponse(resolved.limit, result.resetAt);
+  try {
+    const result = await checkRedisRateLimit(identifier, resolved);
+    if (!result.success) {
+      return buildRateLimitResponse(result.limit, new Date(result.reset));
+    }
+  } catch (error) {
+    if (!(error instanceof RedisRateLimitUnavailableError)) {
+      throw error;
+    }
+
+    warnAboutDegradedRateLimiting();
+    const result = checkInMemoryWindowRateLimit(identifier, resolved);
+    if (!result.success) {
+      return buildRateLimitResponse(resolved.limit, result.resetAt);
+    }
   }
 
   return null;
@@ -61,7 +93,7 @@ export function withRateLimit<TArgs extends unknown[]>(
   options?: RateLimitOptions
 ): (request: Request, ...args: TArgs) => Promise<Response> {
   return async (request: Request, ...args: TArgs) => {
-    const rateLimitResponse = checkRateLimit(request, options);
+    const rateLimitResponse = await checkRateLimit(request, options);
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
@@ -69,3 +101,24 @@ export function withRateLimit<TArgs extends unknown[]>(
     return handler(request, ...args);
   };
 }
+
+export async function checkApiRateLimit(
+  request: NextRequest,
+  preset: RateLimitPreset = "api",
+  suffix?: string
+) {
+  const identifier = getIdentifier(request, suffix);
+
+  try {
+    return await checkRedisRateLimit(identifier, preset);
+  } catch (error) {
+    if (error instanceof RedisRateLimitUnavailableError) {
+      warnAboutDegradedRateLimiting();
+      return checkInMemoryRateLimit(identifier, preset);
+    }
+
+    throw error;
+  }
+}
+
+export const rateLimit = checkApiRateLimit;

@@ -13,6 +13,10 @@ type WindowEntry = {
 const store = new Map<string, WindowEntry>();
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
+// This in-memory store is a degraded fallback only. In serverless production
+// environments it resets on cold starts, so counters are not durable without Redis.
+let hasWarnedAboutMissingRedisAtStartup = false;
+
 export interface PresetRateLimitResult {
   success: boolean;
   limit: number;
@@ -26,6 +30,11 @@ export interface RateLimitResult {
   resetAt: Date;
 }
 
+export interface SlidingWindowRateLimitOptions {
+  limit: number;
+  windowMs: number;
+}
+
 export type RateLimitPreset = "auth" | "api" | "upload" | "webhook" | "public";
 
 const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number }> = {
@@ -36,7 +45,8 @@ const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number 
   public: { requests: 60, windowSeconds: 60 },
 };
 
-let rateLimiters: Record<RateLimitPreset, Ratelimit> | null = null;
+let presetRateLimiters: Record<RateLimitPreset, Ratelimit> | null = null;
+const customRateLimiters = new Map<string, Ratelimit>();
 
 function cleanupExpiredEntries(): void {
   const cutoff = Date.now() - MAX_WINDOW_MS;
@@ -61,13 +71,17 @@ function ensureCleanupStarted(): void {
   }
 }
 
-function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
+function resolvePresetOptions(preset: RateLimitPreset): SlidingWindowRateLimitOptions {
+  const config = LIMITS[preset];
+  return {
+    limit: config.requests,
+    windowMs: config.windowSeconds * 1000,
+  };
+}
+
+function getOrCreateCustomLimiter(options: SlidingWindowRateLimitOptions): Ratelimit | null {
   if (!isRedisAvailable()) {
     return null;
-  }
-
-  if (rateLimiters) {
-    return rateLimiters;
   }
 
   const redis = getRedisClient();
@@ -75,19 +89,73 @@ function getRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
     return null;
   }
 
-  rateLimiters = {} as Record<RateLimitPreset, Ratelimit>;
-  for (const [preset, config] of Object.entries(LIMITS) as [RateLimitPreset, (typeof LIMITS)[RateLimitPreset]][]) {
-    rateLimiters[preset] = new Ratelimit({
+  const key = `${options.limit}:${options.windowMs}`;
+  const existing = customRateLimiters.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const limiter = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(options.limit, `${Math.ceil(options.windowMs / 1000)} s`),
+    prefix: `hp:rl:custom:${key}`,
+  });
+
+  customRateLimiters.set(key, limiter);
+  return limiter;
+}
+
+export class RedisRateLimitUnavailableError extends Error {
+  constructor() {
+    super("Redis-backed rate limiting is unavailable.");
+    this.name = "RedisRateLimitUnavailableError";
+  }
+}
+
+if (
+  process.env.NODE_ENV === "production" &&
+  !isRedisAvailable() &&
+  !hasWarnedAboutMissingRedisAtStartup
+) {
+  hasWarnedAboutMissingRedisAtStartup = true;
+  console.warn(
+    "[Rate Limit] Redis is not configured in production; rate limiting is degraded and in-memory counters reset on serverless cold starts"
+  );
+}
+
+function getPresetRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
+  if (!isRedisAvailable()) {
+    return null;
+  }
+
+  if (presetRateLimiters) {
+    return presetRateLimiters;
+  }
+
+  const redis = getRedisClient();
+  if (!redis) {
+    return null;
+  }
+
+  presetRateLimiters = {} as Record<RateLimitPreset, Ratelimit>;
+  for (const [preset, config] of Object.entries(LIMITS) as [
+    RateLimitPreset,
+    (typeof LIMITS)[RateLimitPreset],
+  ][]) {
+    presetRateLimiters[preset] = new Ratelimit({
       redis,
       limiter: Ratelimit.slidingWindow(config.requests, `${config.windowSeconds} s`),
       prefix: `hp:rl:${preset}`,
     });
   }
 
-  return rateLimiters;
+  return presetRateLimiters;
 }
 
-export function rateLimit(identifier: string, options: { limit: number; windowMs: number }): RateLimitResult {
+export function rateLimit(
+  identifier: string,
+  options: SlidingWindowRateLimitOptions
+): RateLimitResult {
   const { limit, windowMs } = options;
   const now = Date.now();
   const windowStart = now - windowMs;
@@ -102,8 +170,7 @@ export function rateLimit(identifier: string, options: { limit: number; windowMs
 
   entry.timestamps = entry.timestamps.filter((timestamp) => timestamp > windowStart);
 
-  const count = entry.timestamps.length;
-  const success = count < limit;
+  const success = entry.timestamps.length < limit;
   if (success) {
     entry.timestamps.push(now);
   }
@@ -115,27 +182,41 @@ export function rateLimit(identifier: string, options: { limit: number; windowMs
   return { success, remaining, resetAt };
 }
 
-export async function checkRateLimit(
+export function checkInMemoryRateLimit(
   identifier: string,
-  preset: RateLimitPreset = "api"
-): Promise<PresetRateLimitResult> {
-  const limiters = getRatelimiters();
-  if (!limiters) {
-    const config = LIMITS[preset];
-    const result = rateLimit(identifier, { limit: config.requests, windowMs: config.windowSeconds * 1000 });
-    return {
-      success: result.success,
-      limit: config.requests,
-      remaining: result.remaining,
-      reset: result.resetAt.getTime(),
-    };
-  }
+  preset: RateLimitPreset
+): PresetRateLimitResult {
+  const options = resolvePresetOptions(preset);
+  const result = rateLimit(identifier, options);
 
-  const limiter = limiters[preset];
-  const result = await limiter.limit(identifier);
   return {
     success: result.success,
-    limit: result.limit,
+    limit: options.limit,
+    remaining: result.remaining,
+    reset: result.resetAt.getTime(),
+  };
+}
+
+export async function checkRateLimit(
+  identifier: string,
+  presetOrOptions: RateLimitPreset | SlidingWindowRateLimitOptions = "api"
+): Promise<PresetRateLimitResult> {
+  const limiter =
+    typeof presetOrOptions === "string"
+      ? getPresetRatelimiters()?.[presetOrOptions]
+      : getOrCreateCustomLimiter(presetOrOptions);
+
+  if (!limiter) {
+    throw new RedisRateLimitUnavailableError();
+  }
+
+  const result = await limiter.limit(identifier);
+  const options =
+    typeof presetOrOptions === "string" ? resolvePresetOptions(presetOrOptions) : presetOrOptions;
+
+  return {
+    success: result.success,
+    limit: result.limit ?? options.limit,
     remaining: result.remaining,
     reset: result.reset,
   };
@@ -153,6 +234,9 @@ export function getIdentifier(request: NextRequest, suffix?: string): string {
 
 export function _resetStoreForTesting(): void {
   store.clear();
+  customRateLimiters.clear();
+  presetRateLimiters = null;
+
   if (cleanupTimer !== null) {
     clearInterval(cleanupTimer);
     cleanupTimer = null;

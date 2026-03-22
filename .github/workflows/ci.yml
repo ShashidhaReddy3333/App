@@ -46,6 +46,7 @@ jobs:
       - run: pnpm prisma:reset
       - run: pnpm prisma:seed
       - run: pnpm exec prisma validate
+      - run: pnpm audit --production --audit-level=moderate
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:unit
@@ -55,6 +56,8 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: verify
+    # The E2E job requires a PostgreSQL service container so Prisma migrations, seed data,
+    # and Playwright flows run against a real database.
     services:
       postgres:
         image: postgres:16
@@ -86,5 +89,15 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: pnpm prisma:generate
+      - run: pnpm prisma:reset
+      - run: pnpm prisma:seed
+      - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e

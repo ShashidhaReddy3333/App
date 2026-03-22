@@ -1,12 +1,12 @@
 {
   "name": "Human Pulse Commerce",
   "short_name": "HumanPulse",
-  "description": "Human Pulse Commerce Operating System — POS, inventory, orders, and marketplace in one platform.",
+  "description": "Human Pulse Commerce Operating System - POS, inventory, orders, and marketplace in one platform.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#000000",
-  "theme_color": "#00C853",
+  "theme_color": "#0d9488",
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
@@ -63,7 +63,7 @@
       "name": "POS",
       "short_name": "POS",
       "description": "Open the Point of Sale",
-      "url": "/app/pos",
+      "url": "/app/checkout",
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
     },
     {

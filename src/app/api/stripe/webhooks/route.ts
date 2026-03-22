@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { constructEvent, processWebhookEvent } from "@/lib/stripe/webhooks";
 
 export const dynamic = "force-dynamic";
+const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
 
 // Stripe sends raw body — must disable body parsing
 export async function POST(req: NextRequest) {
@@ -10,9 +11,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
   }
 
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body exceeds 1 MB limit" }, { status: 413 });
+  }
+
   let rawBody: Buffer;
   try {
     const arrayBuffer = await req.arrayBuffer();
+    if (arrayBuffer.byteLength > MAX_WEBHOOK_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body exceeds 1 MB limit" }, { status: 413 });
+    }
     rawBody = Buffer.from(arrayBuffer);
   } catch {
     return NextResponse.json({ error: "Failed to read request body" }, { status: 400 });

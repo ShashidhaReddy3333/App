@@ -5,8 +5,17 @@ import { db } from "@/lib/db";
 import { priceCheckout } from "@/lib/domain/pricing";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
 import { roundMoney, toDecimal } from "@/lib/money";
-import { addCartItemSchema, customerCheckoutSchema, removeCartItemSchema } from "@/lib/schemas/customer-commerce";
-import { allocateOrderNumber, commitReservedInventory, createIdempotencyRecord, reserveInventory } from "@/lib/services/command-helpers";
+import {
+  addCartItemSchema,
+  customerCheckoutSchema,
+  removeCartItemSchema,
+} from "@/lib/schemas/customer-commerce";
+import {
+  allocateOrderNumber,
+  commitReservedInventory,
+  createIdempotencyRecord,
+  reserveInventory,
+} from "@/lib/services/command-helpers";
 import { enqueueRoleNotifications } from "@/lib/services/notification-service";
 import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
 
@@ -25,9 +34,9 @@ async function getStorefrontBusiness() {
       locations: {
         where: { isActive: true },
         orderBy: { createdAt: "asc" },
-        take: 1
-      }
-    }
+        take: 1,
+      },
+    },
   });
 
   if (!business || !business.locations[0]) {
@@ -36,7 +45,7 @@ async function getStorefrontBusiness() {
 
   return {
     business,
-    location: business.locations[0]
+    location: business.locations[0],
   };
 }
 
@@ -45,14 +54,14 @@ export async function getStorefrontData() {
   const products = await db.product.findMany({
     where: {
       businessId: business.id,
-      isArchived: false
+      isArchived: false,
     },
     include: {
       inventoryBalances: {
-        where: { locationId: location.id }
-      }
+        where: { locationId: location.id },
+      },
     },
-    orderBy: [{ category: "asc" }, { name: "asc" }]
+    orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 
   const categories = [...new Set(products.map((product) => product.category))];
@@ -63,8 +72,8 @@ export async function getStorefrontData() {
     categories,
     products: products.map((product) => ({
       ...product,
-      availableQuantity: Number(product.inventoryBalances[0]?.availableQuantity ?? 0)
-    }))
+      availableQuantity: Number(product.inventoryBalances[0]?.availableQuantity ?? 0),
+    })),
   };
 }
 
@@ -74,14 +83,14 @@ export async function getStorefrontProduct(productId: string) {
     where: {
       id: productId,
       businessId: business.id,
-      isArchived: false
+      isArchived: false,
     },
     include: {
       inventoryBalances: {
-        where: { locationId: location.id }
+        where: { locationId: location.id },
       },
-      supplier: true
-    }
+      supplier: true,
+    },
   });
 
   if (!product) {
@@ -92,7 +101,7 @@ export async function getStorefrontProduct(productId: string) {
     business,
     location,
     product,
-    availableQuantity: Number(product.inventoryBalances[0]?.availableQuantity ?? 0)
+    availableQuantity: Number(product.inventoryBalances[0]?.availableQuantity ?? 0),
   };
 }
 
@@ -102,16 +111,16 @@ async function getOrCreateActiveCart(customerId: string) {
     where: {
       customerId,
       businessId: business.id,
-      status: "active"
+      status: "active",
     },
     include: {
       items: {
         include: {
-          product: true
-        }
-      }
+          product: true,
+        },
+      },
     },
-    orderBy: { updatedAt: "desc" }
+    orderBy: { updatedAt: "desc" },
   });
 
   if (existing) {
@@ -122,15 +131,15 @@ async function getOrCreateActiveCart(customerId: string) {
     data: {
       customerId,
       businessId: business.id,
-      locationId: location.id
+      locationId: location.id,
     },
     include: {
       items: {
         include: {
-          product: true
-        }
-      }
-    }
+          product: true,
+        },
+      },
+    },
   });
 }
 
@@ -145,8 +154,8 @@ export async function addItemToCustomerCart(customerId: string, input: unknown) 
     where: {
       id: values.productId,
       businessId: cart.businessId,
-      isArchived: false
-    }
+      isArchived: false,
+    },
   });
   if (!product) {
     throw notFoundError("Product not found.");
@@ -161,8 +170,10 @@ export async function addItemToCustomerCart(customerId: string, input: unknown) 
       where: { id: existingItem.id },
       data: {
         quantity: toDecimal(Number(existingItem.quantity) + values.quantity),
-        totalPrice: toDecimal(roundMoney((Number(existingItem.quantity) + values.quantity) * Number(unitPrice)))
-      }
+        totalPrice: toDecimal(
+          roundMoney((Number(existingItem.quantity) + values.quantity) * Number(unitPrice))
+        ),
+      },
     });
   } else {
     await db.cartItem.create({
@@ -171,8 +182,8 @@ export async function addItemToCustomerCart(customerId: string, input: unknown) 
         productId: product.id,
         quantity: lineQuantity,
         unitPrice,
-        totalPrice
-      }
+        totalPrice,
+      },
     });
   }
 
@@ -185,8 +196,8 @@ export async function removeItemFromCustomerCart(customerId: string, input: unkn
   const item = await db.cartItem.findFirst({
     where: {
       id: values.itemId,
-      cartId: cart.id
-    }
+      cartId: cart.id,
+    },
   });
 
   if (!item) {
@@ -194,7 +205,7 @@ export async function removeItemFromCustomerCart(customerId: string, input: unkn
   }
 
   await db.cartItem.delete({
-    where: { id: item.id }
+    where: { id: item.id },
   });
 
   return getCustomerCart(customerId);
@@ -203,15 +214,19 @@ export async function removeItemFromCustomerCart(customerId: string, input: unkn
 export async function checkoutCustomerCart(customerId: string, input: unknown) {
   const values = customerCheckoutSchema.parse(input);
   const storefront = await getStorefrontBusiness();
-  const existing = await findIdempotentResult(storefront.business.id, "customer_checkout", values.idempotencyKey);
+  const existing = await findIdempotentResult(
+    storefront.business.id,
+    "customer_checkout",
+    values.idempotencyKey
+  );
   if (existing) {
     return db.order.findUniqueOrThrow({
       where: { id: existing.resourceId },
       include: {
         items: { include: { product: true } },
         fulfillment: { include: { deliveryAddress: true } },
-        payments: true
-      }
+        payments: true,
+      },
     });
   }
 
@@ -220,15 +235,15 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
       const cart = await tx.cart.findFirst({
         where: {
           customerId,
-          status: "active"
+          status: "active",
         },
         include: {
           items: {
             include: {
-              product: true
-            }
-          }
-        }
+              product: true,
+            },
+          },
+        },
       });
 
       if (!cart || cart.items.length === 0) {
@@ -237,7 +252,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
 
       const business = await tx.business.findUniqueOrThrow({
         where: { id: cart.businessId },
-        include: { taxRates: true }
+        include: { taxRates: true },
       });
       await getDefaultLocation(cart.businessId);
 
@@ -247,13 +262,13 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           productName: item.product.name,
           category: item.product.category,
           quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice)
+          unitPrice: Number(item.unitPrice),
         })),
         business.taxRates.map((rate) => ({
           name: rate.name,
           ratePercent: Number(rate.ratePercent),
           appliesToCategories: taxRateCategories(rate.appliesToCategories),
-          compoundOrder: rate.compoundOrder
+          compoundOrder: rate.compoundOrder,
         })),
         business.taxMode
       );
@@ -271,10 +286,10 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           taxAmount: toDecimal(pricing.taxAmount),
           discountAmount: toDecimal(pricing.discountAmount),
           totalAmount: toDecimal(pricing.totalAmount),
-          paymentStatus: "paid",
+          paymentStatus: PaymentStatus.settled,
           fulfillmentType: values.fulfillmentType,
-          notes: values.notes || null
-        }
+          notes: values.notes || null,
+        },
       });
 
       for (const line of pricing.items) {
@@ -291,8 +306,8 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
             unitPrice: toDecimal(line.unitPrice),
             discountAmount: toDecimal(line.lineDiscount + line.allocatedSaleDiscount),
             taxAmount: toDecimal(line.taxAmount),
-            totalAmount: toDecimal(line.lineTotal)
-          }
+            totalAmount: toDecimal(line.lineTotal),
+          },
         });
 
         await reserveInventory(tx, {
@@ -303,7 +318,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           referenceId: order.id,
           createdById: customerId,
           referenceType: "order",
-          reason: "online_checkout_reservation"
+          reason: "online_checkout_reservation",
         });
         await commitReservedInventory(tx, {
           productId: line.productId,
@@ -312,7 +327,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           referenceId: order.id,
           createdById: customerId,
           referenceType: "order",
-          reason: "online_order_completed"
+          reason: "online_order_completed",
         });
       }
 
@@ -321,8 +336,8 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         if (!values.address) {
           throw validationError("Delivery address is required for delivery orders.", {
             fieldErrors: {
-              address: ["Delivery address is required for delivery orders."]
-            }
+              address: ["Delivery address is required for delivery orders."],
+            },
           });
         }
 
@@ -335,8 +350,8 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
             city: values.address.city,
             province: values.address.province,
             postalCode: values.address.postalCode,
-            country: values.address.country
-          }
+            country: values.address.country,
+          },
         });
         addressId = address.id;
       }
@@ -345,8 +360,8 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         data: {
           orderId: order.id,
           status: values.fulfillmentType === "pickup" ? "ready" : "pending",
-          deliveryAddressId: addressId
-        }
+          deliveryAddressId: addressId,
+        },
       });
 
       await tx.orderPayment.create({
@@ -355,8 +370,8 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           method: values.paymentMethod,
           provider: values.paymentProvider ?? "manual",
           amount: toDecimal(pricing.totalAmount),
-          status: PaymentStatus.settled
-        }
+          status: PaymentStatus.settled,
+        },
       });
 
       await tx.orderStatusHistory.create({
@@ -365,15 +380,22 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
           oldStatus: null,
           newStatus: "confirmed",
           changedByUserId: customerId,
-          notes: "Customer checkout completed."
-        }
+          notes: "Customer checkout completed.",
+        },
       });
 
-      await createIdempotencyRecord(tx, cart.businessId, "customer_checkout", values.idempotencyKey, "order", order.id);
+      await createIdempotencyRecord(
+        tx,
+        cart.businessId,
+        "customer_checkout",
+        values.idempotencyKey,
+        "order",
+        order.id
+      );
 
       await tx.cart.update({
         where: { id: cart.id },
-        data: { status: "checked_out" }
+        data: { status: "checked_out" },
       });
 
       await logAudit({
@@ -383,7 +405,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         action: "customer_order_created",
         resourceType: "order",
         resourceId: order.id,
-        metadata: { orderNumber: order.orderNumber }
+        metadata: { orderNumber: order.orderNumber },
       });
 
       await enqueueRoleNotifications(tx, {
@@ -392,7 +414,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         type: "customer_order_created",
         title: "New online order",
         message: `Order ${order.orderNumber} was placed through the storefront.`,
-        channel: "in_app"
+        channel: "in_app",
       });
 
       return tx.order.findUniqueOrThrow({
@@ -400,17 +422,20 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         include: {
           items: { include: { product: true } },
           fulfillment: { include: { deliveryAddress: true } },
-          payments: true
-        }
+          payments: true,
+        },
       });
     },
     {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
 }
 
-export async function listCustomerOrders(customerId: string, options?: { q?: string; page?: number; pageSize?: number }) {
+export async function listCustomerOrders(
+  customerId: string,
+  options?: { q?: string; page?: number; pageSize?: number }
+) {
   const query = options?.q?.trim();
   const where = {
     customerId,
@@ -418,10 +443,10 @@ export async function listCustomerOrders(customerId: string, options?: { q?: str
       ? {
           orderNumber: {
             contains: query,
-            mode: "insensitive" as const
-          }
+            mode: "insensitive" as const,
+          },
         }
-      : {})
+      : {}),
   };
 
   if (typeof options?.page !== "number" && typeof options?.pageSize !== "number") {
@@ -430,19 +455,19 @@ export async function listCustomerOrders(customerId: string, options?: { q?: str
       include: {
         items: {
           include: {
-            product: true
-          }
+            product: true,
+          },
         },
-        fulfillment: true
+        fulfillment: true,
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     return {
       items,
       totalCount: items.length,
       totalPages: 1,
-      currentPage: 1
+      currentPage: 1,
     };
   }
 
@@ -456,23 +481,23 @@ export async function listCustomerOrders(customerId: string, options?: { q?: str
       include: {
         items: {
           include: {
-            product: true
-          }
+            product: true,
+          },
         },
-        fulfillment: true
+        fulfillment: true,
       },
       orderBy: { createdAt: "desc" },
       skip,
-      take: pageSize
+      take: pageSize,
     }),
-    db.order.count({ where })
+    db.order.count({ where }),
   ]);
 
   return {
     items,
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize),
-    currentPage: page
+    currentPage: page,
   };
 }
 
@@ -480,26 +505,26 @@ export async function getCustomerOrderDetail(customerId: string, orderId: string
   const order = await db.order.findFirst({
     where: {
       id: orderId,
-      customerId
+      customerId,
     },
     include: {
       business: true,
       location: true,
       items: {
         include: {
-          product: true
-        }
+          product: true,
+        },
       },
       fulfillment: {
         include: {
-          deliveryAddress: true
-        }
+          deliveryAddress: true,
+        },
       },
       payments: true,
       statusHistory: {
-        orderBy: { changedAt: "desc" }
-      }
-    }
+        orderBy: { changedAt: "desc" },
+      },
+    },
   });
 
   if (!order) {

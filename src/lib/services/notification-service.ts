@@ -25,8 +25,8 @@ export async function enqueueNotification(
       title: input.title,
       message: input.message,
       channel: input.channel ?? NotificationChannel.in_app,
-      status: NotificationStatus.queued
-    }
+      status: NotificationStatus.queued,
+    },
   });
 }
 
@@ -45,9 +45,10 @@ export async function enqueueRoleNotifications(
     where: {
       businessId: input.businessId,
       role: { in: input.roles as never[] },
-      status: "active"
+      status: "active",
     },
-    select: { id: true }
+    select: { id: true },
+    take: 100,
   });
 
   if (users.length === 0) {
@@ -61,7 +62,7 @@ export async function enqueueRoleNotifications(
         type: input.type,
         title: input.title,
         message: input.message,
-        channel: input.channel
+        channel: input.channel,
       })
     )
   );
@@ -73,12 +74,12 @@ export async function dispatchQueuedNotifications(limit = 50) {
     include: {
       user: {
         include: {
-          notificationPreference: true
-        }
-      }
+          notificationPreference: true,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
-    take: limit
+    take: limit,
   });
 
   let sentCount = 0;
@@ -90,20 +91,23 @@ export async function dispatchQueuedNotifications(limit = 50) {
           where: { id: notification.id },
           data: {
             status: NotificationStatus.sent,
-            sentAt: new Date()
-          }
+            sentAt: new Date(),
+          },
         });
         sentCount += 1;
         continue;
       }
 
       if (notification.channel === NotificationChannel.email) {
-        if (notification.user.notificationPreference && !notification.user.notificationPreference.emailEnabled) {
+        if (
+          notification.user.notificationPreference &&
+          !notification.user.notificationPreference.emailEnabled
+        ) {
           await db.notification.update({
             where: { id: notification.id },
             data: {
-              status: NotificationStatus.failed
-            }
+              status: NotificationStatus.failed,
+            },
           });
           failedCount += 1;
           continue;
@@ -114,7 +118,7 @@ export async function dispatchQueuedNotifications(limit = 50) {
             to: notification.user.email,
             subject: notification.title,
             html: `<p>${notification.message}</p>`,
-            text: notification.message
+            text: notification.message,
           });
         }
 
@@ -122,8 +126,8 @@ export async function dispatchQueuedNotifications(limit = 50) {
           where: { id: notification.id },
           data: {
             status: NotificationStatus.sent,
-            sentAt: new Date()
-          }
+            sentAt: new Date(),
+          },
         });
         sentCount += 1;
       }
@@ -131,14 +135,14 @@ export async function dispatchQueuedNotifications(limit = 50) {
       await db.notification.update({
         where: { id: notification.id },
         data: {
-          status: NotificationStatus.failed
-        }
+          status: NotificationStatus.failed,
+        },
       });
       failedCount += 1;
       logError("notification_dispatch_failed", error, {
         notificationId: notification.id,
         channel: notification.channel,
-        userId: notification.userId
+        userId: notification.userId,
       });
     }
   }
@@ -146,12 +150,12 @@ export async function dispatchQueuedNotifications(limit = 50) {
   logEvent("info", "notification_dispatch_completed", {
     processedCount: notifications.length,
     sentCount,
-    failedCount
+    failedCount,
   });
 
   return {
     processedCount: notifications.length,
     sentCount,
-    failedCount
+    failedCount,
   };
 }

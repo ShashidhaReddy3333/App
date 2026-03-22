@@ -3,14 +3,10 @@ import { STRIPE_CONFIG } from "./config";
 
 const globalForStripe = globalThis as unknown as { stripe?: Stripe };
 
-export const stripe: Stripe =
-  globalForStripe.stripe ??
-  new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
+function createStripeClient(): Stripe {
+  return new Stripe(getStripeSecretKey(), {
     apiVersion: STRIPE_CONFIG.apiVersion as "2026-02-25.clover",
   });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForStripe.stripe = stripe;
 }
 
 export function getStripeSecretKey(): string {
@@ -24,3 +20,24 @@ export function getStripeSecretKey(): string {
 export function isStripeConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }
+
+export function getStripeClient(): Stripe {
+  if (!globalForStripe.stripe) {
+    globalForStripe.stripe = createStripeClient();
+  }
+
+  return globalForStripe.stripe;
+}
+
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, property, receiver) {
+    const client = getStripeClient() as unknown as Record<PropertyKey, unknown>;
+    const value = Reflect.get(client, property, receiver);
+
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+
+    return value;
+  },
+});

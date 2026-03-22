@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -19,7 +20,7 @@ export default async function ProtectedAppLayout({ children }: { children: React
     !session.user.business.onboardingCompletedAt &&
     !isOnboardingPage
   ) {
-    redirect("/app/onboarding");
+    redirect("/app/onboarding" as Route);
   }
 
   const showVerificationBanner = !session.user.emailVerifiedAt;

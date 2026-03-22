@@ -15,7 +15,12 @@ export const listBusinessesSchema = z.object({
 export type ListBusinessesInput = z.infer<typeof listBusinessesSchema>;
 
 export const updateBusinessProfileSchema = z.object({
-  slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens").optional(),
+  slug: z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens")
+    .optional(),
   tagline: z.string().max(120).optional(),
   description: z.string().max(2000).optional(),
   logoUrl: z.string().url().optional().nullable(),
@@ -105,7 +110,14 @@ export async function getBusinessProfile(slug: string) {
           isActive: true,
           products: {
             where: { isArchived: false },
-            select: { id: true, name: true, category: true, sellingPrice: true, imageUrl: true, description: true },
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              sellingPrice: true,
+              imageUrl: true,
+              description: true,
+            },
             take: 20,
           },
         },
@@ -158,6 +170,7 @@ export async function listBusinessCategories() {
   return db.businessCategory.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    take: 100,
   });
 }
 
@@ -176,11 +189,7 @@ export async function getFeaturedBusinesses(limit = 6) {
   });
 }
 
-export async function submitReview(
-  userId: string,
-  businessId: string,
-  input: SubmitReviewInput
-) {
+export async function submitReview(userId: string, businessId: string, input: SubmitReviewInput) {
   const data = submitReviewSchema.parse(input);
 
   // One review per user per business

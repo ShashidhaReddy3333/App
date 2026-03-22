@@ -13,18 +13,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getCurrentSession } from "@/lib/auth/session";
 import { getStorefrontData } from "@/lib/services/customer-commerce-query-service";
 
-export default async function ShopPage() {
-  const session = await getCurrentSession();
-  const storefront = await getStorefrontData();
+function toCategorySlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
-  const allCategories = ["All", ...storefront.categories];
+export default async function ShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const session = await getCurrentSession();
+  const params = await searchParams;
+  const storefront = await getStorefrontData();
+  const activeCategory = params.category?.trim() ?? "";
+
+  const categoryItems = storefront.categories.map((category) => ({
+    label: category,
+    slug: toCategorySlug(category),
+  }));
+  const filteredProducts = activeCategory
+    ? storefront.products.filter((product) => toCategorySlug(product.category) === activeCategory)
+    : storefront.products;
 
   const content = (
     <div className="space-y-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
         <p className="text-muted-foreground">
-          Shop from {storefront.business.businessName} — pickup or delivery from {storefront.location.name}.
+          Shop from {storefront.business.businessName} — pickup or delivery from{" "}
+          {storefront.location.name}.
         </p>
         {!session || session.user.role !== "customer" ? (
           <div className="flex flex-wrap gap-3 pt-2">
@@ -39,25 +59,36 @@ export default async function ShopPage() {
       </section>
 
       <section className="flex flex-wrap gap-2">
-        {allCategories.map((category) => (
-          <span
-            key={category}
-            className="cursor-default rounded-full bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary/80"
+        <Button asChild variant={activeCategory ? "outline" : "secondary"} size="sm">
+          <Link href={"/shop" as Route}>All</Link>
+        </Button>
+        {categoryItems.map((category) => (
+          <Button
+            key={category.slug}
+            asChild
+            variant={activeCategory === category.slug ? "default" : "outline"}
+            size="sm"
           >
-            {category}
-          </span>
+            <Link href={`/shop?category=${category.slug}` as Route}>{category.label}</Link>
+          </Button>
         ))}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {storefront.products.map((product) => (
+        {filteredProducts.map((product) => (
           <Card
             key={product.id}
             className="group overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
           >
-            <div className="aspect-[16/9] w-full bg-secondary" role="img" aria-label={`Product image for ${product.name}`}>
+            <div
+              className="aspect-[16/9] w-full bg-secondary"
+              role="img"
+              aria-label={`Product image for ${product.name}`}
+            >
               <div className="flex h-full items-center justify-center">
-                <span className="text-4xl font-bold text-muted-foreground/40">{product.name.charAt(0)}</span>
+                <span className="text-4xl font-bold text-muted-foreground/40">
+                  {product.name.charAt(0)}
+                </span>
               </div>
             </div>
             <CardHeader className="pb-2">
@@ -72,7 +103,9 @@ export default async function ShopPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
-              <p className="line-clamp-2 text-sm text-muted-foreground">{product.description || "Everyday essentials available for online ordering."}</p>
+              <p className="line-clamp-2 text-sm text-muted-foreground">
+                {product.description || "Everyday essentials available for online ordering."}
+              </p>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">
                   {product.availableQuantity > 0 ? (
@@ -98,6 +131,10 @@ export default async function ShopPage() {
           </Card>
         ))}
       </section>
+
+      {filteredProducts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No products found for this category.</p>
+      ) : null}
     </div>
   );
 
@@ -107,5 +144,3 @@ export default async function ShopPage() {
 
   return <main className="page-shell py-8">{content}</main>;
 }
-
-

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/http";
 import { requireApiAccess } from "@/lib/auth/api-guard";
-import { uploadFile } from "@/lib/storage/blob";
+import { MAX_FILE_SIZE_BYTES, uploadFile } from "@/lib/storage/blob";
 import { db } from "@/lib/db";
 import { validationError } from "@/lib/errors";
 
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const { session, businessId } = await requireApiAccess(undefined, {
       allowMissingBusiness: true,
+      request: req,
     });
 
     const formData = await req.formData();
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
 
     if (!file || !(file instanceof File)) {
       throw validationError("No file provided.");
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      throw validationError("File too large. Maximum size is 10 MB.");
     }
 
     const { entityType: validEntityType, entityId: validEntityId } = metadataSchema.parse({
@@ -54,15 +59,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return apiSuccess({
-      asset: {
-        id: asset.id,
-        url: asset.url,
-        key: asset.key,
-        contentType: asset.contentType,
-        size: asset.size,
+    return apiSuccess(
+      {
+        asset: {
+          id: asset.id,
+          url: asset.url,
+          key: asset.key,
+          contentType: asset.contentType,
+          size: asset.size,
+        },
       },
-    }, { status: 201 });
+      { status: 201 }
+    );
   } catch (error) {
     return apiError(error);
   }
