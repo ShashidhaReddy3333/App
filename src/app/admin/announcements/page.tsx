@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { AdminAnnouncementsPanel } from "@/components/admin/admin-announcements-panel";
 import { Pagination } from "@/components/pagination";
-import { db } from "@/lib/db";
+import { listPlatformAnnouncements } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Admin Announcements | Human Pulse",
@@ -18,20 +18,7 @@ export default async function AdminAnnouncementsPage({
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
-  const limit = 10;
-  const skip = (page - 1) * limit;
-
-  const [announcements, total] = await Promise.all([
-    db.platformAnnouncement.findMany({
-      include: {
-        author: { select: { fullName: true } }
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit
-    }),
-    db.platformAnnouncement.count()
-  ]);
+  const { announcements, total, limit, totalPages } = await listPlatformAnnouncements({ page, limit: 10 });
 
   const rows = announcements.map((announcement) => ({
     id: announcement.id,
@@ -58,7 +45,7 @@ export default async function AdminAnnouncementsPage({
         <Pagination
           basePath="/admin/announcements"
           currentPage={page}
-          totalPages={Math.max(1, Math.ceil(total / limit))}
+          totalPages={totalPages}
           totalItems={total}
         />
       </div>

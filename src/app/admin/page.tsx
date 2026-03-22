@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { Building2, ShoppingCart, TrendingUp, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from "@/lib/db";
+import { getPlatformMetrics } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Platform Dashboard | Human Pulse",
@@ -13,30 +13,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-async function getDashboardMetrics() {
-  const [totalBusinesses, activeBusinesses, totalUsers, totalOrders] = await Promise.all([
-    db.business.count(),
-    db.business.count({ where: { isActive: true } }),
-    db.user.count(),
-    db.order.count()
-  ]);
-
-  const revenueResult = await db.order.aggregate({
-    where: { status: "completed" },
-    _sum: { totalAmount: true }
-  });
-
-  return {
-    totalBusinesses,
-    activeBusinesses,
-    totalUsers,
-    totalOrders,
-    gmv: Number(revenueResult._sum.totalAmount ?? 0)
-  };
-}
-
 export default async function AdminDashboard() {
-  const metrics = await getDashboardMetrics();
+  const metrics = await getPlatformMetrics();
 
   const stats = [
     {

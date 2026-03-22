@@ -249,13 +249,19 @@ export default async function HomePage() {
               <h4 className="text-sm font-semibold">Connect</h4>
               <ul className="mt-3 space-y-2 text-sm text-white/50">
                 <li>
-                  <span className="cursor-default">Twitter</span>
+                  <a href="#" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
+                    Twitter
+                  </a>
                 </li>
                 <li>
-                  <span className="cursor-default">LinkedIn</span>
+                  <a href="#" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
+                    LinkedIn
+                  </a>
                 </li>
                 <li>
-                  <span className="cursor-default">GitHub</span>
+                  <a href="#" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-white">
+                    GitHub
+                  </a>
                 </li>
               </ul>
             </div>

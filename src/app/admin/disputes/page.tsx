@@ -5,7 +5,7 @@ import type { Route } from "next";
 import { AdminDisputesTable } from "@/components/admin/admin-disputes-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { db } from "@/lib/db";
+import { listPlatformDisputes } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Admin Disputes | Human Pulse",
@@ -28,18 +28,7 @@ export default async function AdminDisputesPage({
 }) {
   const params = await searchParams;
   const activeStatus = filterTabs.some((tab) => tab.value === params.status) ? params.status ?? "all" : "all";
-  const where = activeStatus === "all" ? {} : { status: activeStatus };
-
-  const disputes = await db.platformDispute.findMany({
-    where,
-    include: {
-      business: { select: { businessName: true } },
-      customer: { select: { fullName: true, email: true } },
-      assignedAdmin: { select: { fullName: true } }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100
-  });
+  const disputes = await listPlatformDisputes({ status: activeStatus, limit: 100 });
 
   const rows = disputes.map((dispute) => ({
     id: dispute.id,

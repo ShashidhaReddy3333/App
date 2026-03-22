@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AdminBusinessesTable } from "@/components/admin/admin-businesses-table";
 import { Pagination } from "@/components/pagination";
 import { Card, CardContent } from "@/components/ui/card";
-import { db } from "@/lib/db";
+import { listPlatformBusinesses } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Admin Businesses | Human Pulse",
@@ -19,24 +19,7 @@ export default async function AdminBusinessesPage({
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
-  const limit = 25;
-  const skip = (page - 1) * limit;
-
-  const [businesses, total] = await Promise.all([
-    db.business.findMany({
-      include: {
-        owner: { select: { email: true, fullName: true } },
-        businessProfile: { select: { slug: true, isFeatured: true, averageRating: true } },
-        businessVerification: { select: { status: true } },
-        stripeAccount: { select: { onboardingStatus: true, chargesEnabled: true } },
-        _count: { select: { orders: true, users: true } }
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit
-    }),
-    db.business.count()
-  ]);
+  const { businesses, total, limit, totalPages } = await listPlatformBusinesses({ page, limit: 25 });
 
   const rows = businesses.map((business) => ({
     id: business.id,
@@ -77,7 +60,7 @@ export default async function AdminBusinessesPage({
         <Pagination
           basePath="/admin/businesses"
           currentPage={page}
-          totalPages={Math.max(1, Math.ceil(total / limit))}
+          totalPages={totalPages}
           totalItems={total}
         />
       </div>

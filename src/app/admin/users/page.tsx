@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { AdminUsersTable } from "@/components/admin/admin-users-table";
 import { Card, CardContent } from "@/components/ui/card";
-import { db } from "@/lib/db";
+import { listPlatformUsers } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
   title: "Admin Users | Human Pulse",
@@ -12,13 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const users = await db.user.findMany({
-    include: {
-      business: { select: { businessName: true } }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100
-  });
+  const { users } = await listPlatformUsers({ limit: 100 });
 
   const rows = users.map((user) => ({
     id: user.id,

@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Star, MapPin, Globe, Phone, Mail, Tag } from "lucide-react";
+import { MarketplaceReviewForm } from "@/components/marketplace-review-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentSession } from "@/lib/auth/session";
 import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
 import { getBusinessProfile, listReviews } from "@/lib/services/marketplace-service";
 
@@ -20,6 +22,7 @@ interface Props {
 
 export default async function BusinessProfilePage({ params }: Props) {
   const { slug } = await params;
+  const session = await getCurrentSession();
 
   let profile;
   try {
@@ -152,6 +155,11 @@ export default async function BusinessProfilePage({ params }: Props) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {session ? (
+                  <div className="mb-6 border-b pb-6">
+                    <MarketplaceReviewForm slug={slug} />
+                  </div>
+                ) : null}
                 {reviewsData.reviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No reviews yet.</p>
                 ) : (
