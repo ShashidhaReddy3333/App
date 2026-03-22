@@ -33,15 +33,16 @@ export default async function SupplierDashboardPage() {
   return (
     <SupplierShell supplierName={data.supplier.name} userName={session.user.fullName}>
       <div className="space-y-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold">Supplier dashboard</h1>
-          <p className="text-muted-foreground">
+        <div className="space-y-2">
+          <div className="section-label">Supplier operations</div>
+          <h1 className="text-4xl font-semibold tracking-[-0.04em]">Supplier dashboard</h1>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
             Manage your wholesale catalog and respond to retailer purchase orders.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card className="metric-card">
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Wholesale products
@@ -51,12 +52,14 @@ export default async function SupplierDashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold">{data.supplierProducts.length}</div>
+              <div className="text-4xl font-semibold tracking-[-0.04em]">
+                {data.supplierProducts.length}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">Active catalog items</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="metric-card">
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Open retailer orders
@@ -66,12 +69,12 @@ export default async function SupplierDashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold">{openOrders}</div>
+              <div className="text-4xl font-semibold tracking-[-0.04em]">{openOrders}</div>
               <p className="mt-1 text-xs text-muted-foreground">Awaiting fulfillment</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="metric-card">
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Supplier profile
@@ -128,7 +131,7 @@ export default async function SupplierDashboardPage() {
 
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card className="metric-card">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Revenue
@@ -138,14 +141,14 @@ export default async function SupplierDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">
+                <div className="text-4xl font-semibold tracking-[-0.04em]">
                   {formatCurrency(analytics.totalRevenue)}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Completed wholesale orders</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card className="metric-card">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Open Orders
@@ -155,12 +158,14 @@ export default async function SupplierDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">{analytics.openOrders}</div>
+                <div className="text-4xl font-semibold tracking-[-0.04em]">
+                  {analytics.openOrders}
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">Awaiting fulfillment</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card className="metric-card">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Fulfillment Rate
@@ -170,14 +175,14 @@ export default async function SupplierDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">
+                <div className="text-4xl font-semibold tracking-[-0.04em]">
                   {analytics.fulfillmentRate.toFixed(1)}%
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Completed vs active orders</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card className="metric-card">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Active Retailers
@@ -187,14 +192,16 @@ export default async function SupplierDashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold">{analytics.activeRetailers}</div>
+                <div className="text-4xl font-semibold tracking-[-0.04em]">
+                  {analytics.activeRetailers}
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">Unique businesses ordering</p>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle>Monthly Revenue</CardTitle>
                 <Badge variant="outline">
@@ -206,7 +213,7 @@ export default async function SupplierDashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl border border-border bg-white shadow-sm">
+            <Card>
               <CardHeader>
                 <CardTitle>Top Products</CardTitle>
               </CardHeader>

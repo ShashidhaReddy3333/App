@@ -44,16 +44,17 @@ export default async function ShopPage({
     : storefront.products;
 
   const content = (
-    <div className="space-y-6">
-      <section className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Browse Products</h1>
-        <p className="text-muted-foreground">
+    <div className="space-y-8">
+      <section className="surface-shell rounded-[30px] p-6 sm:p-8">
+        <div className="section-label">Storefront</div>
+        <h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em]">Browse Products</h1>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
           {storefront.available
             ? `Shop from ${storefront.business.businessName} - pickup or delivery from ${storefront.location.name}.`
             : "The storefront is being prepared. Browse the marketplace or create a business to get started."}
         </p>
         {!storefront.available ? (
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button asChild>
               <Link href={"/marketplace" as Route}>Browse marketplace</Link>
             </Button>
@@ -62,7 +63,7 @@ export default async function ShopPage({
             </Button>
           </div>
         ) : !session || session.user.role !== "customer" ? (
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button asChild>
               <Link href={"/customer/sign-up" as Route}>Create customer account</Link>
             </Button>
@@ -94,12 +95,9 @@ export default async function ShopPage({
       {storefront.available ? (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredProducts.map((product) => (
-            <Card
-              key={product.id}
-              className="group overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-            >
+            <Card key={product.id} className="group overflow-hidden">
               <div
-                className="aspect-[16/9] w-full bg-secondary"
+                className="aspect-[16/9] w-full bg-[linear-gradient(180deg,hsl(var(--surface-high)),hsl(var(--surface-low)))]"
                 role="img"
                 aria-label={`Product image for ${product.name}`}
               >
@@ -115,7 +113,7 @@ export default async function ShopPage({
                     <CardTitle className="truncate text-base">{product.name}</CardTitle>
                     <CardDescription>{product.category}</CardDescription>
                   </div>
-                  <span className="shrink-0 text-base font-bold text-black">
+                  <span className="shrink-0 text-base font-semibold text-foreground">
                     ${Number(product.sellingPrice).toFixed(2)}
                   </span>
                 </div>
@@ -153,7 +151,7 @@ export default async function ShopPage({
           ))}
         </section>
       ) : (
-        <Card>
+        <Card className="border-dashed">
           <CardHeader>
             <CardTitle>Storefront coming soon</CardTitle>
             <CardDescription>
@@ -178,7 +176,11 @@ export default async function ShopPage({
       )}
 
       {storefront.available && filteredProducts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No products found for this category.</p>
+        <Card className="border-dashed">
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            No products found for this category.
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );

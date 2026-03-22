@@ -48,7 +48,7 @@ export default async function BusinessProfilePage({ params }: Props) {
   return (
     <div className="min-h-screen bg-background">
       {/* Banner */}
-      <div className="h-48 bg-gradient-to-r from-primary/20 to-primary/10 relative">
+      <div className="relative h-56 bg-gradient-to-r from-primary/20 to-primary/10">
         {safeBannerUrl && (
           <Image
             src={safeBannerUrl}
@@ -62,11 +62,11 @@ export default async function BusinessProfilePage({ params }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       </div>
 
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="page-shell max-w-6xl">
         {/* Header card */}
         <div className="-mt-16 relative z-10 mb-6">
           <div className="flex items-end gap-4">
-            <div className="relative h-24 w-24 rounded-xl bg-background border-4 border-background shadow-lg overflow-hidden flex items-center justify-center">
+            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[24px] border-4 border-[hsl(var(--surface-lowest))] bg-background shadow-float">
               {safeLogoUrl ? (
                 <Image
                   src={safeLogoUrl}
@@ -132,7 +132,7 @@ export default async function BusinessProfilePage({ params }: Props) {
                       const safeProductImageUrl = getSafeMarketplaceImageUrl(product.imageUrl);
 
                       return (
-                        <div key={product.id} className="border rounded-lg p-3">
+                        <div key={product.id} className="data-row rounded-[18px] p-3">
                           {safeProductImageUrl && (
                             <div className="relative mb-2 h-20 w-full overflow-hidden rounded">
                               <Image
@@ -181,7 +181,10 @@ export default async function BusinessProfilePage({ params }: Props) {
                 ) : (
                   <div className="space-y-4">
                     {reviewsData.reviews.map((review) => (
-                      <div key={review.id} className="border-b last:border-0 pb-4 last:pb-0">
+                      <div
+                        key={review.id}
+                        className="border-b border-border/30 pb-4 last:border-0 last:pb-0"
+                      >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-medium text-sm">{review.reviewer.fullName}</span>
                           <div className="flex">

@@ -54,10 +54,13 @@ export default async function MarketplacePage({
 
   return (
     <div className="min-h-screen bg-background">
-      <section className="bg-gradient-to-br from-primary/10 to-primary/5 px-4 py-16">
-        <div className="mx-auto max-w-4xl text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight">Human Pulse Marketplace</h1>
-          <p className="mb-8 text-lg text-muted-foreground">
+      <section className="page-shell py-10">
+        <div className="surface-shell rounded-[32px] px-6 py-10 text-center sm:px-10">
+          <div className="section-label">Discover active businesses</div>
+          <h1 className="mb-4 mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+            Human Pulse Marketplace
+          </h1>
+          <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
             Discover local and online retailers, all in one place.
           </p>
           <MarketplacePageClient
@@ -72,7 +75,7 @@ export default async function MarketplacePage({
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="page-shell py-2">
         <p className="mb-4 text-sm text-muted-foreground">
           {data.total === 0
             ? "No businesses match the current filters."
@@ -112,9 +115,9 @@ export default async function MarketplacePage({
 
               return (
                 <Link key={profile.id} href={`/marketplace/${profile.slug}`}>
-                  <Card className="h-full cursor-pointer transition-shadow hover:shadow-md">
+                  <Card className="h-full cursor-pointer">
                     <CardContent className="p-4">
-                      <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-md bg-muted">
+                      <div className="mb-3 flex h-32 items-center justify-center overflow-hidden rounded-[18px] bg-[linear-gradient(180deg,hsl(var(--surface-high)),hsl(var(--surface-low)))]">
                         {safeLogoUrl ? (
                           <div className="relative h-full w-full">
                             <Image

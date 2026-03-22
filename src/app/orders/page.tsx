@@ -19,15 +19,19 @@ import { listCustomerOrders } from "@/lib/services/customer-commerce-query-servi
 
 function getStatusBadgeVariant(status: string) {
   if (status.includes("pending") || status.includes("placed")) return "warning" as const;
-  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled")) return "success" as const;
-  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed")) return "destructive" as const;
+  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled"))
+    return "success" as const;
+  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed"))
+    return "destructive" as const;
   return "secondary" as const;
 }
 
 function getStatusBorderColor(status: string) {
-  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled")) return "border-l-green-500";
+  if (status.includes("completed") || status.includes("delivered") || status.includes("fulfilled"))
+    return "border-l-green-500";
   if (status.includes("pending") || status.includes("placed")) return "border-l-amber-500";
-  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed")) return "border-l-red-500";
+  if (status.includes("cancelled") || status.includes("rejected") || status.includes("failed"))
+    return "border-l-red-500";
   return "border-l-gray-300";
 }
 
@@ -37,12 +41,12 @@ function formatDate(date: Date | string) {
     day: "numeric",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
 export default async function OrdersPage({
-  searchParams
+  searchParams,
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
@@ -53,24 +57,28 @@ export default async function OrdersPage({
   const orders = await listCustomerOrders(session.user.id, {
     q: query || undefined,
     page,
-    pageSize: 20
+    pageSize: 20,
   });
   const paginationParams = new URLSearchParams();
   if (query) {
     paginationParams.set("q", query);
   }
-  const paginationBasePath = paginationParams.toString() ? `/orders?${paginationParams.toString()}` : "/orders";
+  const paginationBasePath = paginationParams.toString()
+    ? `/orders?${paginationParams.toString()}`
+    : "/orders";
 
   return (
     <CustomerShell customerName={session.user.fullName}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Package className="size-5" />
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">My Orders</h1>
-            <p className="text-sm text-muted-foreground">Track your online orders, fulfillment status, and payment history.</p>
+            <p className="text-sm text-muted-foreground">
+              Track your online orders, fulfillment status, and payment history.
+            </p>
           </div>
         </div>
         <Suspense fallback={<div className="h-10 rounded-lg bg-secondary/50" />}>
@@ -94,7 +102,7 @@ export default async function OrdersPage({
           {orders.items.map((order) => (
             <div
               key={order.id}
-              className={`border-l-4 ${getStatusBorderColor(order.status)} border-b border-border bg-background p-4 first:rounded-t-lg last:rounded-b-lg last:border-b-0`}
+              className={`data-row border-l-4 ${getStatusBorderColor(order.status)} rounded-none first:rounded-t-[22px] last:rounded-b-[22px]`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -107,7 +115,9 @@ export default async function OrdersPage({
               </div>
               <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                  <span>{order.items.length} {order.items.length === 1 ? "item" : "items"}</span>
+                  <span>
+                    {order.items.length} {order.items.length === 1 ? "item" : "items"}
+                  </span>
                   <span>{formatDate(order.createdAt)}</span>
                 </div>
                 <Button asChild variant="secondary">
@@ -127,5 +137,3 @@ export default async function OrdersPage({
     </CustomerShell>
   );
 }
-
-

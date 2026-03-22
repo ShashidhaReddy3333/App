@@ -19,31 +19,31 @@ export function CustomerShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50">
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-50 border-b border-border/30 bg-[hsl(var(--surface-lowest))]/85 backdrop-blur-[12px]">
         <div className="page-shell flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-strong)))] text-white shadow-panel">
               <Store className="size-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold tracking-tight">Human Pulse</span>
+                <span className="text-lg font-semibold tracking-[-0.02em]">Human Pulse</span>
                 <Badge variant="outline" className="hidden sm:inline-flex">
-                  Customer
+                  Storefront
                 </Badge>
               </div>
               <div className="truncate text-xs text-muted-foreground">{customerName}</div>
             </div>
           </div>
-          <nav className="flex items-center gap-1.5">
+          <nav className="flex flex-wrap items-center gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="relative flex items-center gap-1.5 rounded-full border border-transparent bg-white/60 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-all hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700 hover:shadow-sm"
+                  className="relative flex items-center gap-1.5 rounded-full border border-border/25 bg-[hsl(var(--surface-lowest))]/85 px-3.5 py-2 text-sm font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-all hover:border-primary/20 hover:bg-[hsl(var(--surface-low))] hover:text-foreground"
                 >
                   <Icon className="size-4" />
                   <span className="hidden sm:inline">{item.label}</span>

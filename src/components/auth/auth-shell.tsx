@@ -12,25 +12,56 @@ export function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen flex-col bg-white">
-      <header className="bg-black py-4 px-6">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="text-lg font-bold tracking-tight text-white">Human Pulse</span>
+    <main className="min-h-screen bg-background">
+      <header className="px-4 py-5 sm:px-6 lg:px-10">
+        <Link href="/" className="inline-flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-strong)))] text-sm font-bold text-white shadow-panel">
+            HP
+          </span>
+          <div>
+            <div className="text-lg font-semibold tracking-[-0.02em] text-foreground">
+              Human Pulse
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Commerce OS
+            </div>
+          </div>
         </Link>
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md space-y-6">
-          <div className="space-y-2">
-            {eyebrow ? (
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                {eyebrow}
-              </p>
-            ) : null}
-            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            <p className="text-muted-foreground">{description}</p>
+      <div className="page-shell grid flex-1 gap-8 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
+        <section className="space-y-6">
+          <div className="section-label">{eyebrow ?? "Secure access"}</div>
+          <div className="space-y-3">
+            <h1 className="max-w-xl text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              {title}
+            </h1>
+            <p className="max-w-xl text-base leading-7 text-muted-foreground">{description}</p>
           </div>
-          {children}
+          <div className="surface-shell max-w-xl rounded-[28px] p-6">
+            <div className="section-label">Why teams use Human Pulse</div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="data-row">
+                <div className="text-sm font-semibold text-foreground">Retail operations</div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  POS, inventory, staff access, and procurement in one workflow.
+                </p>
+              </div>
+              <div className="data-row">
+                <div className="text-sm font-semibold text-foreground">Shared commerce data</div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Orders, catalog, and fulfillment stay aligned across portals.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="surface-shell w-full max-w-xl justify-self-end rounded-[30px] p-6 sm:p-8">
+          <div className="space-y-5">
+            <div className="section-label">Continue</div>
+            {children}
+          </div>
         </div>
       </div>
     </main>

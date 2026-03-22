@@ -26,12 +26,14 @@ export default async function CartPage() {
     <CustomerShell customerName={session.user.fullName}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-secondary text-foreground">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <ShoppingCart className="size-5" />
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Your Cart</h1>
-            <p className="text-sm text-muted-foreground">{cart.items.length} {cart.items.length === 1 ? "item" : "items"}</p>
+            <p className="text-sm text-muted-foreground">
+              {cart.items.length} {cart.items.length === 1 ? "item" : "items"}
+            </p>
           </div>
         </div>
 
@@ -52,33 +54,38 @@ export default async function CartPage() {
               {cart.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 md:flex-row md:items-center md:justify-between"
+                  className="data-row flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-secondary text-lg font-bold text-foreground">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-[18px] bg-[hsl(var(--surface-high))] text-lg font-bold text-foreground">
                       {item.product.name.charAt(0)}
                     </div>
                     <div>
                       <div className="font-medium">{item.product.name}</div>
                       <div className="text-sm text-muted-foreground">
-                        {Number(item.quantity).toFixed(0)} x ${decimalToNumber(item.unitPrice).toFixed(2)}
+                        {Number(item.quantity).toFixed(0)} x $
+                        {decimalToNumber(item.unitPrice).toFixed(2)}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-lg font-semibold">${decimalToNumber(item.totalPrice).toFixed(2)}</div>
+                    <div className="text-lg font-semibold">
+                      ${decimalToNumber(item.totalPrice).toFixed(2)}
+                    </div>
                     <RemoveCartItemButton itemId={item.id} />
                   </div>
                 </div>
               ))}
 
-              <div className="border-t border-border pt-4 mt-2">
+              <div className="surface-shell mt-4 rounded-[22px] p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="text-xl font-bold text-foreground">${total.toFixed(2)}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{cart.items.length} {cart.items.length === 1 ? "item" : "items"}</span>
+                  <span>
+                    {cart.items.length} {cart.items.length === 1 ? "item" : "items"}
+                  </span>
                   <span>Taxes calculated at checkout</span>
                 </div>
               </div>
@@ -90,5 +97,3 @@ export default async function CartPage() {
     </CustomerShell>
   );
 }
-
-

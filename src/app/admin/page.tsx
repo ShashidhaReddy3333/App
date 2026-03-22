@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Route } from "next";
-import { Building2, ShoppingCart, TrendingUp, Users } from "lucide-react";
+import { ArrowRight, Building2, ShoppingCart, TrendingUp, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPlatformMetrics, getPlatformSystemHealth } from "@/lib/services/platform-service";
@@ -25,28 +25,24 @@ export default async function AdminDashboard() {
       value: metrics.totalBusinesses,
       sub: `${metrics.activeBusinesses} active`,
       icon: Building2,
-      color: "text-blue-500",
     },
     {
       label: "Total Users",
       value: metrics.totalUsers,
       sub: "across all roles",
       icon: Users,
-      color: "text-green-500",
     },
     {
       label: "Total Orders",
       value: metrics.totalOrders,
       sub: "all time",
       icon: ShoppingCart,
-      color: "text-purple-500",
     },
     {
       label: "Platform GMV",
       value: `$${metrics.gmv.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
       sub: "completed orders",
       icon: TrendingUp,
-      color: "text-orange-500",
     },
   ] as const;
 
@@ -68,23 +64,29 @@ export default async function AdminDashboard() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Platform Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">System overview and key metrics</p>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="section-label">Platform oversight</div>
+        <h1 className="text-4xl font-semibold tracking-[-0.04em]">Platform Dashboard</h1>
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+          Monitor network growth, system health, and operational risk across the Human Pulse
+          platform.
+        </p>
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label}>
+          <Card key={stat.label} className="metric-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.label}
               </CardTitle>
-              <stat.icon className={`h-5 w-5 ${stat.color}`} />
+              <div className="flex size-10 items-center justify-center rounded-[18px] bg-primary/10 text-primary">
+                <stat.icon className="h-5 w-5" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className="text-4xl font-semibold tracking-[-0.04em]">{stat.value}</div>
               <p className="mt-1 text-xs text-muted-foreground">{stat.sub}</p>
             </CardContent>
           </Card>
@@ -99,7 +101,7 @@ export default async function AdminDashboard() {
           <CardContent>
             <div className="space-y-3">
               {systemHealth.map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
+                <div key={item.label} className="data-row flex items-center justify-between">
                   <div>
                     <span className="text-sm">{item.label}</span>
                     <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
@@ -125,9 +127,10 @@ export default async function AdminDashboard() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block text-sm text-primary hover:underline"
+                  className="data-row flex items-center justify-between text-sm font-medium text-foreground"
                 >
-                  {`-> ${link.label}`}
+                  <span>{link.label}</span>
+                  <ArrowRight className="size-4 text-muted-foreground" />
                 </Link>
               ))}
             </div>

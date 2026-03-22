@@ -23,29 +23,33 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
+        surface: "hsl(var(--surface-low))",
+        "surface-lowest": "hsl(var(--surface-lowest))",
+        "surface-high": "hsl(var(--surface-high))",
         "uber-black": "#000000",
-        "uber-green": "#06C167",
-        "uber-grey": "#F6F6F6"
+        "uber-green": "#008378",
+        "uber-grey": "#F6F6F6",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"]
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"],
       },
       boxShadow: {
-        panel: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
-        "panel-hover": "0 4px 12px rgba(0,0,0,0.1)"
+        panel: "0 12px 32px rgba(20, 27, 43, 0.05)",
+        "panel-hover": "0 16px 44px rgba(20, 27, 43, 0.08)",
+        float: "0 18px 48px rgba(20, 27, 43, 0.09)",
       },
       keyframes: {
         "pulse-subtle": {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.85" }
-        }
+          "50%": { opacity: "0.85" },
+        },
       },
       animation: {
-        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite"
-      }
-    }
+        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };
 
 export default config;

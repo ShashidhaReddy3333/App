@@ -23,9 +23,9 @@ export function EmptyState({
 }) {
   const Icon = emptyIcons[icon];
   return (
-    <Card>
+    <Card className="border-dashed bg-[hsl(var(--surface-lowest)_/_0.9)]">
       <CardHeader className="items-center text-center">
-        <div className="mb-3 inline-flex rounded-full bg-secondary p-3 text-muted-foreground">
+        <div className="mb-3 inline-flex rounded-full bg-[hsl(var(--surface-high))] p-3 text-muted-foreground">
           <Icon className="size-6" />
         </div>
         <CardTitle>{title}</CardTitle>
@@ -48,9 +48,9 @@ export function ErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <Card>
+    <Card className="border-dashed bg-[hsl(var(--surface-lowest)_/_0.9)]">
       <CardHeader className="items-center text-center">
-        <div className="mb-3 inline-flex rounded-full bg-secondary p-3 text-destructive">
+        <div className="mb-3 inline-flex rounded-full bg-red-50 p-3 text-destructive">
           <AlertTriangle className="size-6" />
         </div>
         <CardTitle>{title}</CardTitle>

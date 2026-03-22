@@ -1,22 +1,27 @@
 :root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 7%;
+  --background: 240 50% 99%;
+  --foreground: 222 37% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 7%;
-  --primary: 152 95% 39%;
+  --card-foreground: 222 37% 12%;
+  --primary: 176 100% 20%;
+  --primary-strong: 177 100% 26%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 7%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 7%;
+  --secondary: 148 100% 21%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 224 39% 96%;
+  --muted-foreground: 220 16% 40%;
+  --accent: 222 39% 94%;
+  --accent-foreground: 222 37% 12%;
   --destructive: 0 72% 51%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 152 95% 39%;
-  --success: 152 69% 38%;
+  --border: 214 23% 83%;
+  --input: 214 23% 83%;
+  --ring: 176 100% 20%;
+  --success: 148 100% 21%;
   --warning: 36 100% 50%;
+  --surface-lowest: 0 0% 100%;
+  --surface-low: 225 43% 97%;
+  --surface-high: 219 52% 94%;
+  --surface-strong: 218 42% 90%;
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -30,21 +35,37 @@
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen antialiased;
+    background:
+      radial-gradient(circle at top left, hsl(var(--surface-high) / 0.95), transparent 32%),
+      radial-gradient(circle at bottom right, hsl(var(--primary) / 0.07), transparent 28%),
+      hsl(var(--background));
+    @apply min-h-screen text-foreground antialiased;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply tracking-[-0.02em];
   }
 }
 
 @layer components {
   .page-shell {
-    @apply mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 xl:px-14;
   }
 
   .gradient-panel {
-    @apply border border-border bg-white shadow-sm transition-all duration-200;
+    @apply border border-border/30 bg-card/90 shadow-panel backdrop-blur-[6px] transition-all duration-200;
   }
 
   .gradient-panel:hover {
-    @apply shadow-md;
+    @apply -translate-y-[1px] shadow-panel-hover;
   }
 
   .animate-fade-in {
@@ -63,11 +84,21 @@
     animation: slideInRight 0.5s ease-out both;
   }
 
-  .stagger-1 { animation-delay: 0.1s; }
-  .stagger-2 { animation-delay: 0.2s; }
-  .stagger-3 { animation-delay: 0.3s; }
-  .stagger-4 { animation-delay: 0.4s; }
-  .stagger-5 { animation-delay: 0.5s; }
+  .stagger-1 {
+    animation-delay: 0.1s;
+  }
+  .stagger-2 {
+    animation-delay: 0.2s;
+  }
+  .stagger-3 {
+    animation-delay: 0.3s;
+  }
+  .stagger-4 {
+    animation-delay: 0.4s;
+  }
+  .stagger-5 {
+    animation-delay: 0.5s;
+  }
 
   .status-badge {
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
@@ -93,27 +124,74 @@
     @apply gradient-panel relative overflow-hidden;
   }
 
+  .metric-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 42%);
+    pointer-events: none;
+  }
+
+  .surface-shell {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-lowest) / 0.92),
+      hsl(var(--surface-low) / 0.8)
+    );
+    @apply border border-border/30 shadow-panel backdrop-blur-[12px];
+  }
+
+  .section-label {
+    @apply text-[0.7rem] font-bold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .data-row {
+    @apply rounded-2xl border border-border/20 bg-white/80 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-colors duration-200 hover:bg-[hsl(var(--surface-lowest))];
+  }
+
   .skeleton {
     @apply animate-pulse rounded-lg bg-secondary;
   }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-16px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(16px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

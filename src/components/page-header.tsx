@@ -6,7 +6,7 @@ export function PageHeader({
   title,
   description,
   actions,
-  breadcrumbs
+  breadcrumbs,
 }: {
   title: string;
   description: string;
@@ -14,17 +14,23 @@ export function PageHeader({
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {breadcrumbs && breadcrumbs.length > 0 ? (
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href={"/app/dashboard" as Route} className="flex items-center gap-1 transition-colors hover:text-foreground">
+        <nav className="flex items-center gap-1 text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          <Link
+            href={"/app/dashboard" as Route}
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
+          >
             <Home className="size-3.5" />
           </Link>
           {breadcrumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-1">
-              <span className="mx-1">/</span>
+              <span className="mx-1 opacity-50">/</span>
               {crumb.href ? (
-                <Link href={crumb.href as Route} className="transition-colors hover:text-foreground">
+                <Link
+                  href={crumb.href as Route}
+                  className="transition-colors hover:text-foreground"
+                >
                   {crumb.label}
                 </Link>
               ) : (
@@ -34,10 +40,13 @@ export function PageHeader({
           ))}
         </nav>
       ) : null}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-          <p className="max-w-2xl text-muted-foreground">{description}</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <div className="section-label">Operational View</div>
+          <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">{title}</h1>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+            {description}
+          </p>
         </div>
         {actions}
       </div>

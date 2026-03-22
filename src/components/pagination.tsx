@@ -17,7 +17,7 @@ export function Pagination({ basePath, currentPage, totalPages, totalItems }: Pa
   const separator = basePath.includes("?") ? "&" : "?";
 
   return (
-    <div className="flex items-center justify-between border-t border-border pt-4">
+    <div className="surface-shell flex flex-col gap-3 rounded-[22px] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
         Page {currentPage} of {totalPages} ({totalItems} total)
       </p>

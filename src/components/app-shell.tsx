@@ -29,20 +29,98 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { hasPermission } from "@/lib/rbac";
 
 const navItems = [
-  { href: "/app/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard, permission: "sales", group: "overview" },
-  { href: "/app/checkout" as Route, label: "Checkout", icon: ShoppingCart, permission: "sales", group: "sales" },
-  { href: "/app/sales" as Route, label: "Sales", icon: ClipboardList, permission: "sales", group: "sales" },
-  { href: "/app/orders" as Route, label: "Online Orders", icon: Store, permission: "sales", group: "sales" },
-  { href: "/app/refunds" as Route, label: "Refunds", icon: RotateCcw, permission: "refunds", group: "sales" },
-  { href: "/app/products" as Route, label: "Products", icon: Package, permission: "products", group: "inventory" },
-  { href: "/app/suppliers" as Route, label: "Suppliers", icon: Boxes, permission: "suppliers", group: "inventory" },
-  { href: "/app/reorder" as Route, label: "Reorder", icon: Truck, permission: "reorder", group: "inventory" },
-  { href: "/app/procurement" as Route, label: "Procurement", icon: ClipboardCheck, permission: "procurement", group: "inventory" },
-  { href: "/app/reports" as Route, label: "Reports", icon: BarChart3, permission: "reports", group: "admin" },
-  { href: "/app/ops" as Route, label: "Operations", icon: Activity, permission: "owner_dashboard", group: "admin" },
+  {
+    href: "/app/dashboard" as Route,
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    permission: "sales",
+    group: "overview",
+  },
+  {
+    href: "/app/checkout" as Route,
+    label: "Checkout",
+    icon: ShoppingCart,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/sales" as Route,
+    label: "Sales",
+    icon: ClipboardList,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/orders" as Route,
+    label: "Online Orders",
+    icon: Store,
+    permission: "sales",
+    group: "sales",
+  },
+  {
+    href: "/app/refunds" as Route,
+    label: "Refunds",
+    icon: RotateCcw,
+    permission: "refunds",
+    group: "sales",
+  },
+  {
+    href: "/app/products" as Route,
+    label: "Products",
+    icon: Package,
+    permission: "products",
+    group: "inventory",
+  },
+  {
+    href: "/app/suppliers" as Route,
+    label: "Suppliers",
+    icon: Boxes,
+    permission: "suppliers",
+    group: "inventory",
+  },
+  {
+    href: "/app/reorder" as Route,
+    label: "Reorder",
+    icon: Truck,
+    permission: "reorder",
+    group: "inventory",
+  },
+  {
+    href: "/app/procurement" as Route,
+    label: "Procurement",
+    icon: ClipboardCheck,
+    permission: "procurement",
+    group: "inventory",
+  },
+  {
+    href: "/app/reports" as Route,
+    label: "Reports",
+    icon: BarChart3,
+    permission: "reports",
+    group: "admin",
+  },
+  {
+    href: "/app/ops" as Route,
+    label: "Operations",
+    icon: Activity,
+    permission: "owner_dashboard",
+    group: "admin",
+  },
   { href: "/app/staff" as Route, label: "Staff", icon: Users, permission: "staff", group: "admin" },
-  { href: "/app/notifications" as Route, label: "Notifications", icon: Bell, permission: "sales", group: "admin" },
-  { href: "/app/sessions" as Route, label: "Sessions", icon: ShieldCheck, permission: "sessions", group: "admin" },
+  {
+    href: "/app/notifications" as Route,
+    label: "Notifications",
+    icon: Bell,
+    permission: "sales",
+    group: "admin",
+  },
+  {
+    href: "/app/sessions" as Route,
+    label: "Sessions",
+    icon: ShieldCheck,
+    permission: "sessions",
+    group: "admin",
+  },
 ] as const;
 
 const groupLabels: Record<string, string> = {
@@ -78,21 +156,27 @@ export function AppShell({
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
-      <div className="space-y-1 px-5 pb-4 pt-6">
-        <div className="flex items-center gap-2">
-          <Activity className="size-5 text-white" />
-          <span className="text-lg font-bold tracking-tight text-white">Human Pulse</span>
+      <div className="space-y-4 px-5 pb-4 pt-6">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-strong)))] text-white shadow-panel">
+            <Activity className="size-5" />
+          </div>
+          <div>
+            <span className="block text-lg font-semibold tracking-[-0.02em] text-foreground">
+              Human Pulse
+            </span>
+            <span className="section-label">Retail Operations</span>
+          </div>
         </div>
-      </div>
-      <div className="mx-5 border-t border-white/10" />
-      <div className="px-5 pb-2 pt-4">
-        <div className="truncate text-sm font-semibold text-white">{businessName}</div>
-        <div className="truncate text-xs text-white/50">{userName}</div>
+        <div className="rounded-[22px] border border-border/30 bg-[hsl(var(--surface-lowest)_/_0.9)] px-4 py-3 shadow-panel">
+          <div className="truncate text-sm font-semibold text-foreground">{businessName}</div>
+          <div className="truncate text-xs text-muted-foreground">{userName}</div>
+        </div>
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
         {Object.entries(groups).map(([group, items]) => (
           <div key={group} className="space-y-1">
-            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+            <div className="px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               {groupLabels[group] ?? group}
             </div>
             {items.map((item) => {
@@ -103,8 +187,10 @@ export function AppShell({
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                    isActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? "border border-border/30 bg-[hsl(var(--surface-lowest))] text-foreground shadow-panel"
+                      : "text-muted-foreground hover:bg-[hsl(var(--surface-low))] hover:text-foreground"
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
@@ -115,22 +201,21 @@ export function AppShell({
           </div>
         ))}
       </nav>
-      <div className="mx-5 border-t border-white/10" />
-      <div className="p-4 text-white/60 hover:text-white">
-        <SignOutButton />
+      <div className="px-4 pb-4 pt-2">
+        <SignOutButton className="w-full justify-center" />
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="hidden border-r border-white/10 bg-black text-white lg:block lg:min-h-screen">
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[280px_1fr]">
+      <aside className="hidden border-r border-border/30 bg-[hsl(var(--surface-high))]/65 backdrop-blur-[14px] lg:block lg:min-h-screen">
         {sidebarContent}
       </aside>
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-[rgba(20,27,43,0.24)] backdrop-blur-sm lg:hidden"
           role="button"
           aria-label="Close sidebar"
           tabIndex={0}
@@ -144,7 +229,7 @@ export function AppShell({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[280px] transform border-r border-white/10 bg-black text-white shadow-xl transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-[300px] transform border-r border-border/30 bg-[hsl(var(--surface-high))] shadow-float transition-transform duration-300 ease-in-out lg:hidden ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -152,7 +237,7 @@ export function AppShell({
           <button
             onClick={() => setSidebarOpen(false)}
             aria-label="Close menu"
-            className="flex size-8 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-low))] hover:text-foreground"
           >
             <X className="size-5" />
           </button>
@@ -160,22 +245,26 @@ export function AppShell({
         {sidebarContent}
       </aside>
 
-      <div className="page-shell">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-black px-4 py-3 lg:hidden">
+      <div className="min-w-0">
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/30 bg-[hsl(var(--surface-lowest))]/85 px-4 py-3 backdrop-blur-[12px] lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
             aria-expanded={sidebarOpen}
-            className="flex size-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex size-9 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-low))] hover:text-foreground"
           >
             <Menu className="size-5" />
           </button>
           <div className="flex items-center gap-2">
-            <Activity className="size-4 text-white" />
-            <span className="text-sm font-bold tracking-tight text-white">Human Pulse</span>
+            <Activity className="size-4 text-primary" />
+            <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">
+              Human Pulse
+            </span>
           </div>
         </div>
-        <div id="main-content">{children}</div>
+        <div className="page-shell" id="main-content">
+          {children}
+        </div>
       </div>
       <KeyboardShortcutsHelp />
     </div>

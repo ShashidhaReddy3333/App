@@ -2,20 +2,22 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Select = React.forwardRef<HTMLSelectElement, React.ComponentProps<"select">>(({ className, children, ...props }, ref) => {
-  return (
-    <select
-      ref={ref}
-      className={cn(
-        "flex h-10 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm ring-offset-background transition-colors duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  );
-});
+const Select = React.forwardRef<HTMLSelectElement, React.ComponentProps<"select">>(
+  ({ className, children, ...props }, ref) => {
+    return (
+      <select
+        ref={ref}
+        className={cn(
+          "flex h-11 w-full rounded-[14px] border border-border/35 bg-[hsl(var(--surface-lowest))] px-3.5 py-2 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] ring-offset-background transition-all duration-200 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+    );
+  }
+);
 Select.displayName = "Select";
 
 export { Select };

@@ -33,12 +33,12 @@ export default async function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {card.title}
                 </CardTitle>
-                <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10">
+                <div className="flex size-10 items-center justify-center rounded-[18px] bg-primary/10">
                   <Icon className="size-4 text-primary" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-semibold tracking-tight">{card.value}</div>
+                <div className="text-4xl font-semibold tracking-[-0.04em]">{card.value}</div>
                 {/* TODO: Replace with real 7-day trend data from reporting service */}
               </CardContent>
             </Card>
@@ -63,10 +63,7 @@ export default async function DashboardPage() {
               />
             ) : null}
             {metrics.topSellingProducts.map((item, index) => (
-              <div
-                key={item.productId}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-white/60 p-3 transition-colors hover:bg-muted/50"
-              >
+              <div key={item.productId} className="data-row flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
                     {index + 1}
@@ -95,10 +92,7 @@ export default async function DashboardPage() {
               />
             ) : null}
             {metrics.recentActivity.map((entry) => (
-              <div
-                key={entry.id}
-                className="rounded-xl border border-border/60 bg-white/60 p-3 transition-colors hover:bg-muted/50"
-              >
+              <div key={entry.id} className="data-row">
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-foreground">{entry.action}</div>
                 </div>
