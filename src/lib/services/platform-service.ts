@@ -109,20 +109,34 @@ export async function listPlatformUsers(options?: { page?: number; limit?: numbe
   };
 }
 
-export async function listPlatformDisputes(options?: { status?: string; limit?: number }) {
+export async function listPlatformDisputes(options?: { status?: string; page?: number; limit?: number }) {
+  const page = Math.max(1, options?.page ?? 1);
   const limit = Math.min(Math.max(1, options?.limit ?? 100), 100);
+  const skip = (page - 1) * limit;
   const where = options?.status && options.status !== "all" ? { status: options.status } : {};
 
-  return db.platformDispute.findMany({
-    where,
-    include: {
-      business: { select: { businessName: true } },
-      customer: { select: { fullName: true, email: true } },
-      assignedAdmin: { select: { fullName: true } }
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit
-  });
+  const [disputes, total] = await Promise.all([
+    db.platformDispute.findMany({
+      where,
+      include: {
+        business: { select: { businessName: true } },
+        customer: { select: { fullName: true, email: true } },
+        assignedAdmin: { select: { fullName: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit
+    }),
+    db.platformDispute.count({ where })
+  ]);
+
+  return {
+    disputes,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit))
+  };
 }
 
 export async function listPlatformAnnouncements(options?: { page?: number; limit?: number }) {

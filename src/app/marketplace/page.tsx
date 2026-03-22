@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   description: "Discover local and online retailers through the Human Pulse marketplace."
 };
 
+export const revalidate = 300;
+
 export default async function MarketplacePage({
   searchParams
 }: {

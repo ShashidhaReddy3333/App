@@ -7,7 +7,8 @@ export async function listStaff(businessId: string) {
     where: {
       businessId
     },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
+    take: 100
   });
 }
 
@@ -24,7 +25,8 @@ export async function listBusinessSessions(businessId: string) {
     },
     orderBy: {
       lastSeenAt: "desc"
-    }
+    },
+    take: 100
   });
 }
 
@@ -36,7 +38,8 @@ export async function listPendingInvites(businessId: string) {
       revokedAt: null,
       expiresAt: { gt: new Date() }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
+    take: 100
   });
 }
 

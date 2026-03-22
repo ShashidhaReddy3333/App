@@ -375,6 +375,39 @@ export async function listSales(businessId: string, options?: { q?: string; page
   };
 }
 
+export async function listRefunds(businessId: string, options?: { page?: number; pageSize?: number }) {
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.max(1, options?.pageSize ?? 20);
+  const skip = (page - 1) * pageSize;
+  const where = { businessId };
+
+  const [items, totalCount] = await Promise.all([
+    db.refund.findMany({
+      where,
+      include: {
+        sale: {
+          select: {
+            id: true,
+            receiptNumber: true,
+            totalAmount: true
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize
+    }),
+    db.refund.count({ where })
+  ]);
+
+  return {
+    items,
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize),
+    currentPage: page
+  };
+}
+
 export async function listOnlineOrders(businessId: string, options?: { q?: string; status?: OrderStatus; page?: number; pageSize?: number }) {
   const query = options?.q?.trim();
   const page = Math.max(1, options?.page ?? 1);

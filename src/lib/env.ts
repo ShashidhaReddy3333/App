@@ -12,11 +12,12 @@ const mailReplyToSchema = z.string().min(1).optional();
 const sentryDsnSchema = z.string().url("SENTRY_DSN must be a valid absolute URL.");
 const cronSecretSchema = z.string().min(16, "CRON_SECRET must be at least 16 characters.");
 const nodeEnvSchema = z.enum(["development", "test", "production"]).default("development");
-const stripeSecretKeySchema = z.string().min(1, "STRIPE_SECRET_KEY is required.");
-const stripeWebhookSecretSchema = z.string().min(1, "STRIPE_WEBHOOK_SECRET is required.");
+const stripeSecretKeySchema = z.string().min(16, "STRIPE_SECRET_KEY must be at least 16 characters.");
+const stripeWebhookSecretSchema = z.string().min(16, "STRIPE_WEBHOOK_SECRET must be at least 16 characters.");
+const stripePublishableKeySchema = z.string().min(16, "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY must be at least 16 characters.");
 const upstashRedisUrlSchema = z.string().url("UPSTASH_REDIS_REST_URL must be a valid URL.");
-const upstashRedisTokenSchema = z.string().min(1, "UPSTASH_REDIS_REST_TOKEN is required.");
-const blobReadWriteTokenSchema = z.string().min(1, "BLOB_READ_WRITE_TOKEN is required.");
+const upstashRedisTokenSchema = z.string().min(16, "UPSTASH_REDIS_REST_TOKEN must be at least 16 characters.");
+const blobReadWriteTokenSchema = z.string().min(16, "BLOB_READ_WRITE_TOKEN must be at least 16 characters.");
 const platformAdminEmailSchema = z.string().email("PLATFORM_ADMIN_EMAIL must be a valid email.");
 
 export type RuntimeCheckIssue = {
@@ -90,8 +91,16 @@ export function getOptionalStripeWebhookSecret() {
   return parseOptional(stripeWebhookSecretSchema, process.env.STRIPE_WEBHOOK_SECRET);
 }
 
+export function getOptionalStripePublishableKey() {
+  return parseOptional(stripePublishableKeySchema, process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+}
+
 export function getOptionalUpstashRedisUrl() {
   return parseOptional(upstashRedisUrlSchema, process.env.UPSTASH_REDIS_REST_URL);
+}
+
+export function getOptionalUpstashRedisToken() {
+  return parseOptional(upstashRedisTokenSchema, process.env.UPSTASH_REDIS_REST_TOKEN);
 }
 
 export function getOptionalBlobToken() {
@@ -181,7 +190,7 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "STRIPE_SECRET_KEY",
         message: "STRIPE_SECRET_KEY is required for payment processing.",
-        severity: "warning"
+        severity: "error"
       });
     }
 
@@ -189,9 +198,27 @@ export function getRuntimeCheckIssues() {
       issues.push({
         key: "STRIPE_WEBHOOK_SECRET",
         message: "STRIPE_WEBHOOK_SECRET is required to verify Stripe webhooks.",
-        severity: "warning"
+        severity: "error"
       });
     }
+
+    if (!getOptionalStripePublishableKey()) {
+      issues.push({
+        key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        message: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is required for Stripe checkout flows.",
+        severity: "error"
+      });
+    }
+  }
+
+  const upstashRedisUrl = getOptionalUpstashRedisUrl();
+  const upstashRedisToken = getOptionalUpstashRedisToken();
+  if ((upstashRedisUrl && !upstashRedisToken) || (!upstashRedisUrl && upstashRedisToken)) {
+    issues.push({
+      key: "UPSTASH_REDIS_REST_URL",
+      message: "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set together.",
+      severity: "error"
+    });
   }
 
   if (nodeEnv === "production" && getDemoMode() === "true") {
@@ -249,5 +276,29 @@ export const env = {
   },
   get CRON_SECRET() {
     return cronSecretSchema.parse(process.env.CRON_SECRET);
+  },
+  get STRIPE_SECRET_KEY() {
+    return isProductionRuntime()
+      ? stripeSecretKeySchema.parse(process.env.STRIPE_SECRET_KEY)
+      : getOptionalStripeSecretKey();
+  },
+  get STRIPE_WEBHOOK_SECRET() {
+    return isProductionRuntime()
+      ? stripeWebhookSecretSchema.parse(process.env.STRIPE_WEBHOOK_SECRET)
+      : getOptionalStripeWebhookSecret();
+  },
+  get NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY() {
+    return isProductionRuntime()
+      ? stripePublishableKeySchema.parse(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+      : getOptionalStripePublishableKey();
+  },
+  get UPSTASH_REDIS_REST_URL() {
+    return getOptionalUpstashRedisUrl();
+  },
+  get UPSTASH_REDIS_REST_TOKEN() {
+    return getOptionalUpstashRedisToken();
+  },
+  get BLOB_READ_WRITE_TOKEN() {
+    return getOptionalBlobToken();
   }
 } as const;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AdminUsersTable } from "@/components/admin/admin-users-table";
+import { Pagination } from "@/components/pagination";
 import { Card, CardContent } from "@/components/ui/card";
 import { listPlatformUsers } from "@/lib/services/platform-service";
 
@@ -11,8 +12,14 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsersPage() {
-  const { users } = await listPlatformUsers({ limit: 100 });
+export default async function AdminUsersPage({
+  searchParams
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const { users, total, totalPages } = await listPlatformUsers({ page, limit: 100 });
 
   const rows = users.map((user) => ({
     id: user.id,
@@ -28,7 +35,7 @@ export default async function AdminUsersPage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Users</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{users.length} users (showing last 100)</p>
+        <p className="mt-1 text-sm text-muted-foreground">{total} users on the platform</p>
       </div>
 
       <Card>
@@ -36,6 +43,15 @@ export default async function AdminUsersPage() {
           <AdminUsersTable users={rows} />
         </CardContent>
       </Card>
+
+      <div className="mt-4">
+        <Pagination
+          basePath="/admin/users"
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+        />
+      </div>
     </div>
   );
 }

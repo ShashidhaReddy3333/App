@@ -158,6 +158,7 @@ export async function listBusinessCategories() {
   return db.businessCategory.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    take: 100
   });
 }
 

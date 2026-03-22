@@ -47,7 +47,8 @@ export async function enqueueRoleNotifications(
       role: { in: input.roles as never[] },
       status: "active"
     },
-    select: { id: true }
+    select: { id: true },
+    take: 100
   });
 
   if (users.length === 0) {

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { businessId } = await requireApiAccess("sales");
-    const sales = await listSales(businessId);
+    const sales = await listSales(businessId, { page: 1, pageSize: 100 });
     return apiSuccess({ sales: sales.items });
   } catch (error) {
     return apiError(error);

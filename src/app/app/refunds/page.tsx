@@ -5,23 +5,29 @@ export const metadata: Metadata = {
   title: "Refunds | Human Pulse",
 };
 
+import { Pagination } from "@/components/pagination";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
-import { listSales } from "@/lib/services/sales-query-service";
+import { listRefunds } from "@/lib/services/sales-query-service";
 
 function getRefundBadgeVariant(status: string): "destructive" | "warning" | "default" {
-  if (status.includes("fully")) return "destructive";
-  if (status.includes("partially")) return "warning";
+  if (status.includes("failed") || status.includes("cancelled")) return "destructive";
+  if (status.includes("pending")) return "warning";
   return "default";
 }
 
-export default async function RefundsPage() {
+export default async function RefundsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const session = await requirePermission("refunds");
-  const sales = await listSales(session.user.businessId!);
-  const refunded = sales.items.filter((sale) => sale.status === "refunded_partially" || sale.status === "refunded_fully");
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const refunds = await listRefunds(session.user.businessId!, { page, pageSize: 20 });
 
   return (
     <div className="space-y-6">
@@ -31,28 +37,43 @@ export default async function RefundsPage() {
         breadcrumbs={[{ label: "Refunds" }]}
       />
       <div className="grid gap-4">
-        {refunded.length === 0 ? <EmptyState title="No refunds yet" description="Refunded sales will appear here once processed." /> : null}
-        {refunded.map((sale) => (
-          <Link key={sale.id} href={`/app/sales/${sale.id}`}>
+        {refunds.items.length === 0 ? <EmptyState title="No refunds yet" description="Refunded sales will appear here once processed." /> : null}
+        {refunds.items.map((refund) => (
+          <Link key={refund.id} href={`/app/sales/${refund.saleId}`}>
             <Card className="transition-all duration-200 hover:border-primary/40 hover:shadow-md">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle>{sale.receiptNumber ?? sale.id.slice(0, 8)}</CardTitle>
-                  <Badge variant={getRefundBadgeVariant(sale.status)}>
-                    {sale.status.replaceAll("_", " ")}
+                  <CardTitle>{refund.sale.receiptNumber ?? refund.sale.id.slice(0, 8)}</CardTitle>
+                  <Badge variant={getRefundBadgeVariant(refund.status)}>
+                    {refund.status.replaceAll("_", " ")}
                   </Badge>
                 </div>
+                <CardDescription>
+                  Refund created {new Date(refund.createdAt).toLocaleDateString()}
+                </CardDescription>
               </CardHeader>
               <CardContent className="text-sm">
-                <div>
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Total</span>
-                  <div className="font-semibold text-foreground">${sale.totalAmount.toString()}</div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Refund total</span>
+                    <div className="font-semibold text-foreground">${refund.refundTotalAmount.toString()}</div>
+                  </div>
+                  <div>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Sale total</span>
+                    <div className="font-semibold text-foreground">${refund.sale.totalAmount.toString()}</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
+      <Pagination
+        basePath="/app/refunds"
+        currentPage={refunds.currentPage}
+        totalPages={refunds.totalPages}
+        totalItems={refunds.totalCount}
+      />
     </div>
   );
 }
