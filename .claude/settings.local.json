@@ -47,7 +47,20 @@
       "Bash(npx eslint:*)",
       "Bash(npx prisma:*)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "mcp__supabase__list_projects",
+      "Bash(npx supabase:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ybsnsdxxfpgpnjjylvvt:BVzLqb%3F_4mMGbgR@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" npx prisma migrate status)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ybsnsdxxfpgpnjjylvvt:BVzLqb%3F_4mMGbgR@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" npx prisma db execute --stdin --url \"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" <<'SQL':*)",
+      "Bash(PGPASSWORD='BVzLqb?_4mMGbgR' psql \"postgresql://postgres@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" -c \"SELECT table_name FROM information_schema.tables WHERE table_schema = ''public'' ORDER BY table_name;\")",
+      "mcp__supabase__execute_sql",
+      "Bash(node -e \":*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ybsnsdxxfpgpnjjylvvt:BVzLqb%3F_4mMGbgR@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" npx prisma generate)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/Owner/Desktop/SRJ/App/prisma/migrations/$f/**)",
+      "Bash(done)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ybsnsdxxfpgpnjjylvvt:BVzLqb%3F_4mMGbgR@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" npx prisma migrate deploy)"
     ]
   }
 }
