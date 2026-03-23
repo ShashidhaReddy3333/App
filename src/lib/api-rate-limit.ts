@@ -7,6 +7,7 @@ import {
   checkRateLimit as checkRedisRateLimit,
   getIdentifier,
   getRateLimitIdentifier,
+  isInMemoryRateLimitFallbackAllowed,
   rateLimit as checkInMemoryWindowRateLimit,
   type RateLimitPreset,
   type SlidingWindowRateLimitOptions,
@@ -19,12 +20,16 @@ const DEFAULT_LIMITS = {
   DELETE: { limit: 20, windowMs: 60_000 },
 } as const;
 
-export interface RateLimitOptions extends SlidingWindowRateLimitOptions {}
+export type RateLimitOptions = SlidingWindowRateLimitOptions;
 
 let hasWarnedAboutDegradedRateLimiting = false;
 
 function warnAboutDegradedRateLimiting() {
-  if (process.env.NODE_ENV === "production" && !hasWarnedAboutDegradedRateLimiting) {
+  if (!isInMemoryRateLimitFallbackAllowed()) {
+    return;
+  }
+
+  if (!hasWarnedAboutDegradedRateLimiting) {
     hasWarnedAboutDegradedRateLimiting = true;
     console.warn("[Rate Limit] Redis unavailable, using degraded in-memory rate limiting");
   }
@@ -61,6 +66,16 @@ function buildRateLimitResponse(limit: number, resetAt: Date) {
   );
 }
 
+function buildRateLimitUnavailableResponse() {
+  return NextResponse.json(
+    {
+      message: "Rate limiting is unavailable because Redis is not configured for this environment.",
+      code: "RATE_LIMIT_UNAVAILABLE",
+    },
+    { status: 503 }
+  );
+}
+
 export async function checkRateLimit(
   request: Request,
   options?: RateLimitOptions
@@ -76,6 +91,10 @@ export async function checkRateLimit(
   } catch (error) {
     if (!(error instanceof RedisRateLimitUnavailableError)) {
       throw error;
+    }
+
+    if (!isInMemoryRateLimitFallbackAllowed()) {
+      return buildRateLimitUnavailableResponse();
     }
 
     warnAboutDegradedRateLimiting();
@@ -113,6 +132,10 @@ export async function checkApiRateLimit(
     return await checkRedisRateLimit(identifier, preset);
   } catch (error) {
     if (error instanceof RedisRateLimitUnavailableError) {
+      if (!isInMemoryRateLimitFallbackAllowed()) {
+        throw error;
+      }
+
       warnAboutDegradedRateLimiting();
       return checkInMemoryRateLimit(identifier, preset);
     }

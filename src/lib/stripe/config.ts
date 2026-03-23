@@ -1,3 +1,15 @@
+function getBaseUrl() {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "http://localhost:3000";
+}
+
 export const STRIPE_CONFIG = {
   apiVersion: "2026-02-25.clover" as const,
   platformAccountId: "acct_1TD6e0D69UWQ2zgN",
@@ -6,27 +18,15 @@ export const STRIPE_CONFIG = {
 
   // URLs
   get successUrl() {
-    const base = process.env.APP_URL ?? process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-    return `${base}/orders/{CHECKOUT_SESSION_ID}/success`;
+    return `${getBaseUrl()}/orders/{CHECKOUT_SESSION_ID}/success`;
   },
   get cancelUrl() {
-    const base = process.env.APP_URL ?? process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-    return `${base}/cart`;
+    return `${getBaseUrl()}/cart`;
   },
   get connectReturnUrl() {
-    const base = process.env.APP_URL ?? process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-    return `${base}/app/settings/stripe`;
+    return `${getBaseUrl()}/dashboard?stripe=connected`;
   },
   get connectRefreshUrl() {
-    const base = process.env.APP_URL ?? process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-    return `${base}/app/settings/stripe/refresh`;
+    return `${getBaseUrl()}/dashboard?stripe=refresh`;
   },
 };

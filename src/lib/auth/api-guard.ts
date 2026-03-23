@@ -11,10 +11,13 @@ let hasWarnedAboutMissingRequest = false;
 
 /** Routes that are exempt from CSRF validation (no session yet, or bootstrapping). */
 const CSRF_EXEMPT_PATHS = [
-  "/api/auth/sign-in",
-  "/api/auth/sign-up",
-  "/api/auth/customer-sign-up",
-  "/api/auth/supplier-sign-up",
+  "/api/auth/customer/sign-in",
+  "/api/auth/customer/sign-up",
+  "/api/auth/retail/sign-in",
+  "/api/auth/retail/sign-up",
+  "/api/auth/supplier/sign-in",
+  "/api/auth/supplier/sign-up",
+  "/api/auth/admin/sign-in",
   "/api/auth/csrf-token",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",

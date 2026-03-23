@@ -18,7 +18,7 @@ export default async function AdminAnnouncementsPage({
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
-  const { announcements, total, limit, totalPages } = await listPlatformAnnouncements({
+  const { announcements, total, totalPages } = await listPlatformAnnouncements({
     page,
     limit: 10,
   });

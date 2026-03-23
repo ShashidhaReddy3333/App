@@ -3,18 +3,19 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ResetPasswordForm } from "@/components/forms/reset-password-form";
 import { getCurrentPortal } from "@/lib/portal";
+import { withNoIndex } from "@/lib/public-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
   const portal = await getCurrentPortal();
 
-  return {
+  return withNoIndex({
     title:
       portal === "shop"
         ? "Reset Customer Password | Human Pulse"
         : portal === "supply"
           ? "Reset Supplier Password | Human Pulse"
           : "Reset Retail Password | Human Pulse",
-  };
+  });
 }
 
 export default async function ResetPasswordPage({

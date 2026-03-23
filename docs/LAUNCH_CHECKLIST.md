@@ -15,6 +15,7 @@
 
 - [ ] Migrations applied successfully
 - [ ] Backup and restore tested
+- [ ] `pnpm ops:backfill-supplier-organizations:apply` reviewed and applied where needed
 - [ ] `pnpm ops:check-data` passes in staging
 
 ## Auth and security
@@ -33,6 +34,13 @@
 - [ ] supplier catalog update and PO status update
 - [ ] owner dashboard and reports
 
+## SEO and routing
+
+- [ ] `robots.txt` is correct on `human-pulse.com`, `shop`, `retail`, `supply`, and `admin`
+- [ ] `sitemap.xml` resolves correctly on indexable surfaces
+- [ ] portal auth and workspace pages return `noindex`
+- [ ] legacy compatibility monitoring is active and reviewed via [LEGACY_COMPATIBILITY_RETIREMENT.md](./LEGACY_COMPATIBILITY_RETIREMENT.md)
+
 ## Observability
 
 - [ ] `/api/health` passes
@@ -40,6 +48,7 @@
 - [ ] `/api/internal/monitoring/test` sends a visible monitoring event
 - [ ] request IDs are present in responses
 - [ ] application logs are being captured
+- [ ] `legacy_portal_redirect_hit` and `legacy_api_endpoint_hit` are visible in logs
 - [ ] alert rules are configured for 5xx, readiness failures, DB failures, and email delivery failures
 
 ## Scheduled jobs

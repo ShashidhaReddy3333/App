@@ -55,6 +55,8 @@ async function resetDatabase() {
   await prisma.auditLog.deleteMany();
   await prisma.idempotencyKey.deleteMany();
   await prisma.authThrottle.deleteMany();
+  await prisma.supplierOnboardingRequest.deleteMany();
+  await prisma.supplierOrganization.deleteMany();
   await prisma.business.deleteMany();
   await prisma.user.deleteMany();
 }
@@ -79,6 +81,17 @@ async function main() {
       email: "owner@demo.local",
       passwordHash,
       role: UserRole.owner,
+      status: UserStatus.active,
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      fullName: "Avery Admin",
+      email: "admin@demo.local",
+      passwordHash,
+      role: UserRole.platform_admin,
       status: UserStatus.active,
       emailVerifiedAt: new Date(),
     },
@@ -162,10 +175,28 @@ async function main() {
     },
   });
 
+  const [northFoodsOrganization, urbanEssentialsOrganization] = await Promise.all([
+    prisma.supplierOrganization.create({
+      data: {
+        name: "North Foods Wholesale",
+        email: "northfoods@demo.local",
+        phone: "416-555-0101",
+      },
+    }),
+    prisma.supplierOrganization.create({
+      data: {
+        name: "Urban Essentials Supply",
+        email: "urbanessentials@demo.local",
+        phone: "416-555-0199",
+      },
+    }),
+  ]);
+
   const suppliers = await prisma.supplier.createManyAndReturn({
     data: [
       {
         businessId: business.id,
+        organizationId: northFoodsOrganization.id,
         name: "North Foods Wholesale",
         contactName: "Noah Patel",
         email: "northfoods@demo.local",
@@ -173,6 +204,7 @@ async function main() {
       },
       {
         businessId: business.id,
+        organizationId: urbanEssentialsOrganization.id,
         name: "Urban Essentials Supply",
         contactName: "Ella Martin",
         email: "urbanessentials@demo.local",
@@ -186,6 +218,7 @@ async function main() {
       data: {
         businessId: business.id,
         supplierId: suppliers[0]!.id,
+        supplierOrganizationId: northFoodsOrganization.id,
         fullName: "Nora Supplier",
         email: "supplier@demo.local",
         passwordHash,
@@ -806,6 +839,7 @@ async function main() {
   console.log("Seed completed.");
   console.log("Business: Shashi Mart");
   console.log("Location: Main Location");
+  console.log("Admin: admin@demo.local / DemoPass!123");
   console.log("Owner: owner@demo.local / DemoPass!123");
   console.log("Manager: manager@demo.local / DemoPass!123");
   console.log("Cashier: cashier@demo.local / DemoPass!123");

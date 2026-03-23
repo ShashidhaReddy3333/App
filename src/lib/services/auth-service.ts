@@ -1,9 +1,12 @@
 import { BusinessType, TaxMode, UserRole, UserStatus } from "@prisma/client";
+import { z } from "zod";
 
 import { logAudit } from "@/lib/audit";
 import {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
+  sendSupplierAccessApprovedEmail,
+  sendSupplierAccessRejectedEmail,
   sendStaffInviteEmail,
 } from "@/lib/auth/mailer";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
@@ -250,6 +253,19 @@ function duplicateEmailError() {
   });
 }
 
+const supplierOnboardingReviewSchema = z.discriminatedUnion("action", [
+  z.object({
+    requestId: z.string().min(1),
+    action: z.literal("approve"),
+    businessId: z.string().min(1),
+  }),
+  z.object({
+    requestId: z.string().min(1),
+    action: z.literal("reject"),
+    rejectionReason: z.string().trim().max(240).optional().or(z.literal("")),
+  }),
+]);
+
 export async function registerOwner(input: unknown) {
   const values = signUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
@@ -376,7 +392,7 @@ export async function registerCustomer(input: unknown) {
   return user;
 }
 
-export async function registerSupplierUser(input: unknown) {
+export async function createSupplierOnboardingRequest(input: unknown) {
   const values = supplierSignUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
   const existingUser = await db.user.findUnique({
@@ -387,60 +403,254 @@ export async function registerSupplierUser(input: unknown) {
     throw duplicateEmailError();
   }
 
-  const business = await db.business.findFirst({
-    where: { isActive: true },
-    orderBy: { createdAt: "asc" },
+  const existingRequest = await db.supplierOnboardingRequest.findUnique({
+    where: { email: normalizedEmail },
   });
 
-  if (!business) {
-    throw notFoundError("An active retailer business is required before supplier onboarding.");
+  if (existingRequest && existingRequest.status === "pending") {
+    throw conflictError("A supplier access request for this email is already pending review.");
   }
 
   const passwordHash = await hashPassword(values.password);
+  return db.supplierOnboardingRequest.upsert({
+    where: { email: normalizedEmail },
+    create: {
+      fullName: values.fullName,
+      businessName: values.businessName,
+      email: normalizedEmail,
+      passwordHash,
+      phone: values.phone || null,
+      notes: values.notes || null,
+      status: "pending",
+    },
+    update: {
+      fullName: values.fullName,
+      businessName: values.businessName,
+      passwordHash,
+      phone: values.phone || null,
+      notes: values.notes || null,
+      status: "pending",
+      reviewedByAdminId: null,
+      approvedBusinessId: null,
+      approvedSupplierId: null,
+      approvedSupplierOrganizationId: null,
+      approvedUserId: null,
+      rejectionReason: null,
+      reviewedAt: null,
+    },
+  });
+}
 
-  const user = await db.$transaction(async (tx) => {
-    const supplier = await tx.supplier.create({
+export async function listSupplierOnboardingRequests(options?: {
+  page?: number;
+  limit?: number;
+  status?: "pending" | "approved" | "rejected";
+}) {
+  const page = Math.max(1, options?.page ?? 1);
+  const limit = Math.min(Math.max(1, options?.limit ?? 25), 100);
+  const skip = (page - 1) * limit;
+  const where = options?.status ? { status: options.status } : {};
+
+  const [requests, total, counts] = await Promise.all([
+    db.supplierOnboardingRequest.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }],
+      skip,
+      take: limit,
+    }),
+    db.supplierOnboardingRequest.count({ where }),
+    db.supplierOnboardingRequest.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+  ]);
+
+  return {
+    requests,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    counts: {
+      pending: counts.find((entry) => entry.status === "pending")?._count._all ?? 0,
+      approved: counts.find((entry) => entry.status === "approved")?._count._all ?? 0,
+      rejected: counts.find((entry) => entry.status === "rejected")?._count._all ?? 0,
+    },
+  };
+}
+
+export async function reviewSupplierOnboardingRequest(adminUserId: string, input: unknown) {
+  const values = supplierOnboardingReviewSchema.parse(input);
+  const request = await db.supplierOnboardingRequest.findUnique({
+    where: { id: values.requestId },
+  });
+
+  if (!request) {
+    throw notFoundError("Supplier access request not found.");
+  }
+
+  if (request.status !== "pending") {
+    throw conflictError(`Supplier access request has already been ${request.status}.`);
+  }
+
+  if (values.action === "reject") {
+    const rejectionReason = values.rejectionReason?.trim() || "Request declined by admin review.";
+    const reviewedRequest = await db.supplierOnboardingRequest.update({
+      where: { id: request.id },
       data: {
-        businessId: business.id,
-        name: values.businessName,
-        contactName: values.fullName,
-        email: normalizedEmail,
-        phone: values.phone || null,
-        notes: values.notes || null,
+        status: "rejected",
+        reviewedByAdminId: adminUserId,
+        rejectionReason,
+        reviewedAt: new Date(),
+        approvedBusinessId: null,
+        approvedSupplierId: null,
+        approvedSupplierOrganizationId: null,
+        approvedUserId: null,
       },
     });
 
-    const createdUser = await tx.user.create({
+    if (env.DEMO_MODE !== "true") {
+      try {
+        await sendSupplierAccessRejectedEmail(request.email, rejectionReason);
+      } catch {
+        // Rejection email delivery should not block the review action.
+      }
+    }
+
+    return {
+      request: reviewedRequest,
+      supplierOrganization: null,
+      supplier: null,
+      user: null,
+    };
+  }
+
+  const approved = await db.$transaction(async (tx) => {
+    const business = await tx.business.findFirst({
+      where: { id: values.businessId, isActive: true },
+      select: { id: true, businessName: true },
+    });
+
+    if (!business) {
+      throw notFoundError("Selected business not found.");
+    }
+
+    const existingUser = await tx.user.findUnique({
+      where: { email: request.email },
+    });
+
+    if (existingUser) {
+      throw duplicateEmailError();
+    }
+
+    const existingSupplier = await tx.supplier.findFirst({
+      where: {
+        businessId: business.id,
+        email: request.email,
+      },
+    });
+
+    if (existingSupplier) {
+      throw conflictError("A supplier with this email already exists for the selected business.");
+    }
+
+    const existingSupplierOrganization = await tx.supplierOrganization.findFirst({
+      where: { email: request.email },
+    });
+
+    const supplierOrganization = existingSupplierOrganization
+      ? await tx.supplierOrganization.update({
+          where: { id: existingSupplierOrganization.id },
+          data: {
+            phone: existingSupplierOrganization.phone ?? request.phone,
+            notes: (existingSupplierOrganization.notes ?? request.notes) || null,
+          },
+        })
+      : await tx.supplierOrganization.create({
+          data: {
+            name: request.businessName,
+            email: request.email,
+            phone: request.phone,
+            notes: request.notes || null,
+          },
+        });
+
+    const supplier = await tx.supplier.create({
+      data: {
+        businessId: business.id,
+        organizationId: supplierOrganization.id,
+        name: request.businessName,
+        contactName: request.fullName,
+        email: request.email,
+        phone: request.phone,
+        notes: request.notes || null,
+      },
+    });
+
+    const user = await tx.user.create({
       data: {
         businessId: business.id,
         supplierId: supplier.id,
-        fullName: values.fullName,
-        email: normalizedEmail,
-        passwordHash,
-        status: UserStatus.active,
+        supplierOrganizationId: supplierOrganization.id,
+        fullName: request.fullName,
+        email: request.email,
+        passwordHash: request.passwordHash,
         role: UserRole.supplier,
+        status: UserStatus.active,
         notificationPreference: {
           create: {},
         },
       },
     });
 
+    const reviewedRequest = await tx.supplierOnboardingRequest.update({
+      where: { id: request.id },
+      data: {
+        status: "approved",
+        reviewedByAdminId: adminUserId,
+        reviewedAt: new Date(),
+        approvedBusinessId: business.id,
+        approvedSupplierId: supplier.id,
+        approvedSupplierOrganizationId: supplierOrganization.id,
+        approvedUserId: user.id,
+        rejectionReason: null,
+      },
+    });
+
     await logAudit({
       tx,
       businessId: business.id,
-      actorUserId: createdUser.id,
-      action: "supplier_portal_onboarded",
-      resourceType: "supplier",
-      resourceId: supplier.id,
-      metadata: { supplierName: supplier.name },
+      actorUserId: adminUserId,
+      action: "supplier_access_request_approved",
+      resourceType: "supplier_onboarding_request",
+      resourceId: reviewedRequest.id,
+      metadata: {
+        supplierOrganizationId: supplierOrganization.id,
+        supplierId: supplier.id,
+        userId: user.id,
+        email: user.email,
+      },
     });
 
-    return createdUser;
+    return {
+      request: reviewedRequest,
+      supplierOrganization,
+      supplier,
+      user,
+    };
   });
 
-  await sendVerificationForNewUser(user.id, normalizedEmail, user.role);
+  if (env.DEMO_MODE !== "true") {
+    try {
+      await sendSupplierAccessApprovedEmail(approved.user.email);
+    } catch {
+      // Approval email delivery should not block the approval action.
+    }
+  }
 
-  return user;
+  await sendVerificationForNewUser(approved.user.id, approved.user.email, approved.user.role);
+
+  return approved;
 }
 
 export async function authenticateUser(input: unknown, ipAddress: string | null) {

@@ -15,7 +15,11 @@ import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof customerSignUpSchema>;
 
-export function CustomerSignUpForm() {
+export function CustomerSignUpForm({
+  authPath = "/api/auth/customer/sign-up",
+}: {
+  authPath?: string;
+}) {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(customerSignUpSchema),
@@ -29,7 +33,7 @@ export function CustomerSignUpForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
     try {
-      const payload = await requestJson<{ redirectTo: string }>("/api/auth/customer-sign-up", {
+      const payload = await requestJson<{ redirectTo: string }>(authPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),

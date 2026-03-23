@@ -38,7 +38,6 @@ type PortalDefinition = {
 };
 
 const SHARED_AUTH_API_PREFIXES = [
-  "/api/auth/sign-in",
   "/api/auth/sign-out",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
@@ -55,46 +54,105 @@ const UNIVERSAL_ALLOWED_API_PREFIXES = [
   "/api/stripe/webhooks",
 ] as const;
 
-const RETAIL_PAGE_REWRITES = [
-  { from: "/dashboard", to: "/app/dashboard" },
-  { from: "/onboarding", to: "/app/onboarding" },
-  { from: "/checkout", to: "/app/checkout" },
-  { from: "/sales", to: "/app/sales" },
-  { from: "/orders", to: "/app/orders" },
-  { from: "/refunds", to: "/app/refunds" },
-  { from: "/products", to: "/app/products" },
-  { from: "/suppliers", to: "/app/suppliers" },
-  { from: "/reorder", to: "/app/reorder" },
-  { from: "/procurement", to: "/app/procurement" },
-  { from: "/reports", to: "/app/reports" },
-  { from: "/locations", to: "/app/locations" },
-  { from: "/staff", to: "/app/staff" },
-  { from: "/notifications", to: "/app/notifications" },
-  { from: "/sessions", to: "/app/sessions" },
-  { from: "/ops", to: "/app/ops" },
-  { from: "/forbidden", to: "/app/forbidden" },
-] as const satisfies readonly PrefixRewrite[];
+const PORTAL_AUTH_API_PREFIXES = [
+  "/api/auth/customer/sign-in",
+  "/api/auth/customer/sign-up",
+  "/api/auth/retail/sign-in",
+  "/api/auth/retail/sign-up",
+  "/api/auth/supplier/sign-in",
+  "/api/auth/supplier/sign-up",
+  "/api/auth/admin/sign-in",
+] as const;
 
-const SUPPLY_PAGE_REWRITES = [
-  { from: "/dashboard", to: "/supplier/dashboard" },
-  { from: "/catalog", to: "/supplier/catalog" },
-  { from: "/orders", to: "/supplier/orders" },
-  { from: "/forbidden", to: "/supplier/forbidden" },
-] as const satisfies readonly PrefixRewrite[];
+function buildInternalRewrites(
+  portal: Exclude<Portal, "admin">,
+  prefixes: readonly string[]
+): readonly PrefixRewrite[] {
+  return prefixes.map((prefix) => ({
+    from: prefix,
+    to: prefix === "/" ? `/portal/${portal}` : `/portal/${portal}${prefix}`,
+  }));
+}
 
-const SHOP_PUBLIC_REWRITES = [
-  { from: "/", to: "/_surfaces/shop" },
-  { from: "/sign-up", to: "/customer/sign-up" },
-  { from: "/stores", to: "/marketplace" },
+const MAIN_PUBLIC_REWRITES = [
+  { from: "/", to: "/" },
+  { from: "/sign-in", to: "/sign-in" },
 ] as const satisfies readonly PrefixRewrite[];
+const MAIN_PUBLIC_PREFIXES = [
+  "/",
+  "/sign-in",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  ...UNIVERSAL_ALLOWED_PREFIXES,
+] as const;
+const MAIN_ALLOWED_API_PREFIXES = [
+  ...UNIVERSAL_ALLOWED_API_PREFIXES,
+  "/api/auth/sign-in",
+  "/api/auth/sign-up",
+  "/api/auth/customer-sign-up",
+  "/api/auth/supplier-sign-up",
+  "/api/auth/sign-out",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/auth/verify-email",
+  "/api/auth/csrf-token",
+  "/api/auth/resend-verification",
+] as const;
 
-const RETAIL_PUBLIC_REWRITES = [
-  { from: "/", to: "/_surfaces/retail" },
-] as const satisfies readonly PrefixRewrite[];
-const SUPPLY_PUBLIC_REWRITES = [
-  { from: "/", to: "/_surfaces/supply" },
-  { from: "/sign-up", to: "/supplier/sign-up" },
-] as const satisfies readonly PrefixRewrite[];
+const SHOP_PUBLIC_REWRITES = buildInternalRewrites("shop", [
+  "/",
+  "/shop",
+  "/cart",
+  "/orders",
+  "/marketplace",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]);
+
+const RETAIL_PUBLIC_REWRITES = buildInternalRewrites("retail", [
+  "/",
+  "/dashboard",
+  "/onboarding",
+  "/checkout",
+  "/sales",
+  "/orders",
+  "/refunds",
+  "/products",
+  "/suppliers",
+  "/reorder",
+  "/procurement",
+  "/reports",
+  "/locations",
+  "/staff",
+  "/notifications",
+  "/sessions",
+  "/ops",
+  "/accept-invite",
+  "/forbidden",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]);
+
+const SUPPLY_PUBLIC_REWRITES = buildInternalRewrites("supply", [
+  "/",
+  "/dashboard",
+  "/catalog",
+  "/orders",
+  "/forbidden",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]);
+
 const ADMIN_PUBLIC_REWRITES = [
   { from: "/", to: "/admin" },
 ] as const satisfies readonly PrefixRewrite[];
@@ -121,9 +179,9 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
     allowedRoles: [],
     postSignInPath: "/",
     workspaceHomePath: "/",
-    allowedPrefixes: ["/", "/sign-in", ...UNIVERSAL_ALLOWED_PREFIXES],
-    allowedApiPrefixes: [...UNIVERSAL_ALLOWED_API_PREFIXES],
-    publicRewrites: [],
+    allowedPrefixes: MAIN_PUBLIC_PREFIXES,
+    allowedApiPrefixes: MAIN_ALLOWED_API_PREFIXES,
+    publicRewrites: MAIN_PUBLIC_REWRITES,
     cleanToLegacyRewrites: [],
     legacyToCleanRewrites: [],
   },
@@ -164,7 +222,7 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
     ],
     allowedApiPrefixes: [
       ...SHARED_AUTH_API_PREFIXES,
-      "/api/auth/customer-sign-up",
+      ...PORTAL_AUTH_API_PREFIXES,
       "/api/customer/cart",
       "/api/customer/checkout",
       "/api/customer/orders",
@@ -173,7 +231,10 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
     ],
     publicRewrites: SHOP_PUBLIC_REWRITES,
     cleanToLegacyRewrites: [],
-    legacyToCleanRewrites: [{ from: "/customer/sign-up", to: "/sign-up" }],
+    legacyToCleanRewrites: [
+      { from: "/customer/sign-up", to: "/sign-up" },
+      { from: "/stores", to: "/marketplace" },
+    ],
   },
   retail: {
     presentation: {
@@ -223,13 +284,34 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
       "/verify-email",
       ...UNIVERSAL_ALLOWED_PREFIXES,
     ],
-    allowedApiPrefixes: ["/api", ...UNIVERSAL_ALLOWED_API_PREFIXES],
+    allowedApiPrefixes: [
+      ...SHARED_AUTH_API_PREFIXES,
+      ...PORTAL_AUTH_API_PREFIXES,
+      "/api/checkout",
+      "/api/customers/search",
+      "/api/dashboard",
+      "/api/inventory/adjustments",
+      "/api/inventory/transfers",
+      "/api/locations",
+      "/api/notifications",
+      "/api/onboarding/complete",
+      "/api/orders",
+      "/api/procurement",
+      "/api/products",
+      "/api/reports",
+      "/api/reorder-list",
+      "/api/sales",
+      "/api/sessions",
+      "/api/staff",
+      "/api/stripe/connect",
+      "/api/stripe/checkout",
+      "/api/suppliers",
+      "/api/upload",
+      ...UNIVERSAL_ALLOWED_API_PREFIXES,
+    ],
     publicRewrites: RETAIL_PUBLIC_REWRITES,
-    cleanToLegacyRewrites: RETAIL_PAGE_REWRITES,
-    legacyToCleanRewrites: RETAIL_PAGE_REWRITES.map((rewrite) => ({
-      from: rewrite.to,
-      to: rewrite.from,
-    })),
+    cleanToLegacyRewrites: [],
+    legacyToCleanRewrites: [],
   },
   supply: {
     presentation: {
@@ -243,7 +325,7 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
       signInCardDescription:
         "Use your supplier-linked account to manage catalog, orders, and fulfillment communication.",
       signInSubmitLabel: "Sign in to supply",
-      signUpLabel: "Create supplier account",
+      signUpLabel: "Request supplier access",
       signUpHref: "/sign-up",
       forbiddenTitle: "Supplier access required",
       forbiddenDescription:
@@ -267,19 +349,13 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
     ],
     allowedApiPrefixes: [
       ...SHARED_AUTH_API_PREFIXES,
-      "/api/auth/supplier-sign-up",
+      ...PORTAL_AUTH_API_PREFIXES,
       "/api/supplier",
       ...UNIVERSAL_ALLOWED_API_PREFIXES,
     ],
     publicRewrites: SUPPLY_PUBLIC_REWRITES,
-    cleanToLegacyRewrites: SUPPLY_PAGE_REWRITES,
-    legacyToCleanRewrites: [
-      { from: "/supplier/sign-up", to: "/sign-up" },
-      ...SUPPLY_PAGE_REWRITES.map((rewrite) => ({
-        from: rewrite.to,
-        to: rewrite.from,
-      })),
-    ],
+    cleanToLegacyRewrites: [],
+    legacyToCleanRewrites: [],
   },
   admin: {
     presentation: {
@@ -303,7 +379,18 @@ const PORTAL_DEFINITIONS: Record<Portal, PortalDefinition> = {
     postSignInPath: "/admin",
     workspaceHomePath: "/admin",
     allowedPrefixes: ["/", "/admin", "/sign-in", ...UNIVERSAL_ALLOWED_PREFIXES],
-    allowedApiPrefixes: ["/api", ...UNIVERSAL_ALLOWED_API_PREFIXES],
+    allowedApiPrefixes: [
+      ...SHARED_AUTH_API_PREFIXES,
+      ...PORTAL_AUTH_API_PREFIXES,
+      "/api/admin/announcements",
+      "/api/admin/businesses",
+      "/api/admin/disputes",
+      "/api/admin/email-smoke-test",
+      "/api/admin/metrics",
+      "/api/admin/supplier-requests",
+      "/api/admin/users",
+      ...UNIVERSAL_ALLOWED_API_PREFIXES,
+    ],
     publicRewrites: ADMIN_PUBLIC_REWRITES,
     cleanToLegacyRewrites: [],
     legacyToCleanRewrites: [],
@@ -448,13 +535,13 @@ export function getLegacyPostSignInPath(role: UserRole) {
     return "/shop";
   }
   if (role === "supplier") {
-    return "/supplier/dashboard";
+    return "/dashboard";
   }
   if (role === "platform_admin") {
     return "/admin";
   }
 
-  return "/app/dashboard";
+  return "/dashboard";
 }
 
 export function getPortalWorkspaceHomePath(portal: Portal) {
@@ -530,44 +617,6 @@ export function getPortalLegacyRedirectForMainHost(pathname: string) {
       portal: "shop" as const,
       path: pathname.replace("/customer/sign-up", "/sign-up") || "/sign-up",
     };
-  }
-  if (
-    pathMatchesPrefix(pathname, "/shop") ||
-    pathMatchesPrefix(pathname, "/cart") ||
-    pathMatchesPrefix(pathname, "/marketplace")
-  ) {
-    return { portal: "shop" as const, path: pathname };
-  }
-  if (pathMatchesPrefix(pathname, "/orders")) {
-    return { portal: "shop" as const, path: pathname };
-  }
-  if (pathMatchesPrefix(pathname, "/app")) {
-    return { portal: "retail" as const, path: pathname.replace("/app", "") || "/dashboard" };
-  }
-  if (
-    pathMatchesPrefix(pathname, "/dashboard") ||
-    pathMatchesPrefix(pathname, "/onboarding") ||
-    pathMatchesPrefix(pathname, "/checkout") ||
-    pathMatchesPrefix(pathname, "/sales") ||
-    pathMatchesPrefix(pathname, "/refunds") ||
-    pathMatchesPrefix(pathname, "/products") ||
-    pathMatchesPrefix(pathname, "/suppliers") ||
-    pathMatchesPrefix(pathname, "/reorder") ||
-    pathMatchesPrefix(pathname, "/procurement") ||
-    pathMatchesPrefix(pathname, "/reports") ||
-    pathMatchesPrefix(pathname, "/locations") ||
-    pathMatchesPrefix(pathname, "/staff") ||
-    pathMatchesPrefix(pathname, "/notifications") ||
-    pathMatchesPrefix(pathname, "/sessions") ||
-    pathMatchesPrefix(pathname, "/ops")
-  ) {
-    return { portal: "retail" as const, path: pathname };
-  }
-  if (pathMatchesPrefix(pathname, "/supplier")) {
-    return { portal: "supply" as const, path: pathname.replace("/supplier", "") || "/dashboard" };
-  }
-  if (pathMatchesPrefix(pathname, "/catalog")) {
-    return { portal: "supply" as const, path: pathname };
   }
 
   return null;

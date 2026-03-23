@@ -3,18 +3,19 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { VerifyEmailClient } from "@/components/verify-email-client";
 import { getCurrentPortal } from "@/lib/portal";
+import { withNoIndex } from "@/lib/public-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
   const portal = await getCurrentPortal();
 
-  return {
+  return withNoIndex({
     title:
       portal === "shop"
         ? "Verify Customer Email | Human Pulse"
         : portal === "supply"
           ? "Verify Supplier Email | Human Pulse"
           : "Verify Retail Email | Human Pulse",
-  };
+  });
 }
 
 export default async function VerifyEmailPage({

@@ -16,8 +16,13 @@ import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof supplierSignUpSchema>;
 
-export function SupplierSignUpForm() {
+export function SupplierSignUpForm({
+  authPath = "/api/auth/supplier/sign-up",
+}: {
+  authPath?: string;
+}) {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(supplierSignUpSchema),
     defaultValues: {
@@ -32,13 +37,17 @@ export function SupplierSignUpForm() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
+    setSuccessMessage(null);
     try {
-      const payload = await requestJson<{ redirectTo: string }>("/api/auth/supplier-sign-up", {
+      const payload = await requestJson<{ redirectTo: string }>(authPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-      toast.success("Supplier portal account created.");
+      toast.success("Supplier access request submitted.");
+      setSuccessMessage(
+        "Your supplier access request has been submitted. We will review the details before activating a supplier portal account."
+      );
       window.location.replace(payload.redirectTo);
     } catch (error) {
       if (error instanceof ApiClientError) {
@@ -47,17 +56,17 @@ export function SupplierSignUpForm() {
         toast.error(error.message);
         return;
       }
-      setServerError("Unable to create the supplier account.");
-      toast.error("Unable to create the supplier account.");
+      setServerError("Unable to submit the supplier access request.");
+      toast.error("Unable to submit the supplier access request.");
     }
   });
 
   return (
     <Card className="gradient-panel">
       <CardHeader>
-        <CardTitle>Join as a supplier</CardTitle>
+        <CardTitle>Request supplier access</CardTitle>
         <CardDescription>
-          Manage wholesale products, receive retailer orders, and update fulfillment in one portal.
+          Submit your business details to request access to the Human Pulse supplier portal.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,12 +115,15 @@ export function SupplierSignUpForm() {
             <Label htmlFor="notes">Business notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
           </div>
+          {successMessage ? (
+            <p className="text-sm text-primary md:col-span-2">{successMessage}</p>
+          ) : null}
           {serverError ? (
             <p className="text-sm text-destructive md:col-span-2">{serverError}</p>
           ) : null}
           <div className="md:col-span-2">
             <Button className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Creating..." : "Create supplier account"}
+              {form.formState.isSubmitting ? "Submitting..." : "Request supplier access"}
             </Button>
           </div>
         </form>

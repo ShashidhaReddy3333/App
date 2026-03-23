@@ -1,19 +1,22 @@
-import { createSession } from "@/lib/auth/session";
-import { apiError, apiSuccess } from "@/lib/http";
-import { registerOwner } from "@/lib/services/auth-service";
+import { NextResponse } from "next/server";
+
+import { getLegacyRequestMetadata, logLegacyCompatibilityHit } from "@/lib/legacy-compat";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  try {
-    const payload = await request.json();
-    const result = await registerOwner(payload);
-    await createSession(result.user.id);
-    return apiSuccess(
-      { businessId: result.business.id, redirectTo: "/dashboard" },
-      { status: 201, message: "Business created." }
-    );
-  } catch (error) {
-    return apiError(error);
-  }
+  logLegacyCompatibilityHit("legacy_api_endpoint_hit", {
+    endpoint: "/api/auth/sign-up",
+    method: request.method,
+    replacement: "/api/auth/retail/sign-up",
+    ...getLegacyRequestMetadata(request),
+  });
+
+  return NextResponse.json(
+    {
+      message: "This legacy endpoint has been removed. Use /api/auth/retail/sign-up instead.",
+      code: "GONE",
+    },
+    { status: 410 }
+  );
 }

@@ -2,7 +2,11 @@ import { PurchaseOrderStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
 
-export { listProcurementData, listSupplierPortalData } from "@/lib/services/procurement-service";
+export {
+  getSupplierPortalContext,
+  listProcurementData,
+  listSupplierPortalData,
+} from "@/lib/services/procurement-service";
 
 const COMPLETED_ORDER_STATUSES: PurchaseOrderStatus[] = [
   PurchaseOrderStatus.received,
@@ -35,12 +39,29 @@ function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export async function getSupplierAnalytics(supplierId: string): Promise<SupplierAnalytics> {
+export async function getSupplierAnalytics(supplierIds: string[]): Promise<SupplierAnalytics> {
   const now = new Date();
   const monthAnchors = Array.from(
     { length: 6 },
     (_, index) => new Date(now.getFullYear(), now.getMonth() - 5 + index, 1)
   );
+
+  if (supplierIds.length === 0) {
+    return {
+      totalRevenue: 0,
+      openOrders: 0,
+      completedOrders: 0,
+      averageFulfillmentDays: 0,
+      monthlyRevenue: monthAnchors.map((month) => ({
+        month: month.toLocaleString("en-CA", { month: "short" }),
+        revenue: 0,
+      })),
+      topProducts: [],
+      activeRetailers: 0,
+      fulfillmentRate: 0,
+    };
+  }
+
   const monthlyRevenueStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
   const [
@@ -55,32 +76,32 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
   ] = await Promise.all([
     db.purchaseOrder.aggregate({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { in: COMPLETED_ORDER_STATUSES },
       },
       _sum: { totalCost: true },
     }),
     db.purchaseOrder.count({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { in: OPEN_ORDER_STATUSES },
       },
     }),
     db.purchaseOrder.count({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { in: COMPLETED_ORDER_STATUSES },
       },
     }),
     db.purchaseOrder.count({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
       },
     }),
     db.purchaseOrder.findMany({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
       },
       select: { businessId: true },
@@ -88,7 +109,7 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
     }),
     db.purchaseOrder.findMany({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { in: COMPLETED_ORDER_STATUSES },
         createdAt: { gte: monthlyRevenueStart },
       },
@@ -101,7 +122,7 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
       by: ["productId"],
       where: {
         purchaseOrder: {
-          supplierId,
+          supplierId: { in: supplierIds },
           status: { notIn: EXCLUDED_FULFILLMENT_STATUSES },
         },
       },
@@ -113,7 +134,7 @@ export async function getSupplierAnalytics(supplierId: string): Promise<Supplier
     }),
     db.purchaseOrder.findMany({
       where: {
-        supplierId,
+        supplierId: { in: supplierIds },
         status: { in: COMPLETED_ORDER_STATUSES },
       },
       select: {

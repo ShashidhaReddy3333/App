@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Menu,
+  Truck,
   ShieldCheck,
   Users,
   X,
@@ -18,6 +19,7 @@ import {
 const navItems = [
   { href: "/admin" as Route, label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/businesses" as Route, label: "Businesses", icon: Building2 },
+  { href: "/admin/supplier-requests" as Route, label: "Supplier Requests", icon: Truck },
   { href: "/admin/users" as Route, label: "Users", icon: Users },
   { href: "/admin/disputes" as Route, label: "Disputes", icon: AlertTriangle },
   { href: "/admin/announcements" as Route, label: "Announcements", icon: Megaphone },

@@ -9,7 +9,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { SignInForm } from "@/components/forms/sign-in-form";
 import { Button } from "@/components/ui/button";
 import { getCurrentSession } from "@/lib/auth/session";
-import { getCanonicalPath } from "@/lib/public-metadata";
+import { getCanonicalPath, withNoIndex } from "@/lib/public-metadata";
 import {
   getCurrentRequestOrigin,
   getPortalAbsoluteUrl,
@@ -25,13 +25,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const portal = normalizePortal(headerStore.get("x-portal"));
   const presentation = getPortalPresentation(portal);
 
-  return {
+  return withNoIndex({
     title: presentation.signInMetadataTitle,
     description: presentation.signInDescription,
     alternates: {
       canonical: getCanonicalPath("/sign-in"),
     },
-  };
+  });
 }
 
 const portalLaunchers = [

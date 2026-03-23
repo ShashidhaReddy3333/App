@@ -1,42 +1,42 @@
 declare module "stripe" {
   namespace Stripe {
-    type Event = any;
-    type PaymentIntent = any;
-    type Account = any;
+    type Event = unknown;
+    type PaymentIntent = unknown;
+    type Account = unknown;
     namespace Checkout {
-      type Session = any;
-      type SessionCreateParams = any;
+      type Session = unknown;
+      type SessionCreateParams = unknown;
       namespace SessionCreateParams {
-        type LineItem = any;
+        type LineItem = unknown;
       }
     }
-    type PaymentIntentCreateParams = any;
+    type PaymentIntentCreateParams = unknown;
   }
 
   class Stripe {
-    constructor(apiKey: string, config?: any);
-    [key: string]: any;
+    constructor(apiKey: string, config?: Record<string, unknown>);
+    [key: string]: unknown;
   }
 
   export default Stripe;
 }
 
 declare module "@vercel/blob" {
-  export function put(...args: any[]): Promise<any>;
-  export function del(...args: any[]): Promise<any>;
+  export function put(...args: unknown[]): Promise<unknown>;
+  export function del(...args: unknown[]): Promise<unknown>;
 }
 
 declare module "@upstash/redis" {
   export class Redis {
-    constructor(config: any);
-    ping(...args: any[]): Promise<any>;
+    constructor(config: Record<string, unknown>);
+    ping(...args: unknown[]): Promise<unknown>;
   }
 }
 
 declare module "@upstash/ratelimit" {
   export class Ratelimit {
-    constructor(config: any);
-    static slidingWindow(...args: any[]): any;
-    limit(...args: any[]): Promise<any>;
+    constructor(config: Record<string, unknown>);
+    static slidingWindow(...args: unknown[]): unknown;
+    limit(...args: unknown[]): Promise<unknown>;
   }
 }

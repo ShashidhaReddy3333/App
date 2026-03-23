@@ -71,7 +71,8 @@ async function syncStripeDataWorker(job: { id: string; payload: Record<string, u
 /**
  * Worker: clean up expired data (reservations, sessions, etc.)
  */
-async function cleanupExpiredDataWorker(_job: { id: string; payload: Record<string, unknown> }) {
+async function cleanupExpiredDataWorker(job: { id: string; payload: Record<string, unknown> }) {
+  void job;
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
 
   await Promise.all([

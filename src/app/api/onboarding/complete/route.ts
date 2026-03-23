@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request) {
   try {
-    const { session, businessId } = await requireApiAccess(undefined, {
+    const { businessId } = await requireApiAccess(undefined, {
       roles: ["owner"],
       request,
     });

@@ -12,7 +12,7 @@
     "build": "node scripts/clean-next.mjs && next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "node scripts/clean-next.mjs && next typegen && tsc --noEmit",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -22,9 +22,13 @@
     "db:logs": "docker compose logs -f postgres",
     "env:check": "tsx scripts/check-runtime.ts",
     "preflight": "tsx scripts/preflight-check.ts",
+    "release:predeploy": "node scripts/release-predeploy.mjs",
     "db:health": "tsx scripts/check-db.ts",
     "ops:cleanup-reservations": "tsx scripts/release-expired-reservations.ts",
     "ops:check-data": "tsx scripts/check-data-integrity.ts",
+    "ops:check-data:json": "tsx scripts/check-data-integrity.ts --json",
+    "ops:backfill-supplier-organizations": "tsx scripts/backfill-supplier-organizations.ts",
+    "ops:backfill-supplier-organizations:apply": "tsx scripts/backfill-supplier-organizations.ts --write",
     "ops:cleanup-maintenance": "tsx scripts/cleanup-operational-data.ts",
     "notifications:process": "tsx scripts/process-notifications.ts",
     "monitoring:test": "tsx scripts/send-monitoring-test.ts",
@@ -32,17 +36,13 @@
     "prisma:migrate": "pnpm prisma:migrate:dev",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:status": "prisma migrate status",
     "prisma:reset": "prisma migrate reset --force --skip-generate --skip-seed",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
     "demo:setup": "pnpm db:health && pnpm prisma:generate && pnpm prisma:reset && pnpm prisma:seed",
     "postinstall": "prisma generate",
     "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,md,css,yml,yaml}": [
-      "prettier --write"
-    ]
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",

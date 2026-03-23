@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 
@@ -77,7 +78,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
         body: JSON.stringify(result.payload),
       });
       toast.success("Sale completed.");
-      router.push(`/app/sales/${payload.sale.id}`);
+      router.push(`/sales/${payload.sale.id}` as Route);
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to complete sale.";

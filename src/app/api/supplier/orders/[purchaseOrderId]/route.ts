@@ -1,5 +1,3 @@
-import { db } from "@/lib/db";
-import { forbiddenError, notFoundError } from "@/lib/errors";
 import { requireApiAccess } from "@/lib/auth/api-guard";
 import { apiError, apiSuccess } from "@/lib/http";
 import { updateSupplierPurchaseOrderStatus } from "@/lib/services/procurement-command-service";
@@ -12,18 +10,11 @@ export async function PATCH(
 ) {
   try {
     const { purchaseOrderId } = await params;
-    const { session } = await requireApiAccess("supplier_portal", { roles: ["supplier"], request });
-    if (!session.user.supplierId) {
-      return apiError(forbiddenError("Supplier account not linked"));
-    }
-
-    const existingPurchaseOrder = await db.purchaseOrder.findUnique({
-      where: { id: purchaseOrderId },
-      select: { supplierId: true },
+    const { session } = await requireApiAccess("supplier_portal", {
+      roles: ["supplier"],
+      allowMissingBusiness: true,
+      request,
     });
-    if (!existingPurchaseOrder || existingPurchaseOrder.supplierId !== session.user.supplierId) {
-      return apiError(notFoundError("Purchase order not found or access denied"));
-    }
 
     const payload = await request.json();
     const purchaseOrder = await updateSupplierPurchaseOrderStatus(

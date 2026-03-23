@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-type Portal = "shop" | "retail" | "supply";
+type Portal = "main" | "shop" | "retail" | "supply" | "admin";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const KNOWN_PORTALS = new Set(["shop", "retail", "supply", "admin"]);
@@ -13,7 +13,7 @@ function getRootHostname(hostname: string) {
   }
 
   const [first, ...rest] = normalized.split(".");
-  if (rest.length > 0 && KNOWN_PORTALS.has(first)) {
+  if (first && rest.length > 0 && KNOWN_PORTALS.has(first)) {
     return rest.join(".");
   }
 
@@ -22,6 +22,9 @@ function getRootHostname(hostname: string) {
 
 export function getPortalUrl(portal: Portal, path = "/") {
   const base = new URL(APP_URL);
+  if (portal === "main") {
+    return new URL(path, base).toString();
+  }
   const rootHostname = getRootHostname(base.hostname);
   const hostname =
     rootHostname === "localhost" ? `${portal}.localhost` : `${portal}.${rootHostname}`;

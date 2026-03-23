@@ -93,6 +93,10 @@ export function requiresProductionMonitoring() {
   return getNodeEnv() === "production";
 }
 
+export function requiresPersistentRateLimiting() {
+  return getNodeEnv() === "production";
+}
+
 export function getOptionalSentryDsn() {
   return parseOptional(sentryDsnSchema, process.env.SENTRY_DSN);
 }
@@ -250,6 +254,13 @@ export function getRuntimeCheckIssues() {
     issues.push({
       key: "UPSTASH_REDIS_REST_URL",
       message: "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set together.",
+      severity: "error",
+    });
+  } else if (requiresPersistentRateLimiting() && (!upstashRedisUrl || !upstashRedisToken)) {
+    issues.push({
+      key: "UPSTASH_REDIS_REST_URL",
+      message:
+        "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production so rate limiting stays durable across serverless instances.",
       severity: "error",
     });
   }

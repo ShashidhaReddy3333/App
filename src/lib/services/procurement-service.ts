@@ -32,6 +32,32 @@ const RECEIVABLE_PURCHASE_ORDER_STATUSES: PurchaseOrderStatus[] = [
 
 type PurchaseOrderValues = z.infer<typeof purchaseOrderSchema>;
 type ReceivedPurchaseOrderValues = z.infer<typeof receivePurchaseOrderSchema>;
+type SupplierPortalSupplier = Prisma.SupplierGetPayload<{
+  include: {
+    business: true;
+    organization: true;
+  };
+}>;
+
+function buildSupplierPortalOrganization(primarySupplier: SupplierPortalSupplier) {
+  if (primarySupplier.organization) {
+    return {
+      id: primarySupplier.organization.id,
+      name: primarySupplier.organization.name,
+      email: primarySupplier.organization.email,
+      phone: primarySupplier.organization.phone,
+      notes: primarySupplier.organization.notes,
+    };
+  }
+
+  return {
+    id: primarySupplier.id,
+    name: primarySupplier.name,
+    email: primarySupplier.email,
+    phone: primarySupplier.phone,
+    notes: primarySupplier.notes,
+  };
+}
 
 async function loadSupplierProductsForOrder(
   tx: Prisma.TransactionClient,
@@ -559,34 +585,95 @@ export async function receivePurchaseOrder(
   });
 }
 
-export async function listSupplierPortalData(userId: string) {
+export async function getSupplierPortalContext(userId: string) {
   const user = await db.user.findUnique({
     where: { id: userId },
     include: {
-      managedSupplier: true,
+      managedSupplier: {
+        include: {
+          business: true,
+          organization: true,
+        },
+      },
+      supplierOrganization: {
+        include: {
+          suppliers: {
+            include: {
+              business: true,
+              organization: true,
+            },
+            orderBy: [{ createdAt: "asc" }],
+          },
+        },
+      },
     },
   });
 
-  if (!user?.managedSupplier || !user.businessId) {
+  const supplierMap = new Map<string, SupplierPortalSupplier>();
+  for (const supplier of user?.supplierOrganization?.suppliers ?? []) {
+    supplierMap.set(supplier.id, supplier);
+  }
+  if (user?.managedSupplier) {
+    supplierMap.set(user.managedSupplier.id, user.managedSupplier);
+  }
+
+  const suppliers = Array.from(supplierMap.values());
+  const primarySupplier =
+    suppliers.find((supplier) => supplier.id === user?.supplierId) ?? suppliers[0] ?? null;
+
+  if (!user || !primarySupplier) {
     throw notFoundError("Supplier profile not found for this account.");
   }
 
-  const [supplierProducts, purchaseOrders] = await Promise.all([
+  return {
+    user,
+    suppliers,
+    supplierIds: suppliers.map((supplier) => supplier.id),
+    primarySupplier,
+    supplierOrganization: buildSupplierPortalOrganization(primarySupplier),
+    primaryBusinessId: primarySupplier.businessId,
+  };
+}
+
+export async function listSupplierPortalData(
+  userId: string,
+  options?: { relationshipSupplierId?: string | null }
+) {
+  const context = await getSupplierPortalContext(userId);
+  const selectedRelationship = options?.relationshipSupplierId
+    ? (context.suppliers.find((supplier) => supplier.id === options.relationshipSupplierId) ?? null)
+    : null;
+
+  const [allSupplierProducts, allPurchaseOrders] = await Promise.all([
     db.supplierProduct.findMany({
       where: {
-        supplierId: user.managedSupplier.id,
+        supplierId: {
+          in: context.supplierIds,
+        },
       },
       include: {
         mappedProduct: true,
+        supplier: {
+          include: {
+            business: true,
+          },
+        },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ updatedAt: "desc" }],
     }),
     db.purchaseOrder.findMany({
       where: {
-        supplierId: user.managedSupplier.id,
-        businessId: user.businessId,
+        supplierId: {
+          in: context.supplierIds,
+        },
       },
       include: {
+        business: true,
+        supplier: {
+          include: {
+            business: true,
+          },
+        },
         items: {
           include: {
             product: true,
@@ -599,8 +686,39 @@ export async function listSupplierPortalData(userId: string) {
     }),
   ]);
 
+  const visibleSupplierIds = selectedRelationship ? [selectedRelationship.id] : context.supplierIds;
+  const supplierProducts = allSupplierProducts.filter((product) =>
+    visibleSupplierIds.includes(product.supplierId)
+  );
+  const purchaseOrders = allPurchaseOrders.filter((purchaseOrder) =>
+    visibleSupplierIds.includes(purchaseOrder.supplierId)
+  );
+  const relationshipSummaries = context.suppliers.map((supplier) => ({
+    id: supplier.id,
+    supplierName: supplier.name,
+    businessName: supplier.business.businessName,
+    productsCount: allSupplierProducts.filter((product) => product.supplierId === supplier.id)
+      .length,
+    ordersCount: allPurchaseOrders.filter(
+      (purchaseOrder) => purchaseOrder.supplierId === supplier.id
+    ).length,
+    openOrdersCount: allPurchaseOrders.filter(
+      (purchaseOrder) =>
+        purchaseOrder.supplierId === supplier.id &&
+        !["received", "closed", "cancelled"].includes(purchaseOrder.status)
+    ).length,
+  }));
+  const activeRelationship = selectedRelationship ?? context.primarySupplier;
+
   return {
-    supplier: user.managedSupplier,
+    supplier: context.primarySupplier,
+    supplierOrganization: context.supplierOrganization,
+    supplierRelationships: context.suppliers,
+    relationshipSummaries,
+    activeRelationship,
+    showingAllRelationships: selectedRelationship == null,
+    supplierIds: context.supplierIds,
+    defaultBusinessId: activeRelationship.businessId,
     supplierProducts,
     purchaseOrders,
   };
@@ -612,19 +730,14 @@ export async function updateSupplierPurchaseOrderStatus(
   input: unknown
 ) {
   const values = supplierOrderStatusSchema.parse(input);
-  const user = await db.user.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user?.supplierId) {
-    throw notFoundError("Supplier profile not found for this account.");
-  }
+  const context = await getSupplierPortalContext(userId);
 
   const purchaseOrder = await db.purchaseOrder.findFirst({
     where: {
       id: purchaseOrderId,
-      supplierId: user.supplierId,
-      businessId: user.businessId ?? undefined,
+      supplierId: {
+        in: context.supplierIds,
+      },
     },
   });
 

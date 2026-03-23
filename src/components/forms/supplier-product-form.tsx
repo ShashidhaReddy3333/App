@@ -20,8 +20,12 @@ type Values = z.infer<typeof supplierProductSchema>;
 
 export function SupplierProductForm({
   mappedProducts,
+  relationshipLabel,
+  supplierId,
 }: {
   mappedProducts: Array<{ id: string; label: string }>;
+  relationshipLabel?: string;
+  supplierId: string;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -31,6 +35,7 @@ export function SupplierProductForm({
       name: "",
       description: "",
       mappedProductId: mappedProducts[0]?.id ?? "",
+      supplierId,
       minimumOrderQuantity: 1,
       casePackSize: 1,
       wholesalePrice: 0,
@@ -69,11 +74,13 @@ export function SupplierProductForm({
       <CardHeader>
         <CardTitle>Add wholesale product</CardTitle>
         <CardDescription>
-          Offer mapped retail products to the manager with MOQ, lead time, and wholesale pricing.
+          Offer mapped retail products with MOQ, lead time, and wholesale pricing.
+          {relationshipLabel ? ` New items are published to ${relationshipLabel}.` : null}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+          <input type="hidden" {...form.register("supplierId")} value={supplierId} />
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...form.register("name")} />

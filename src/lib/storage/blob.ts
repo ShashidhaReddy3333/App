@@ -12,6 +12,10 @@ const ALLOWED_CONTENT_TYPES = [
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+type BlobUploadResponse = {
+  url: string;
+};
+
 export interface UploadResult {
   key: string;
   url: string;
@@ -22,10 +26,7 @@ export interface UploadResult {
 /**
  * Upload a file to Vercel Blob storage.
  */
-export async function uploadFile(
-  file: File,
-  pathPrefix: string
-): Promise<UploadResult> {
+export async function uploadFile(file: File, pathPrefix: string): Promise<UploadResult> {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB.`);
   }
@@ -37,10 +38,10 @@ export async function uploadFile(
   const extension = file.name.split(".").pop() ?? "bin";
   const key = `${pathPrefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
 
-  const blob = await put(key, file, {
+  const blob = (await put(key, file, {
     access: "public",
     contentType: file.type,
-  });
+  })) as BlobUploadResponse;
 
   return {
     key,

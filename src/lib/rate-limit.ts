@@ -13,10 +13,6 @@ type WindowEntry = {
 const store = new Map<string, WindowEntry>();
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-// This in-memory store is a degraded fallback only. In serverless production
-// environments it resets on cold starts, so counters are not durable without Redis.
-let hasWarnedAboutMissingRedisAtStartup = false;
-
 export interface PresetRateLimitResult {
   success: boolean;
   limit: number;
@@ -47,6 +43,13 @@ const LIMITS: Record<RateLimitPreset, { requests: number; windowSeconds: number 
 
 let presetRateLimiters: Record<RateLimitPreset, Ratelimit> | null = null;
 const customRateLimiters = new Map<string, Ratelimit>();
+
+type RedisLimiterResult = {
+  success: boolean;
+  limit?: number;
+  remaining: number;
+  reset: number;
+};
 
 function cleanupExpiredEntries(): void {
   const cutoff = Date.now() - MAX_WINDOW_MS;
@@ -107,20 +110,17 @@ function getOrCreateCustomLimiter(options: SlidingWindowRateLimitOptions): Ratel
 
 export class RedisRateLimitUnavailableError extends Error {
   constructor() {
-    super("Redis-backed rate limiting is unavailable.");
+    super(
+      process.env.NODE_ENV === "production"
+        ? "Redis-backed rate limiting is required in production and is currently unavailable."
+        : "Redis-backed rate limiting is unavailable."
+    );
     this.name = "RedisRateLimitUnavailableError";
   }
 }
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !isRedisAvailable() &&
-  !hasWarnedAboutMissingRedisAtStartup
-) {
-  hasWarnedAboutMissingRedisAtStartup = true;
-  console.warn(
-    "[Rate Limit] Redis is not configured in production; rate limiting is degraded and in-memory counters reset on serverless cold starts"
-  );
+export function isInMemoryRateLimitFallbackAllowed() {
+  return process.env.NODE_ENV !== "production";
 }
 
 function getPresetRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {
@@ -210,7 +210,7 @@ export async function checkRateLimit(
     throw new RedisRateLimitUnavailableError();
   }
 
-  const result = await limiter.limit(identifier);
+  const result = (await limiter.limit(identifier)) as RedisLimiterResult;
   const options =
     typeof presetOrOptions === "string" ? resolvePresetOptions(presetOrOptions) : presetOrOptions;
 

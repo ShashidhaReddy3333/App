@@ -19,6 +19,20 @@ export function getPostSignInPath(role: UserRole, portal: Portal = "main"): Rout
   return path as Route;
 }
 
+async function getForbiddenPath(): Promise<Route> {
+  const portal = await getCurrentPortal();
+
+  if (portal === "shop") {
+    return "/sign-in" as Route;
+  }
+
+  if (portal === "admin") {
+    return "/admin" as Route;
+  }
+
+  return "/forbidden" as Route;
+}
+
 async function assertSessionMatchesPortal(
   session: NonNullable<Awaited<ReturnType<typeof getCurrentSession>>>
 ) {
@@ -51,29 +65,23 @@ export async function requireAppSession() {
 export async function requirePermission(permission: Permission) {
   const session = await requireAppSession();
   if (!hasPermission(session.user.role, permission)) {
-    redirect("/app/forbidden");
+    redirect(await getForbiddenPath());
   }
   return session;
 }
 
-export async function requireRole(
-  role: UserRole,
-  forbiddenPath: Route = "/app/forbidden" as Route
-) {
+export async function requireRole(role: UserRole, forbiddenPath?: Route) {
   const session = await requireAnySession();
   if (session.user.role !== role) {
-    redirect(forbiddenPath);
+    redirect(forbiddenPath ?? (await getForbiddenPath()));
   }
   return session;
 }
 
-export async function requireRoles(
-  roles: UserRole[],
-  forbiddenPath: Route = "/app/forbidden" as Route
-) {
+export async function requireRoles(roles: UserRole[], forbiddenPath?: Route) {
   const session = await requireAnySession();
   if (!roles.includes(session.user.role)) {
-    redirect(forbiddenPath);
+    redirect(forbiddenPath ?? (await getForbiddenPath()));
   }
   return session;
 }

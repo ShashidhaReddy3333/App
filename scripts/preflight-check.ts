@@ -4,7 +4,7 @@ import process from "node:process";
 import Stripe from "stripe";
 
 import { db } from "../src/lib/db";
-import { getRuntimeCheckIssues } from "../src/lib/env";
+import { getRuntimeCheckIssues, requiresPersistentRateLimiting } from "../src/lib/env";
 import { getRedisClient, isRedisAvailable } from "../src/lib/queue/redis";
 import { STRIPE_CONFIG } from "../src/lib/stripe/config";
 
@@ -90,8 +90,10 @@ async function runChecks() {
   if (!isRedisAvailable()) {
     results.push({
       name: "Redis",
-      status: "WARN",
-      detail: "Redis is not configured.",
+      status: requiresPersistentRateLimiting() ? "FAIL" : "WARN",
+      detail: requiresPersistentRateLimiting()
+        ? "Redis is required in production for durable rate limiting, but it is not configured."
+        : "Redis is not configured.",
     });
   } else {
     try {

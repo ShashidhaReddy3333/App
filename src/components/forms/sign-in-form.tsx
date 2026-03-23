@@ -18,11 +18,13 @@ type Values = z.infer<typeof signInSchema>;
 
 export function SignInForm({
   portal,
+  authPath,
   cardTitle = "Sign in",
   cardDescription = "Use your email and password to access the right Human Pulse portal for your account.",
   submitLabel = "Sign in",
 }: {
   portal: Portal;
+  authPath?: string;
   cardTitle?: string;
   cardDescription?: string;
   submitLabel?: string;
@@ -39,14 +41,14 @@ export function SignInForm({
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
     try {
-      const payload = await requestJson<{ userId: string; redirectTo: string }>(
-        "/api/auth/sign-in",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...values, portal }),
-        }
-      );
+      const resolvedAuthPath =
+        authPath ??
+        (portal === "main" ? "/api/auth/retail/sign-in" : `/api/auth/${portal}/sign-in`);
+      const payload = await requestJson<{ userId: string; redirectTo: string }>(resolvedAuthPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, portal }),
+      });
       toast.success("Signed in.");
       window.location.replace(payload.redirectTo);
     } catch (error) {

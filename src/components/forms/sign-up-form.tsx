@@ -61,7 +61,7 @@ const NEXT_SETUP_CARDS = [
   },
 ] as const;
 
-export function SignUpForm() {
+export function SignUpForm({ authPath = "/api/auth/retail/sign-up" }: { authPath?: string }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const form = useForm<Values>({
@@ -72,16 +72,13 @@ export function SignUpForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
     try {
-      const payload = await requestJson<{ businessId: string; redirectTo: string }>(
-        "/api/auth/sign-up",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        }
-      );
+      const payload = await requestJson<{ businessId: string; redirectTo: string }>(authPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
 
-      toast.success("Business created.");
+      toast.success("Retail workspace created.");
       window.location.replace(payload.redirectTo);
     } catch (error) {
       if (error instanceof ApiClientError) {
@@ -90,8 +87,8 @@ export function SignUpForm() {
         toast.error(error.message);
         return;
       }
-      setServerError("Unable to create business.");
-      toast.error("Unable to create business.");
+      setServerError("Unable to create retail account.");
+      toast.error("Unable to create retail account.");
     }
   });
 
@@ -106,9 +103,9 @@ export function SignUpForm() {
   return (
     <Card className="gradient-panel">
       <CardHeader>
-        <CardTitle>Create business</CardTitle>
+        <CardTitle>Create retail account</CardTitle>
         <CardDescription>
-          Set up the owner account, business profile, default location, and initial tax rule.
+          Set up the owner login, retail workspace, first location, and default tax behavior.
         </CardDescription>
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -130,7 +127,7 @@ export function SignUpForm() {
               <div className="space-y-2 md:col-span-2">
                 <h2 className="text-lg font-semibold">Owner account</h2>
                 <p className="text-sm text-muted-foreground">
-                  Create the primary owner login for this business.
+                  Create the primary owner login for this retail workspace.
                 </p>
               </div>
               <div className="space-y-2">
@@ -175,30 +172,30 @@ export function SignUpForm() {
           {step === 1 ? (
             <>
               <div className="space-y-2 md:col-span-2">
-                <h2 className="text-lg font-semibold">Business details</h2>
+                <h2 className="text-lg font-semibold">Retail workspace details</h2>
                 <p className="text-sm text-muted-foreground">
-                  Tell us how your business operates so the platform can be configured correctly.
+                  Tell us how your store operates so the retail portal can be configured correctly.
                 </p>
               </div>
               <div className="rounded-[24px] border border-border/30 bg-[hsl(var(--surface-lowest))]/90 p-4 md:col-span-2">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
                     <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                      Business setup preview
+                      Retail setup preview
                     </div>
                     <div className="text-base font-semibold">What launches with this account</div>
                     <p className="max-w-xl text-sm text-muted-foreground">
                       We&apos;ll use these defaults to prepare your first dashboard, storefront tax
-                      behavior, and operational workspace.
+                      behavior, and retail operations workspace.
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
                       <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                        Business
+                        Store
                       </div>
                       <div className="mt-1 font-medium">
-                        {form.watch("businessName") || "Your business name"}
+                        {form.watch("businessName") || "Your store name"}
                       </div>
                     </div>
                     <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
@@ -305,7 +302,7 @@ export function SignUpForm() {
               <div className="space-y-2 md:col-span-2">
                 <h2 className="text-lg font-semibold">Location and default tax</h2>
                 <p className="text-sm text-muted-foreground">
-                  Add the first business location and the default tax rule for new sales.
+                  Add the first store location and the default tax rule for new sales.
                 </p>
               </div>
               <div className="rounded-[24px] border border-primary/12 bg-primary/[0.05] p-4 md:col-span-2">
@@ -315,7 +312,7 @@ export function SignUpForm() {
                       Launch snapshot
                     </div>
                     <div className="text-base font-semibold">
-                      Your first store opens with these defaults
+                      Your first retail location opens with these defaults
                     </div>
                     <p className="text-sm text-muted-foreground">
                       This location becomes your primary operating space for checkout, staff
@@ -429,7 +426,7 @@ export function SignUpForm() {
                       Configure next after launch
                     </div>
                     <div className="mt-1 text-base font-semibold">
-                      Finish the business profile without blocking account creation
+                      Finish the store profile without blocking account creation
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -484,7 +481,9 @@ export function SignUpForm() {
               </Button>
             ) : (
               <Button className="flex-1" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Creating business..." : "Create business"}
+                {form.formState.isSubmitting
+                  ? "Creating retail account..."
+                  : "Create retail account"}
               </Button>
             )}
           </div>

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { Route } from "next";
 import { ArrowRight, Building2, ShoppingCart, TrendingUp, Users } from "lucide-react";
 
+import { AdminEmailSmokeTestCard } from "@/components/admin/admin-email-smoke-test-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentSession } from "@/lib/auth/session";
+import { EMAIL_SMOKE_TEST_TEMPLATES } from "@/lib/auth/mailer";
 import { getPlatformMetrics, getPlatformSystemHealth } from "@/lib/services/platform-service";
 
 export const metadata: Metadata = {
@@ -14,6 +16,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
+  const session = await getCurrentSession();
   const [metrics, systemHealth] = await Promise.all([
     getPlatformMetrics(),
     getPlatformSystemHealth(),
@@ -47,10 +50,11 @@ export default async function AdminDashboard() {
   ] as const;
 
   const quickLinks = [
-    { href: "/admin/businesses" as Route, label: "Manage Businesses" },
-    { href: "/admin/users" as Route, label: "Manage Users" },
-    { href: "/admin/disputes" as Route, label: "Open Disputes" },
-    { href: "/admin/announcements" as Route, label: "Announcements" },
+    { href: "/admin/businesses", label: "Manage Businesses" },
+    { href: "/admin/supplier-requests", label: "Supplier Requests" },
+    { href: "/admin/users", label: "Manage Users" },
+    { href: "/admin/disputes", label: "Open Disputes" },
+    { href: "/admin/announcements", label: "Announcements" },
   ] as const;
 
   function getHealthBadgeClass(status: "healthy" | "error" | "degraded") {
@@ -137,6 +141,11 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <AdminEmailSmokeTestCard
+        templates={EMAIL_SMOKE_TEST_TEMPLATES}
+        defaultRecipient={session?.user.email ?? "admin@human-pulse.com"}
+      />
     </div>
   );
 }

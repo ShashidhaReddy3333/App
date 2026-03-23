@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 
 import { SearchFilter } from "@/components/search-filter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export function SalesList({ items }: { items: SalesListItem[] }) {
             </p>
           ) : null}
           {filtered.map((sale, index) => (
-            <Link key={sale.id} href={`/app/sales/${sale.id}`}>
+            <Link key={sale.id} href={`/sales/${sale.id}` as Route}>
               <Card
                 className={`gradient-panel transition-all duration-200 hover:border-primary/40 hover:shadow-md animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}
               >

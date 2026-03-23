@@ -235,6 +235,19 @@ export async function listPlatformBusinesses(options?: { page?: number; limit?: 
   };
 }
 
+export async function listPlatformApprovalBusinesses() {
+  return db.business.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      businessName: true,
+      primaryCountry: true,
+      businessType: true,
+    },
+    orderBy: [{ businessName: "asc" }],
+  });
+}
+
 async function checkDatabaseHealth(): Promise<PlatformSystemHealthCheck> {
   try {
     await db.$queryRaw`SELECT 1`;

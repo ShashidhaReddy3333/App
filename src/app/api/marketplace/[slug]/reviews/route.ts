@@ -1,18 +1,14 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
+
 import { apiError, apiSuccess } from "@/lib/http";
 import { getCurrentSession } from "@/lib/auth/session";
-import { unauthorizedError } from "@/lib/errors";
+import { notFoundError, unauthorizedError } from "@/lib/errors";
 import { listReviews, submitReview, submitReviewSchema } from "@/lib/services/marketplace-service";
 import { db } from "@/lib/db";
-import { notFoundError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
     const { searchParams } = new URL(req.url);
@@ -29,10 +25,7 @@ export async function GET(
   }
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ slug: string }> }
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const session = await getCurrentSession();
     if (!session) throw unauthorizedError();

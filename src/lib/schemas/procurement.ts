@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const supplierProductSchema = z.object({
+  supplierId: z.string().optional().or(z.literal("")),
   name: z.string().min(2).max(100),
   description: z.string().max(240).optional().or(z.literal("")),
   mappedProductId: z.string().optional().or(z.literal("")),

@@ -136,14 +136,30 @@ export async function listCatalogData(
 
 export async function createSupplier(actorUserId: string, businessId: string, input: unknown) {
   const values = supplierSchema.parse(input);
+  const normalizedEmail = values.email?.trim().toLowerCase() || null;
 
   return db.$transaction(async (tx) => {
+    const supplierOrganization = normalizedEmail
+      ? ((await tx.supplierOrganization.findFirst({
+          where: { email: normalizedEmail },
+        })) ??
+        (await tx.supplierOrganization.create({
+          data: {
+            name: values.name,
+            email: normalizedEmail,
+            phone: values.phone || null,
+            notes: values.notes || null,
+          },
+        })))
+      : null;
+
     const supplier = await tx.supplier.create({
       data: {
         businessId,
+        organizationId: supplierOrganization?.id ?? null,
         name: values.name,
         contactName: values.contactName || null,
-        email: values.email || null,
+        email: normalizedEmail,
         phone: values.phone || null,
         notes: values.notes || null,
       },

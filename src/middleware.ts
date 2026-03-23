@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
+import { logLegacyCompatibilityHit } from "@/lib/legacy-compat";
 import {
   getPortalAbsoluteUrl,
   getPortalLegacyRedirectForMainHost,
@@ -9,7 +10,6 @@ import {
   isPortalAllowedPath,
   normalizePortal,
   resolvePortalLegacyRedirect,
-  resolvePortalLegacyRewrite,
   resolvePortalPublicRewrite,
 } from "@/lib/portal";
 import { getRequestOrigin, isAllowedRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
@@ -152,14 +152,39 @@ export function middleware(request: NextRequest) {
   requestHeaders.set("x-pathname", pathname);
   requestHeaders.set("x-portal-origin", origin);
 
+  if (!pathname.startsWith("/api") && pathname.includes(".")) {
+    return continueRequest(requestHeaders, requestId, subdomain);
+  }
+
+  if (pathname.startsWith("/portal") || pathname.startsWith("/_surfaces")) {
+    return redirectRequest("/", request, requestId, subdomain);
+  }
+
   const samePortalLegacyRedirect =
     portal !== "main" ? resolvePortalLegacyRedirect(portal, pathname) : null;
   if (samePortalLegacyRedirect) {
+    logLegacyCompatibilityHit("legacy_portal_redirect_hit", {
+      source: "same_portal_legacy_redirect",
+      portal,
+      pathname,
+      targetPath: samePortalLegacyRedirect,
+      host,
+      requestId,
+    });
     return redirectRequest(samePortalLegacyRedirect, request, requestId, subdomain);
   }
 
   const mainHostRedirect = getPortalLegacyRedirectForMainHost(pathname);
   if (mainHostRedirect) {
+    logLegacyCompatibilityHit("legacy_portal_redirect_hit", {
+      source: "main_host_legacy_redirect",
+      currentPortal: portal,
+      pathname,
+      targetPortal: mainHostRedirect.portal,
+      targetPath: mainHostRedirect.path,
+      host,
+      requestId,
+    });
     if (portal === "main" || mainHostRedirect.portal !== portal) {
       return redirectAbsoluteRequest(
         getPortalAbsoluteUrl(mainHostRedirect.portal, mainHostRedirect.path, origin),
@@ -169,24 +194,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (portal !== "main") {
-    const publicRewrite = resolvePortalPublicRewrite(portal, pathname);
-    if (publicRewrite) {
-      return rewriteRequest(request, requestHeaders, publicRewrite, requestId, subdomain);
-    }
+  const publicRewrite = resolvePortalPublicRewrite(portal, pathname);
+  if (publicRewrite) {
+    return rewriteRequest(request, requestHeaders, publicRewrite, requestId, subdomain);
+  }
 
-    const legacyRewrite = resolvePortalLegacyRewrite(portal, pathname);
-    if (legacyRewrite) {
-      return rewriteRequest(request, requestHeaders, legacyRewrite, requestId, subdomain);
-    }
-
-    if (pathname.startsWith("/api")) {
-      if (!isPortalAllowedApiPath(portal, pathname)) {
-        return redirectRequest("/", request, requestId, subdomain);
-      }
-    } else if (!pathname.startsWith("/_surfaces") && !isPortalAllowedPath(portal, pathname)) {
+  if (pathname.startsWith("/api")) {
+    if (!isPortalAllowedApiPath(portal, pathname)) {
       return redirectRequest("/", request, requestId, subdomain);
     }
+  } else if (!isPortalAllowedPath(portal, pathname)) {
+    return redirectRequest("/", request, requestId, subdomain);
   }
 
   const method = request.method.toUpperCase();

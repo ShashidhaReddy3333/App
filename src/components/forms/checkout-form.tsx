@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -105,7 +106,7 @@ export function CheckoutForm({
         body: JSON.stringify(values),
       });
       toast.success("Cart reserved and ready for payment.");
-      router.push(`/app/checkout?saleId=${payload.sale.id}`);
+      router.push(`/checkout?saleId=${payload.sale.id}` as Route);
       router.refresh();
     } catch (error) {
       if (error instanceof ApiClientError) {

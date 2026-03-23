@@ -19,7 +19,7 @@ export default async function AdminBusinessesPage({
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
-  const { businesses, total, limit, totalPages } = await listPlatformBusinesses({
+  const { businesses, total, totalPages } = await listPlatformBusinesses({
     page,
     limit: 25,
   });

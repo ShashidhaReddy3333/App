@@ -18,40 +18,38 @@ type SearchDataProps<T> = {
   children: (filteredData: T[]) => ReactNode;
 };
 
-export function SearchFilter<T>(props: SearchQueryProps | SearchDataProps<T>) {
-  if ("data" in props) {
-    const { children, data, placeholder, searchKey } = props;
-    const [query, setQuery] = useState("");
-    const filtered = useMemo(() => {
-      if (!query.trim()) {
-        return data;
-      }
+function SearchDataFilter<T>({ children, data, placeholder, searchKey }: SearchDataProps<T>) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    if (!query.trim()) {
+      return data;
+    }
 
-      const lower = query.toLowerCase();
-      return data.filter((item) => {
-        const value = item[searchKey];
-        return typeof value === "string" && value.toLowerCase().includes(lower);
-      });
-    }, [data, query, searchKey]);
+    const lower = query.toLowerCase();
+    return data.filter((item) => {
+      const value = item[searchKey];
+      return typeof value === "string" && value.toLowerCase().includes(lower);
+    });
+  }, [data, query, searchKey]);
 
-    return (
-      <div className="space-y-4">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
-          <Input
-            placeholder={placeholder}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="w-full max-w-sm rounded-xl border border-border bg-white py-2 pl-9 pr-4 text-sm transition-shadow focus-visible:ring-2 focus-visible:ring-primary/20"
-            aria-label={placeholder}
-          />
-        </div>
-        {children(filtered)}
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
+        <Input
+          placeholder={placeholder}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className="w-full max-w-sm rounded-xl border border-border bg-white py-2 pl-9 pr-4 text-sm transition-shadow focus-visible:ring-2 focus-visible:ring-primary/20"
+          aria-label={placeholder}
+        />
       </div>
-    );
-  }
+      {children(filtered)}
+    </div>
+  );
+}
 
-  const { placeholder = "Search...", paramName = "q" } = props;
+function SearchQueryFilter({ placeholder = "Search...", paramName = "q" }: SearchQueryProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -86,4 +84,12 @@ export function SearchFilter<T>(props: SearchQueryProps | SearchDataProps<T>) {
       />
     </div>
   );
+}
+
+export function SearchFilter<T>(props: SearchQueryProps | SearchDataProps<T>) {
+  if ("data" in props) {
+    return <SearchDataFilter {...props} />;
+  }
+
+  return <SearchQueryFilter {...props} />;
 }

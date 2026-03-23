@@ -137,7 +137,7 @@ const groupLabels: Record<string, string> = {
   admin: "Administration",
 };
 
-export function AppShell({
+export function RetailShell({
   role,
   businessName,
   userName,
@@ -277,3 +277,5 @@ export function AppShell({
     </div>
   );
 }
+
+export const AppShell = RetailShell;

@@ -3,7 +3,7 @@ import { PaymentStatus, Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { priceCheckout } from "@/lib/domain/pricing";
-import { conflictError, notFoundError, validationError } from "@/lib/errors";
+import { notFoundError, validationError } from "@/lib/errors";
 import { resolvePreferredLocationId } from "@/lib/location-preferences";
 import { roundMoney, toDecimal } from "@/lib/money";
 import {
