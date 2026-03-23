@@ -177,7 +177,7 @@ export function middleware(request: NextRequest) {
     return redirectRequest(samePortalLegacyRedirect, request, requestId, subdomain);
   }
 
-  const mainHostRedirect = getPortalLegacyRedirectForMainHost(pathname);
+  const mainHostRedirect = getPortalLegacyRedirectForMainHost(pathname, portal);
   if (mainHostRedirect) {
     logLegacyCompatibilityHit("legacy_portal_redirect_hit", {
       source: "main_host_legacy_redirect",
@@ -188,13 +188,11 @@ export function middleware(request: NextRequest) {
       host,
       requestId,
     });
-    if (portal === "main" || mainHostRedirect.portal !== portal) {
-      return redirectAbsoluteRequest(
-        getPortalAbsoluteUrl(mainHostRedirect.portal, mainHostRedirect.path, origin),
-        requestId,
-        subdomain
-      );
-    }
+    return redirectAbsoluteRequest(
+      getPortalAbsoluteUrl(mainHostRedirect.portal, mainHostRedirect.path, origin),
+      requestId,
+      subdomain
+    );
   }
 
   const publicRewrite = resolvePortalPublicRewrite(portal, pathname);

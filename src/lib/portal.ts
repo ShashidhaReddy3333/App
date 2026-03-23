@@ -605,7 +605,11 @@ export function isPortalAllowedApiPath(portal: Portal, pathname: string) {
   );
 }
 
-export function getPortalLegacyRedirectForMainHost(pathname: string) {
+export function getPortalLegacyRedirectForMainHost(pathname: string, portal: Portal = "main") {
+  if (portal !== "main") {
+    return null;
+  }
+
   if (pathname === "/sign-up" || pathname === "/accept-invite") {
     return { portal: "retail" as const, path: pathname };
   }
