@@ -6,6 +6,7 @@ const STEPS = [
   { name: "Prisma migration status", command: "corepack pnpm prisma:migrate:status" },
   { name: "Lint", command: "corepack pnpm lint" },
   { name: "Typecheck", command: "corepack pnpm typecheck" },
+  { name: "Unit tests", command: "corepack pnpm test:unit" },
   { name: "Production build", command: "corepack pnpm build" },
   { name: "Integrity report", command: "corepack pnpm ops:check-data:json" },
 ];

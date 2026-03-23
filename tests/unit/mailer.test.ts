@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildEmailSmokeTestMessage,
   buildPasswordResetLink,
   buildStaffInviteLink,
   sendPasswordResetEmail,
@@ -60,5 +61,14 @@ describe("auth mailer", () => {
     expect(body.html).toContain(
       "https://retail.app.example.com/reset-password?email=owner%40example.com&token=token-123"
     );
+  });
+
+  it("builds supplier rejection smoke test content with the supply portal link", () => {
+    const message = buildEmailSmokeTestMessage("supplier@example.com", "supplier-rejection");
+
+    expect(message.subject).toBe("Smoke Test: Supplier rejection");
+    expect(message.html).toContain("Sample rejection reason for launch verification.");
+    expect(message.html).toContain("https://supply.app.example.com/sign-up");
+    expect(message.text).toContain("https://supply.app.example.com/sign-up");
   });
 });
