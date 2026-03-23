@@ -120,7 +120,10 @@ export class RedisRateLimitUnavailableError extends Error {
 }
 
 export function isInMemoryRateLimitFallbackAllowed() {
-  return process.env.NODE_ENV !== "production";
+  // Degraded in-memory limiting is safer than blocking customer-facing flows
+  // entirely when Redis is unavailable. Runtime checks still flag missing
+  // Redis so production deployments surface the configuration gap.
+  return true;
 }
 
 function getPresetRatelimiters(): Record<RateLimitPreset, Ratelimit> | null {

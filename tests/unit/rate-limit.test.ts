@@ -81,13 +81,17 @@ describe("getRateLimitIdentifier", () => {
 });
 
 describe("withRateLimit", () => {
+  const originalEnv = { ...process.env };
+
   beforeEach(() => {
     _resetStoreForTesting();
     vi.useFakeTimers();
+    process.env = { ...originalEnv };
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    process.env = { ...originalEnv };
   });
 
   function makeRequest(options: { method?: string; ip?: string; url?: string } = {}): Request {
@@ -133,5 +137,19 @@ describe("withRateLimit", () => {
     expect(response.headers.get("X-RateLimit-Limit")).toBe("1");
     expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
     expect(response.headers.get("X-RateLimit-Reset")).toBeTruthy();
+  });
+
+  it("falls back to in-memory limiting even when NODE_ENV=production", async () => {
+    process.env = { ...process.env, NODE_ENV: "production" };
+
+    const handler = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    const wrapped = withRateLimit(handler, { limit: 1, windowMs: 60_000 });
+
+    const firstResponse = await wrapped(makeRequest({ ip: "9.9.9.9" }));
+    const secondResponse = await wrapped(makeRequest({ ip: "9.9.9.9" }));
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(429);
+    expect(handler).toHaveBeenCalledOnce();
   });
 });
