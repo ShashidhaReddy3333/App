@@ -5,7 +5,7 @@ export const supplierSchema = z.object({
   contactName: z.string().max(120).optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().max(20).optional().or(z.literal("")),
-  notes: z.string().max(500).optional().or(z.literal(""))
+  notes: z.string().max(500).optional().or(z.literal("")),
 });
 
 export const productSchema = z.object({
@@ -21,7 +21,7 @@ export const productSchema = z.object({
   taxCategory: z.string().max(60).optional().or(z.literal("")),
   parLevel: z.coerce.number().min(0),
   openingStock: z.coerce.number().min(0),
-  allowOversell: z.boolean().optional().default(false)
+  allowOversell: z.boolean().optional().default(false),
 });
 
 export const inventoryAdjustmentSchema = z.object({
@@ -29,5 +29,24 @@ export const inventoryAdjustmentSchema = z.object({
   productId: z.string().min(1),
   quantityDelta: z.coerce.number().refine((value) => value !== 0, "Quantity delta cannot be zero."),
   reason: z.string().min(2).max(120),
-  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID")
+  idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID"),
 });
+
+export const inventoryTransferSchema = z
+  .object({
+    productId: z.string().min(1),
+    sourceLocationId: z.string().min(1),
+    destinationLocationId: z.string().min(1),
+    quantity: z.coerce.number().positive(),
+    reason: z.string().min(2).max(120),
+    idempotencyKey: z.string().min(36, "Idempotency key must be a valid UUID"),
+  })
+  .superRefine((value, context) => {
+    if (value.sourceLocationId === value.destinationLocationId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["destinationLocationId"],
+        message: "Choose a different destination location.",
+      });
+    }
+  });

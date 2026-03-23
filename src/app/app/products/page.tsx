@@ -1,64 +1,43 @@
-import { ExportButton } from "@/components/export-button";
-import { ProductForm } from "@/components/forms/product-form";
-import { InventoryAdjustmentForm } from "@/components/forms/inventory-adjustment-form";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { PageHeader } from "@/components/page-header";
-import { ProductsTable } from "@/components/products-table";
-import { EmptyState } from "@/components/state-card";
+import { ProductsWorkspace } from "@/components/products-workspace";
 import { requirePermission } from "@/lib/auth/guards";
+import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
+import { getBusinessLocationContext } from "@/lib/server/location-context";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
 import { toProductOptions, toProductTableRows, toSupplierOptions } from "@/lib/view-models/app";
 
 export default async function ProductsPage() {
   const session = await requirePermission("products");
-  const data = await listCatalogData(session.user.businessId!);
+  const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
+  const data = await listCatalogData(session.user.businessId!, { locationId: location.id });
   const rows = toProductTableRows(data.products);
   const supplierOptions = toSupplierOptions(data.suppliers);
   const productOptions = toProductOptions(data.products);
-
-  const exportHeaders = [
-    "Name",
-    "SKU",
-    "Category",
-    "Supplier",
-    "Selling Price",
-    "Available Qty",
-    "Reorder Qty",
-  ];
-  const exportRows = rows.map((row: (typeof rows)[number]) => [
-    row.name,
-    row.sku,
-    row.category ?? "",
-    row.supplierName,
-    row.sellingPrice,
-    row.availableQuantity,
-    row.reorderQuantity,
-  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Products"
-        description="Manage the product catalog, opening stock, and inventory adjustments from one workspace."
+        description={`Manage the product catalog, opening stock, inventory adjustments, and transfers for ${location.name}.`}
         breadcrumbs={[{ label: "Products" }]}
-        actions={<ExportButton filename="products.csv" headers={exportHeaders} rows={exportRows} />}
+        actions={
+          <LocationSwitcher
+            label="Catalog location"
+            cookieName={ACTIVE_BUSINESS_LOCATION_COOKIE}
+            locations={locations}
+            value={location.id}
+          />
+        }
       />
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-6 animate-fade-in-up stagger-1">
-          {rows.length === 0 ? (
-            <EmptyState
-              illustration="inventory"
-              title="No products yet"
-              description="Create the first product on the right to begin tracking inventory and checkout availability."
-            />
-          ) : (
-            <ProductsTable data={rows} />
-          )}
-        </div>
-        <div className="space-y-6 animate-fade-in-up stagger-2">
-          <ProductForm locationId={data.location.id} suppliers={supplierOptions} />
-          <InventoryAdjustmentForm locationId={data.location.id} products={productOptions} />
-        </div>
-      </div>
+      <ProductsWorkspace
+        locationId={data.location.id}
+        locationName={data.location.name}
+        locations={locations.map((entry) => ({ id: entry.id, name: entry.name }))}
+        rows={rows}
+        supplierOptions={supplierOptions}
+        productOptions={productOptions}
+      />
     </div>
   );
 }

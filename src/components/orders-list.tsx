@@ -1,6 +1,6 @@
 "use client";
 
-import { CancelOrderButton } from "@/components/cancel-order-button";
+import { OrderStatusActions } from "@/components/order-status-actions";
 import { SearchFilter } from "@/components/search-filter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
@@ -14,6 +14,7 @@ type OrderItem = {
   totalAmount: string;
   itemsSummary: string;
   canCancel?: boolean;
+  nextStatuses?: string[];
 };
 
 export function OrdersList({ orders }: { orders: OrderItem[] }) {
@@ -63,11 +64,11 @@ export function OrdersList({ orders }: { orders: OrderItem[] }) {
                 <div className="rounded-xl border border-border/60 bg-white/60 p-3 text-sm text-muted-foreground">
                   {order.itemsSummary}
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-3">
-                  {order.canCancel ? (
-                    <CancelOrderButton endpoint={`/api/orders/${order.id}/cancel`} />
-                  ) : null}
-                </div>
+                <OrderStatusActions
+                  orderId={order.id}
+                  nextStatuses={order.nextStatuses ?? []}
+                  canCancel={order.canCancel}
+                />
               </CardContent>
             </Card>
           ))}

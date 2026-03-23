@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { PurchaseOrderForm } from "@/components/forms/purchase-order-form";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { PageHeader } from "@/components/page-header";
 import { ReceivePurchaseOrderButton } from "@/components/receive-purchase-order-button";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
+import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
+import { getBusinessLocationContext } from "@/lib/server/location-context";
 import { listProcurementData } from "@/lib/services/procurement-query-service";
 
 export const metadata: Metadata = {
@@ -14,18 +17,28 @@ export const metadata: Metadata = {
 
 export default async function ProcurementPage() {
   const session = await requirePermission("procurement");
-  const data = await listProcurementData(session.user.businessId!);
+  const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
+  const data = await listProcurementData(session.user.businessId!, location.id);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Procurement"
-        description="Compare supplier offers, issue purchase orders, and receive wholesale stock into store inventory."
+        description={`Compare supplier offers, issue purchase orders, and receive wholesale stock into ${location.name}.`}
         breadcrumbs={[{ label: "Procurement" }]}
+        actions={
+          <LocationSwitcher
+            label="Receive into"
+            cookieName={ACTIVE_BUSINESS_LOCATION_COOKIE}
+            locations={locations}
+            value={location.id}
+          />
+        }
       />
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div>
           <PurchaseOrderForm
+            key={data.location.id}
             locationId={data.location.id}
             suppliers={data.suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name }))}
             supplierProducts={data.supplierProducts.map((product) => ({

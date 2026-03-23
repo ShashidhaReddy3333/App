@@ -5,32 +5,43 @@ import { db } from "@/lib/db";
 import { computeAvailableQuantity, computeReorderQuantity } from "@/lib/domain/inventory";
 import { notFoundError, validationError } from "@/lib/errors";
 import { toDecimal } from "@/lib/money";
-import { inventoryAdjustmentSchema, productSchema, supplierSchema } from "@/lib/schemas/catalog";
+import {
+  inventoryAdjustmentSchema,
+  inventoryTransferSchema,
+  productSchema,
+  supplierSchema,
+} from "@/lib/schemas/catalog";
 import {
   createIdempotencyRecord,
+  ensureInventoryBalance,
   ensureSupplierOwnership,
   getOwnedLocation,
   getOwnedProduct,
 } from "@/lib/services/command-helpers";
-import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
+import {
+  findIdempotentResult,
+  listBusinessLocations,
+  resolveBusinessLocation,
+} from "@/lib/services/platform-service";
 
 export async function listCatalogData(
   businessId: string,
-  options?: { page?: number; pageSize?: number }
+  options?: { page?: number; pageSize?: number; locationId?: string }
 ) {
-  const location = await getDefaultLocation(businessId);
+  const location = await resolveBusinessLocation(businessId, options?.locationId);
   const where = { businessId, isArchived: false };
   const suppliersPromise = db.supplier.findMany({
     where: { businessId },
     orderBy: { name: "asc" },
   });
+  const locationsPromise = listBusinessLocations(businessId);
 
   if (typeof options?.page === "number" || typeof options?.pageSize === "number") {
     const page = Math.max(1, options?.page ?? 1);
     const pageSize = Math.max(1, options?.pageSize ?? 20);
     const skip = (page - 1) * pageSize;
 
-    const [products, totalCount, allProducts, suppliers] = await Promise.all([
+    const [products, totalCount, allProducts, suppliers, locations] = await Promise.all([
       db.product.findMany({
         where,
         include: {
@@ -55,10 +66,12 @@ export async function listCatalogData(
         orderBy: { createdAt: "desc" },
       }),
       suppliersPromise,
+      locationsPromise,
     ]);
 
     return {
       location,
+      locations,
       products: products.map((product) => {
         const balance = product.inventoryBalances[0];
         const availableQuantity = balance ? Number(balance.availableQuantity) : 0;
@@ -84,7 +97,7 @@ export async function listCatalogData(
     };
   }
 
-  const [products, suppliers] = await Promise.all([
+  const [products, suppliers, locations] = await Promise.all([
     db.product.findMany({
       where,
       include: {
@@ -96,6 +109,7 @@ export async function listCatalogData(
       orderBy: { createdAt: "desc" },
     }),
     suppliersPromise,
+    locationsPromise,
   ]);
 
   const mappedProducts = products.map((product) => {
@@ -110,6 +124,7 @@ export async function listCatalogData(
 
   return {
     location,
+    locations,
     products: mappedProducts,
     allProducts: mappedProducts,
     suppliers,
@@ -241,13 +256,9 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
   const result = await db.$transaction(async (tx) => {
     const product = await getOwnedProduct(tx, businessId, values.productId);
     await getOwnedLocation(tx, businessId, values.locationId);
-    const balance = await tx.inventoryBalance.findUniqueOrThrow({
-      where: {
-        productId_locationId: {
-          productId: values.productId,
-          locationId: values.locationId,
-        },
-      },
+    const balance = await ensureInventoryBalance(tx, {
+      productId: values.productId,
+      locationId: values.locationId,
     });
 
     const nextOnHand = Number(balance.onHandQuantity) + values.quantityDelta;
@@ -319,12 +330,145 @@ export async function adjustInventory(actorUserId: string, businessId: string, i
   return result;
 }
 
+export async function transferInventory(actorUserId: string, businessId: string, input: unknown) {
+  const values = inventoryTransferSchema.parse(input);
+  const existing = await findIdempotentResult(
+    businessId,
+    "inventory_transfer",
+    values.idempotencyKey
+  );
+  if (existing) {
+    return {
+      id: existing.resourceId,
+      productId: values.productId,
+      sourceLocationId: values.sourceLocationId,
+      destinationLocationId: values.destinationLocationId,
+      quantity: values.quantity,
+    };
+  }
+
+  return db.$transaction(
+    async (tx) => {
+      await getOwnedProduct(tx, businessId, values.productId);
+      await getOwnedLocation(tx, businessId, values.sourceLocationId);
+      await getOwnedLocation(tx, businessId, values.destinationLocationId);
+
+      const sourceBalance = await ensureInventoryBalance(tx, {
+        productId: values.productId,
+        locationId: values.sourceLocationId,
+      });
+      const destinationBalance = await ensureInventoryBalance(tx, {
+        productId: values.productId,
+        locationId: values.destinationLocationId,
+      });
+
+      if (Number(sourceBalance.availableQuantity) < values.quantity) {
+        throw validationError("Transfer quantity exceeds available stock at the source location.", {
+          fieldErrors: {
+            quantity: ["Transfer quantity exceeds available stock at the source location."],
+          },
+        });
+      }
+
+      const referenceId = crypto.randomUUID();
+      const nextSourceOnHand = Number(sourceBalance.onHandQuantity) - values.quantity;
+      const nextDestinationOnHand = Number(destinationBalance.onHandQuantity) + values.quantity;
+
+      await tx.inventoryBalance.update({
+        where: {
+          productId_locationId: {
+            productId: values.productId,
+            locationId: values.sourceLocationId,
+          },
+        },
+        data: {
+          onHandQuantity: toDecimal(nextSourceOnHand),
+          availableQuantity: toDecimal(Number(sourceBalance.availableQuantity) - values.quantity),
+          versionNumber: { increment: 1 },
+        },
+      });
+
+      await tx.inventoryBalance.update({
+        where: {
+          productId_locationId: {
+            productId: values.productId,
+            locationId: values.destinationLocationId,
+          },
+        },
+        data: {
+          onHandQuantity: toDecimal(nextDestinationOnHand),
+          availableQuantity: toDecimal(
+            Number(destinationBalance.availableQuantity) + values.quantity
+          ),
+          versionNumber: { increment: 1 },
+        },
+      });
+
+      await tx.inventoryMovement.createMany({
+        data: [
+          {
+            productId: values.productId,
+            locationId: values.sourceLocationId,
+            movementType: InventoryMovementType.transfer_out,
+            quantityDelta: toDecimal(-values.quantity),
+            referenceType: "inventory_transfer",
+            referenceId,
+            reason: values.reason,
+            createdById: actorUserId,
+          },
+          {
+            productId: values.productId,
+            locationId: values.destinationLocationId,
+            movementType: InventoryMovementType.transfer_in,
+            quantityDelta: toDecimal(values.quantity),
+            referenceType: "inventory_transfer",
+            referenceId,
+            reason: values.reason,
+            createdById: actorUserId,
+          },
+        ],
+      });
+
+      await createIdempotencyRecord(
+        tx,
+        businessId,
+        "inventory_transfer",
+        values.idempotencyKey,
+        "inventory_transfer",
+        referenceId
+      );
+
+      await logAudit({
+        tx,
+        businessId,
+        actorUserId,
+        action: "inventory_transferred",
+        resourceType: "inventory_transfer",
+        resourceId: referenceId,
+        metadata: {
+          productId: values.productId,
+          sourceLocationId: values.sourceLocationId,
+          destinationLocationId: values.destinationLocationId,
+          quantity: values.quantity,
+        },
+      });
+
+      return {
+        id: referenceId,
+        productId: values.productId,
+        sourceLocationId: values.sourceLocationId,
+        destinationLocationId: values.destinationLocationId,
+        quantity: values.quantity,
+      };
+    },
+    {
+      isolationLevel: "Serializable",
+    }
+  );
+}
+
 export async function listReorderItems(businessId: string, locationId?: string) {
-  const location = locationId
-    ? await db.location.findFirstOrThrow({
-        where: { id: locationId, businessId },
-      })
-    : await getDefaultLocation(businessId);
+  const location = await resolveBusinessLocation(businessId, locationId);
 
   if (!location) {
     throw notFoundError("Location not found for this business.");

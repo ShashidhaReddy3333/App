@@ -1,6 +1,9 @@
+import { Prisma } from "@prisma/client";
+
+import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { notFoundError } from "@/lib/errors";
+import { conflictError, notFoundError } from "@/lib/errors";
 import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
 
 export type PlatformSystemHealthCheck = {
@@ -10,16 +13,152 @@ export type PlatformSystemHealthCheck = {
 };
 
 export async function getDefaultLocation(businessId: string) {
-  const location = await db.location.findFirst({
-    where: { businessId, isActive: true },
-    orderBy: { createdAt: "asc" },
+  return resolveBusinessLocation(businessId);
+}
+
+export async function listBusinessLocations(
+  businessId: string,
+  options?: { includeInactive?: boolean }
+) {
+  return db.location.findMany({
+    where: {
+      businessId,
+      ...(options?.includeInactive ? {} : { isActive: true }),
+    },
+    orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
   });
+}
+
+export async function resolveBusinessLocation(businessId: string, locationId?: string | null) {
+  const location = locationId
+    ? await db.location.findFirst({
+        where: { id: locationId, businessId, isActive: true },
+      })
+    : await db.location.findFirst({
+        where: { businessId, isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
 
   if (!location) {
     throw notFoundError("Active location not found.");
   }
 
   return location;
+}
+
+export async function createBusinessLocation(
+  actorUserId: string,
+  businessId: string,
+  input: {
+    name: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    city: string;
+    provinceOrState: string;
+    postalCode: string;
+    country: string;
+    timezone?: string | null;
+  }
+) {
+  return db.$transaction(async (tx) => {
+    const location = await tx.location.create({
+      data: {
+        businessId,
+        name: input.name,
+        addressLine1: input.addressLine1,
+        addressLine2: input.addressLine2 || null,
+        city: input.city,
+        provinceOrState: input.provinceOrState,
+        postalCode: input.postalCode,
+        country: input.country,
+        timezone: input.timezone || null,
+      },
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "location_created",
+      resourceType: "location",
+      resourceId: location.id,
+      metadata: { locationName: location.name },
+    });
+
+    return location;
+  });
+}
+
+export async function updateBusinessLocation(
+  actorUserId: string,
+  businessId: string,
+  input: {
+    locationId: string;
+    name: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    city: string;
+    provinceOrState: string;
+    postalCode: string;
+    country: string;
+    timezone?: string | null;
+    isActive?: boolean;
+  }
+) {
+  return db.$transaction(
+    async (tx) => {
+      const location = await tx.location.findFirst({
+        where: { id: input.locationId, businessId },
+      });
+
+      if (!location) {
+        throw notFoundError("Location not found for this business.");
+      }
+
+      if (input.isActive === false && location.isActive) {
+        const activeCount = await tx.location.count({
+          where: { businessId, isActive: true },
+        });
+
+        if (activeCount <= 1) {
+          throw conflictError("At least one active location is required.");
+        }
+      }
+
+      const updated = await tx.location.update({
+        where: { id: input.locationId },
+        data: {
+          name: input.name,
+          addressLine1: input.addressLine1,
+          addressLine2: input.addressLine2 || null,
+          city: input.city,
+          provinceOrState: input.provinceOrState,
+          postalCode: input.postalCode,
+          country: input.country,
+          timezone: input.timezone || null,
+          ...(typeof input.isActive === "boolean" ? { isActive: input.isActive } : {}),
+        },
+      });
+
+      await logAudit({
+        tx,
+        businessId,
+        actorUserId,
+        action: "location_updated",
+        resourceType: "location",
+        resourceId: updated.id,
+        metadata: {
+          locationName: updated.name,
+          isActive: updated.isActive,
+        } satisfies Prisma.InputJsonValue,
+      });
+
+      return updated;
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    }
+  );
 }
 
 export async function findIdempotentResult(businessId: string, operation: string, key: string) {

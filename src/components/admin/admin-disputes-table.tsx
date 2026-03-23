@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -110,6 +111,9 @@ export function AdminDisputesTable({ disputes }: { disputes: DisputeRow[] }) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="min-w-[240px] space-y-2">
+                    <Button asChild type="button" size="sm" variant="secondary">
+                      <Link href={`/admin/disputes/${dispute.id}`}>Open case</Link>
+                    </Button>
                     {!dispute.assignedAdminName ? (
                       <Button
                         type="button"

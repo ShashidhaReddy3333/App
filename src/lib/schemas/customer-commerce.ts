@@ -3,16 +3,19 @@ import { z } from "zod";
 import { paymentMethods, paymentProviders } from "@/lib/schemas/sales";
 
 export const addCartItemSchema = z.object({
+  locationId: z.string().min(1),
   productId: z.string().min(1),
-  quantity: z.coerce.number().positive()
+  quantity: z.coerce.number().positive(),
 });
 
 export const removeCartItemSchema = z.object({
-  itemId: z.string().min(1)
+  locationId: z.string().min(1),
+  itemId: z.string().min(1),
 });
 
 export const customerCheckoutSchema = z
   .object({
+    locationId: z.string().min(1),
     fulfillmentType: z.enum(["pickup", "delivery"]),
     paymentMethod: z.enum(paymentMethods),
     paymentProvider: z.enum(paymentProviders).optional(),
@@ -26,9 +29,9 @@ export const customerCheckoutSchema = z
         city: z.string().min(2).max(80),
         province: z.string().min(2).max(80),
         postalCode: z.string().min(3).max(20),
-        country: z.string().min(2).max(2)
+        country: z.string().min(2).max(2),
       })
-      .optional()
+      .optional(),
   })
   .superRefine((value, context) => {
     if (value.fulfillmentType !== "delivery") {
@@ -40,7 +43,7 @@ export const customerCheckoutSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["address", "line1"],
-        message: "Delivery address is required for delivery orders"
+        message: "Delivery address is required for delivery orders",
       });
     }
 
@@ -49,7 +52,7 @@ export const customerCheckoutSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["address", "city"],
-        message: "Delivery address is required for delivery orders"
+        message: "Delivery address is required for delivery orders",
       });
     }
 
@@ -58,7 +61,7 @@ export const customerCheckoutSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["address", "postalCode"],
-        message: "Delivery address is required for delivery orders"
+        message: "Delivery address is required for delivery orders",
       });
     }
   });

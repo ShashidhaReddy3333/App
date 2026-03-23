@@ -10,6 +10,7 @@ export const paymentMethods = [
   "store_credit",
 ] as const;
 export const paymentProviders = ["stripe", "square", "manual"] as const;
+export const supportedPaymentProviders = ["stripe", "manual"] as const;
 export const restockActions = [
   "restock_to_sellable",
   "restock_to_damaged",

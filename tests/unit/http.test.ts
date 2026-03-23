@@ -10,13 +10,13 @@ describe("api response helpers", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
       data: { saleId: "sale_123" },
-      message: "Created."
+      message: "Created.",
     });
   });
 
   it("shapes zod validation failures consistently", async () => {
     const schema = z.object({
-      email: z.string().email()
+      email: z.string().email(),
     });
 
     const response = (() => {
@@ -40,7 +40,7 @@ describe("api response helpers", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(payload.message).toBe("Unexpected failure");
+    expect(payload.message).toBe("An unexpected error occurred.");
     expect(payload.code).toBe("UNEXPECTED_ERROR");
   });
 });

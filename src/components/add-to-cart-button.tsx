@@ -9,10 +9,12 @@ import { toast } from "@/components/ui/sonner";
 
 export function AddToCartButton({
   productId,
+  locationId,
   disabled,
-  className
+  className,
 }: {
   productId: string;
+  locationId: string;
   disabled?: boolean;
   className?: string;
 }) {
@@ -25,12 +27,13 @@ export function AddToCartButton({
       await requestJson<{ cartId: string }>("/api/customer/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity: 1 })
+        body: JSON.stringify({ productId, quantity: 1, locationId }),
       });
       toast.success("Added to cart.");
       router.refresh();
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : "Unable to add product to cart.";
+      const message =
+        error instanceof ApiClientError ? error.message : "Unable to add product to cart.";
       toast.error(message);
       if (error instanceof ApiClientError && error.code === "UNAUTHORIZED") {
         window.location.assign("/customer/sign-up");
@@ -41,7 +44,12 @@ export function AddToCartButton({
   }
 
   return (
-    <Button type="button" onClick={addToCart} disabled={disabled || submitting} className={className}>
+    <Button
+      type="button"
+      onClick={addToCart}
+      disabled={disabled || submitting}
+      className={className}
+    >
       {submitting ? "Adding..." : "Add to cart"}
     </Button>
   );

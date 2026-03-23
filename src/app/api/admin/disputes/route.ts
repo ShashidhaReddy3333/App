@@ -121,9 +121,55 @@ export async function PATCH(req: Request) {
       updateData.resolution = data.resolution.trim() || null;
     }
 
-    const updated = await db.platformDispute.update({
-      where: { id: disputeId },
-      data: updateData,
+    const updated = await db.$transaction(async (tx) => {
+      const nextDispute = await tx.platformDispute.update({
+        where: { id: disputeId },
+        data: updateData,
+      });
+
+      const timelineEntries: Array<{
+        eventType: string;
+        visibility: "internal" | "external";
+        body: string;
+      }> = [];
+
+      if (data.assignToMe && dispute.assignedAdminId !== session.user.id) {
+        timelineEntries.push({
+          eventType: "assignment",
+          visibility: "internal",
+          body: `${session.user.fullName} assigned this dispute to themselves.`,
+        });
+      }
+
+      if (data.status && data.status !== dispute.status) {
+        timelineEntries.push({
+          eventType: "status_change",
+          visibility: "internal",
+          body: `Status changed from ${dispute.status} to ${data.status}.`,
+        });
+      }
+
+      if (data.resolution !== undefined && data.resolution.trim()) {
+        timelineEntries.push({
+          eventType: "resolution",
+          visibility: "internal",
+          body: `Resolution updated: ${data.resolution.trim()}`,
+        });
+      }
+
+      for (const entry of timelineEntries) {
+        await tx.platformDisputeEvent.create({
+          data: {
+            disputeId,
+            authorUserId: session.user.id,
+            eventType: entry.eventType,
+            visibility: entry.visibility,
+            body: entry.body,
+          },
+        });
+      }
+
+      return nextDispute;
     });
 
     return apiSuccess({ dispute: updated });

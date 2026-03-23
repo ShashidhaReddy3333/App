@@ -244,6 +244,37 @@ export async function reserveInventory(
   return updated;
 }
 
+export async function ensureInventoryBalance(
+  tx: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    locationId: string;
+  }
+) {
+  const existing = await tx.inventoryBalance.findUnique({
+    where: {
+      productId_locationId: {
+        productId: input.productId,
+        locationId: input.locationId,
+      },
+    },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return tx.inventoryBalance.create({
+    data: {
+      productId: input.productId,
+      locationId: input.locationId,
+      onHandQuantity: toDecimal(0),
+      reservedQuantity: toDecimal(0),
+      availableQuantity: toDecimal(0),
+    },
+  });
+}
+
 export async function releaseReservation(
   tx: Prisma.TransactionClient,
   input: {

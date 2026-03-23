@@ -4,6 +4,8 @@ import { signUpSchema, customerSignUpSchema } from "@/lib/schemas/auth";
 import { productSchema, inventoryAdjustmentSchema } from "@/lib/schemas/catalog";
 import { checkoutItemSchema, checkoutSchema, paymentInputSchema } from "@/lib/schemas/sales";
 
+const validIdempotencyKey = "00000000-0000-4000-8000-000000000001";
+
 describe("auth schema password boundaries", () => {
   const validSignUp = {
     ownerName: "Jane Doe",
@@ -211,7 +213,7 @@ describe("inventory adjustment schema quantity delta boundary", () => {
       productId: "prod_1",
       quantityDelta: 0,
       reason: "Correction",
-      idempotencyKey: "key12345678",
+      idempotencyKey: validIdempotencyKey,
     });
     expect(result.success).toBe(false);
   });
@@ -222,7 +224,7 @@ describe("inventory adjustment schema quantity delta boundary", () => {
       productId: "prod_1",
       quantityDelta: 5,
       reason: "Restock",
-      idempotencyKey: "key12345678",
+      idempotencyKey: validIdempotencyKey,
     });
     expect(result.success).toBe(true);
   });
@@ -233,7 +235,7 @@ describe("inventory adjustment schema quantity delta boundary", () => {
       productId: "prod_1",
       quantityDelta: -3,
       reason: "Damaged",
-      idempotencyKey: "key12345678",
+      idempotencyKey: validIdempotencyKey,
     });
     expect(result.success).toBe(true);
   });

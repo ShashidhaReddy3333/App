@@ -70,7 +70,7 @@ function shiftDateParts(parts: DateParts, dayDelta: number): DateParts {
   return {
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate()
+    day: shifted.getUTCDate(),
   };
 }
 
@@ -78,7 +78,7 @@ function shiftMonth(year: number, month: number, monthDelta: number) {
   const shifted = new Date(Date.UTC(year, month - 1 + monthDelta, 1));
   return {
     year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1
+    month: shifted.getUTCMonth() + 1,
   };
 }
 
@@ -87,7 +87,7 @@ function toZonedDateParts(date: Date, timeZone: string): DateParts {
     timeZone,
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
   });
 
   const parts = Object.fromEntries(
@@ -100,7 +100,7 @@ function toZonedDateParts(date: Date, timeZone: string): DateParts {
   return {
     year: parts.year ?? date.getUTCFullYear(),
     month: parts.month ?? date.getUTCMonth() + 1,
-    day: parts.day ?? date.getUTCDate()
+    day: parts.day ?? date.getUTCDate(),
   };
 }
 
@@ -122,13 +122,16 @@ function toFixedQuantity(value: number) {
   return Number(value.toFixed(3));
 }
 
-export async function getEnhancedDashboardMetrics(businessId: string): Promise<EnhancedDashboardMetrics> {
+export async function getEnhancedDashboardMetrics(
+  businessId: string,
+  locationId?: string
+): Promise<EnhancedDashboardMetrics> {
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
     select: {
       timezone: true,
-      weekStartsOn: true
-    }
+      weekStartsOn: true,
+    },
   });
 
   const { parts: today } = getBusinessDayRange(business.timezone);
@@ -150,7 +153,15 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
 
   const thisMonthStart = zonedDateTimeToUtc(business.timezone, today.year, today.month, 1, 0, 0, 0);
   const previousMonth = shiftMonth(today.year, today.month, -1);
-  const lastMonthStart = zonedDateTimeToUtc(business.timezone, previousMonth.year, previousMonth.month, 1, 0, 0, 0);
+  const lastMonthStart = zonedDateTimeToUtc(
+    business.timezone,
+    previousMonth.year,
+    previousMonth.month,
+    1,
+    0,
+    0,
+    0
+  );
 
   const lastThirtyStart = zonedDateTimeToUtc(
     business.timezone,
@@ -170,61 +181,81 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
     0,
     0
   );
-  const tomorrowStart = zonedDateTimeToUtc(business.timezone, tomorrowParts.year, tomorrowParts.month, tomorrowParts.day, 0, 0, 0);
+  const tomorrowStart = zonedDateTimeToUtc(
+    business.timezone,
+    tomorrowParts.year,
+    tomorrowParts.month,
+    tomorrowParts.day,
+    0,
+    0,
+    0
+  );
 
-  const analyticsSalesStart = new Date(Math.min(lastMonthStart.getTime(), twelveWeekStart.getTime()));
+  const analyticsSalesStart = new Date(
+    Math.min(lastMonthStart.getTime(), twelveWeekStart.getTime())
+  );
 
-  const [completedSales, ordersLastThirtyDays, topCustomerSpend, inventoryBalances, saleItemsLastThirtyDays] = await Promise.all([
+  const [
+    completedSales,
+    ordersLastThirtyDays,
+    topCustomerSpend,
+    inventoryBalances,
+    saleItemsLastThirtyDays,
+  ] = await Promise.all([
     db.sale.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         status: SaleStatus.completed,
         createdAt: {
           gte: analyticsSalesStart,
-          lt: tomorrowStart
-        }
+          lt: tomorrowStart,
+        },
       },
       select: {
         createdAt: true,
-        totalAmount: true
-      }
+        totalAmount: true,
+      },
     }),
     db.order.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         createdAt: {
           gte: lastThirtyStart,
-          lt: tomorrowStart
-        }
+          lt: tomorrowStart,
+        },
       },
       select: {
-        createdAt: true
-      }
+        createdAt: true,
+      },
     }),
     db.order.groupBy({
       by: ["customerId"],
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         customerId: { not: null },
-        status: { not: OrderStatus.cancelled }
+        status: { not: OrderStatus.cancelled },
       },
       _sum: {
-        totalAmount: true
+        totalAmount: true,
       },
       orderBy: {
         _sum: {
-          totalAmount: "desc"
-        }
+          totalAmount: "desc",
+        },
       },
-      take: 5
+      take: 5,
     }),
     db.inventoryBalance.findMany({
       where: {
         location: { businessId },
+        ...(locationId ? { locationId } : {}),
         product: {
           businessId,
-          isArchived: false
-        }
+          isArchived: false,
+        },
       },
       select: {
         onHandQuantity: true,
@@ -233,45 +264,48 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
           select: {
             category: true,
             purchasePrice: true,
-            parLevel: true
-          }
-        }
-      }
+            parLevel: true,
+          },
+        },
+      },
     }),
     db.saleItem.findMany({
       where: {
         sale: {
           businessId,
+          ...(locationId ? { locationId } : {}),
           status: SaleStatus.completed,
           createdAt: {
             gte: lastThirtyStart,
-            lt: tomorrowStart
-          }
-        }
+            lt: tomorrowStart,
+          },
+        },
       },
       select: {
         quantity: true,
         product: {
           select: {
-            category: true
-          }
-        }
-      }
-    })
+            category: true,
+          },
+        },
+      },
+    }),
   ]);
 
-  const customerIds = topCustomerSpend.flatMap((entry) => (entry.customerId ? [entry.customerId] : []));
+  const customerIds = topCustomerSpend.flatMap((entry) =>
+    entry.customerId ? [entry.customerId] : []
+  );
   const topUsers = customerIds.length
     ? await db.user.findMany({
         where: {
           id: {
-            in: customerIds
-          }
+            in: customerIds,
+          },
         },
         select: {
           id: true,
-          fullName: true
-        }
+          fullName: true,
+        },
       })
     : [];
 
@@ -344,10 +378,16 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
 
   for (const saleItem of saleItemsLastThirtyDays) {
     const category = saleItem.product.category || "Uncategorized";
-    categorySoldQuantityMap.set(category, (categorySoldQuantityMap.get(category) ?? 0) + Number(saleItem.quantity));
+    categorySoldQuantityMap.set(
+      category,
+      (categorySoldQuantityMap.get(category) ?? 0) + Number(saleItem.quantity)
+    );
   }
 
-  const allCategories = new Set<string>([...categoryOnHandTotals.keys(), ...categorySoldQuantityMap.keys()]);
+  const allCategories = new Set<string>([
+    ...categoryOnHandTotals.keys(),
+    ...categorySoldQuantityMap.keys(),
+  ]);
 
   const stockTurnoverByCategory = [...allCategories]
     .map((category) => {
@@ -361,34 +401,37 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
         category,
         soldQuantity: toFixedQuantity(soldQuantity),
         averageInventory: toFixedQuantity(averageInventory),
-        turnoverRate: toFixedQuantity(turnoverRate)
+        turnoverRate: toFixedQuantity(turnoverRate),
       };
     })
-    .sort((left, right) => right.soldQuantity - left.soldQuantity || left.category.localeCompare(right.category));
+    .sort(
+      (left, right) =>
+        right.soldQuantity - left.soldQuantity || left.category.localeCompare(right.category)
+    );
 
   return {
     dailyRevenue: dailyDateKeys.map((date) => ({
       date,
-      revenue: roundMoney(dailyRevenueMap.get(date) ?? 0)
+      revenue: roundMoney(dailyRevenueMap.get(date) ?? 0),
     })),
     weeklyRevenue: weeklyDateKeys.map((date) => ({
       date,
-      revenue: roundMoney(weeklyRevenueMap.get(date) ?? 0)
+      revenue: roundMoney(weeklyRevenueMap.get(date) ?? 0),
     })),
     topCustomers: topCustomerSpend.map((entry) => ({
       name: userMap.get(entry.customerId ?? "") ?? "Unknown customer",
-      total: roundMoney(Number(entry._sum.totalAmount ?? 0))
+      total: roundMoney(Number(entry._sum.totalAmount ?? 0)),
     })),
     orderVolumeDaily: dailyDateKeys.map((date) => ({
       date,
-      count: orderCountMap.get(date) ?? 0
+      count: orderCountMap.get(date) ?? 0,
     })),
     totalInventoryValue: roundMoney(totalInventoryValue),
     stockTurnoverByCategory,
     categoryInventory: [...categoryInventoryValueMap.entries()]
       .map(([category, value]) => ({
         category,
-        value: roundMoney(value)
+        value: roundMoney(value),
       }))
       .sort((left, right) => right.value - left.value),
     lowStockCount,
@@ -396,7 +439,7 @@ export async function getEnhancedDashboardMetrics(businessId: string): Promise<E
     revenueComparison: {
       thisMonth: roundMoney(thisMonthRevenue),
       lastMonth: roundMoney(lastMonthRevenue),
-      growthPercentage: toGrowthPercentage(thisMonthRevenue, lastMonthRevenue)
-    }
+      growthPercentage: toGrowthPercentage(thisMonthRevenue, lastMonthRevenue),
+    },
   };
 }

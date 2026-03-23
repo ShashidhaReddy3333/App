@@ -15,12 +15,13 @@ import {
 import {
   allocatePurchaseOrderNumber,
   createIdempotencyRecord,
+  ensureInventoryBalance,
   ensureSupplierOwnership,
   getOwnedLocation,
   getOwnedProduct,
 } from "@/lib/services/command-helpers";
 import { enqueueRoleNotifications } from "@/lib/services/notification-service";
-import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
+import { findIdempotentResult, resolveBusinessLocation } from "@/lib/services/platform-service";
 
 const RECEIVABLE_PURCHASE_ORDER_STATUSES: PurchaseOrderStatus[] = [
   PurchaseOrderStatus.sent,
@@ -202,13 +203,9 @@ async function applyPurchaseOrderReceipt(
       });
     }
 
-    const balance = await tx.inventoryBalance.findUniqueOrThrow({
-      where: {
-        productId_locationId: {
-          productId: item.productId,
-          locationId: purchaseOrder.locationId,
-        },
-      },
+    const balance = await ensureInventoryBalance(tx, {
+      productId: item.productId,
+      locationId: purchaseOrder.locationId,
     });
 
     const nextOnHand = Number(balance.onHandQuantity) + line.receivedQuantity;
@@ -278,8 +275,8 @@ async function applyPurchaseOrderReceipt(
   });
 }
 
-export async function listProcurementData(businessId: string) {
-  const location = await getDefaultLocation(businessId);
+export async function listProcurementData(businessId: string, locationId?: string) {
+  const location = await resolveBusinessLocation(businessId, locationId);
   const [suppliers, supplierProducts, purchaseOrders] = await Promise.all([
     db.supplier.findMany({
       where: { businessId },

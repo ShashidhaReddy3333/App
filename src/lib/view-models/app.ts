@@ -35,6 +35,7 @@ export function toProductTableRows(products: CatalogData["products"]) {
     name: product.name,
     category: product.category,
     sku: product.sku,
+    barcode: product.barcode ?? "",
     sellingPrice: decimalToNumber(product.sellingPrice),
     availableQuantity: product.availableQuantity,
     reorderQuantity: product.reorderQuantity,

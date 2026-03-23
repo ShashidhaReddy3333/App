@@ -9,17 +9,27 @@ export const metadata: Metadata = {
 
 import { CustomerCheckoutForm } from "@/components/forms/customer-checkout-form";
 import { CustomerShell } from "@/components/customer-shell";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { RemoveCartItemButton } from "@/components/remove-cart-item-button";
 import { EmptyState } from "@/components/state-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth/guards";
+import { STOREFRONT_LOCATION_COOKIE } from "@/lib/location-preferences";
 import { decimalToNumber } from "@/lib/money";
-import { getCustomerCart } from "@/lib/services/customer-commerce-query-service";
+import { getStorefrontLocationPreference } from "@/lib/server/location-context";
+import { getCustomerCart, getStorefrontData } from "@/lib/services/customer-commerce-query-service";
 
 export default async function CartPage() {
   const session = await requireRole("customer", "/sign-in");
-  const cart = await getCustomerCart(session.user.id);
+  const requestedLocationId = await getStorefrontLocationPreference();
+  const [cart, storefront] = await Promise.all([
+    getCustomerCart(session.user.id, requestedLocationId),
+    getStorefrontData({
+      customerId: session.user.id,
+      locationId: requestedLocationId,
+    }),
+  ]);
   const total = cart.items.reduce((sum, item) => sum + decimalToNumber(item.totalPrice), 0);
 
   return (
@@ -36,6 +46,14 @@ export default async function CartPage() {
             </p>
           </div>
         </div>
+        {storefront.available ? (
+          <LocationSwitcher
+            label="Cart store"
+            cookieName={STOREFRONT_LOCATION_COOKIE}
+            locations={storefront.locations}
+            value={storefront.location.id}
+          />
+        ) : null}
 
         {cart.items.length === 0 ? (
           <EmptyState
@@ -72,7 +90,7 @@ export default async function CartPage() {
                     <div className="text-lg font-semibold">
                       ${decimalToNumber(item.totalPrice).toFixed(2)}
                     </div>
-                    <RemoveCartItemButton itemId={item.id} />
+                    <RemoveCartItemButton itemId={item.id} locationId={cart.locationId} />
                   </div>
                 </div>
               ))}
@@ -90,7 +108,11 @@ export default async function CartPage() {
                 </div>
               </div>
             </div>
-            <CustomerCheckoutForm cartTotal={total} />
+            <CustomerCheckoutForm
+              cartTotal={total}
+              locationId={cart.locationId}
+              locationName={storefront.available ? storefront.location.name : "Selected store"}
+            />
           </div>
         )}
       </div>

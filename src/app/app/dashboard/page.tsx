@@ -1,8 +1,11 @@
 import { DollarSign, ShoppingBag, Globe, AlertTriangle, Clock, Truck, Boxes } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { EmptyState } from "@/components/state-card";
 import { PageHeader } from "@/components/page-header";
 import { requireAppSession } from "@/lib/auth/guards";
+import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
+import { getBusinessLocationContext } from "@/lib/server/location-context";
 import { getDashboardMetrics } from "@/lib/services/reporting-query-service";
 import { toDashboardCards } from "@/lib/view-models/app";
 
@@ -10,15 +13,24 @@ const cardIcons = [DollarSign, ShoppingBag, Globe, AlertTriangle, Clock, Truck, 
 
 export default async function DashboardPage() {
   const session = await requireAppSession();
-  const metrics = await getDashboardMetrics(session.user.businessId!);
+  const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
+  const metrics = await getDashboardMetrics(session.user.businessId!, location.id);
   const summaryCards = toDashboardCards(metrics);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description={`Welcome back, ${session.user.fullName}. Your live operational metrics are calculated from POS sales, customer web orders, inventory balances, procurement activity, and recent audit events.`}
+        description={`Welcome back, ${session.user.fullName}. Your live operational metrics are calculated from POS sales, customer web orders, inventory balances, procurement activity, and recent audit events for ${location.name}.`}
         breadcrumbs={[{ label: "Dashboard" }]}
+        actions={
+          <LocationSwitcher
+            label="Store view"
+            cookieName={ACTIVE_BUSINESS_LOCATION_COOKIE}
+            locations={locations}
+            value={location.id}
+          />
+        }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {summaryCards.map((card, index) => {
@@ -52,7 +64,9 @@ export default async function DashboardPage() {
               <ShoppingBag className="size-4 text-primary" />
               Top products
             </CardTitle>
-            <CardDescription>Best-selling items for the current business day.</CardDescription>
+            <CardDescription>
+              Best-selling items for the current business day at {location.name}.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {metrics.topSellingProducts.length === 0 ? (
@@ -81,7 +95,7 @@ export default async function DashboardPage() {
               <Clock className="size-4 text-primary" />
               Recent activity
             </CardTitle>
-            <CardDescription>Latest audit events for the business.</CardDescription>
+            <CardDescription>Latest audit events for {location.name}.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {metrics.recentActivity.length === 0 ? (

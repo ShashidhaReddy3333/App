@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { ReorderCreatePoButton } from "@/components/reorder-create-po-button";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/state-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
+import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
+import { getBusinessLocationContext } from "@/lib/server/location-context";
 import { listReorderItems } from "@/lib/services/catalog-query-service";
 
 export const metadata: Metadata = {
@@ -13,14 +16,23 @@ export const metadata: Metadata = {
 
 export default async function ReorderPage() {
   const session = await requirePermission("reorder");
-  const items = await listReorderItems(session.user.businessId!);
+  const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
+  const items = await listReorderItems(session.user.businessId!, location.id);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Reorder list"
-        description="Products appear here when available inventory falls below the configured par level."
+        description={`Products appear here when available inventory at ${location.name} falls below the configured par level.`}
         breadcrumbs={[{ label: "Reorder" }]}
+        actions={
+          <LocationSwitcher
+            label="Inventory view"
+            cookieName={ACTIVE_BUSINESS_LOCATION_COOKIE}
+            locations={locations}
+            value={location.id}
+          />
+        }
       />
       <div className="grid gap-4">
         {items.length === 0 ? (

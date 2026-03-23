@@ -8,7 +8,7 @@ import { v4 as uuid } from "uuid";
 
 import { ApiClientError, applyFormIssues, requestJson } from "@/lib/client/api";
 import { customerCheckoutSchema } from "@/lib/schemas/customer-commerce";
-import { paymentMethods, paymentProviders } from "@/lib/schemas/sales";
+import { supportedPaymentProviders } from "@/lib/schemas/sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,17 +19,26 @@ import { toast } from "@/components/ui/sonner";
 
 type Values = z.infer<typeof customerCheckoutSchema>;
 
-export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
+export function CustomerCheckoutForm({
+  cartTotal,
+  locationId,
+  locationName,
+}: {
+  cartTotal: number;
+  locationId: string;
+  locationName: string;
+}) {
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(customerCheckoutSchema),
     defaultValues: {
+      locationId,
       fulfillmentType: "pickup",
       paymentMethod: "cash",
       paymentProvider: "manual",
       idempotencyKey: uuid(),
-      notes: ""
-    }
+      notes: "",
+    },
   });
 
   const fulfillmentType = form.watch("fulfillmentType");
@@ -47,7 +56,7 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
       const payload = await requestJson<{ order: { id: string } }>("/api/customer/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
       toast.success("Order placed.");
       window.location.replace(`/orders/${payload.order.id}`);
@@ -67,11 +76,17 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
     <Card>
       <CardHeader>
         <CardTitle>Checkout</CardTitle>
-        <CardDescription>Confirm fulfillment and payment for your order of ${cartTotal.toFixed(2)}.</CardDescription>
+        <CardDescription>
+          Confirm fulfillment and payment for your order of ${cartTotal.toFixed(2)}.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           <input type="hidden" {...form.register("idempotencyKey")} />
+          <input type="hidden" {...form.register("locationId")} />
+          <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            Fulfilling from <span className="font-medium text-foreground">{locationName}</span>.
+          </div>
           <div className="space-y-2">
             <Label htmlFor="fulfillmentType">Fulfillment</Label>
             <div className="flex gap-2">
@@ -115,7 +130,7 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
               <div className="space-y-2">
                 <Label htmlFor="paymentProvider">Provider</Label>
                 <Select id="paymentProvider" {...form.register("paymentProvider")}>
-                  {paymentProviders.map((provider) => (
+                  {supportedPaymentProviders.map((provider) => (
                     <option key={provider} value={provider}>
                       {provider}
                     </option>
@@ -129,32 +144,48 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
               <div className="space-y-2">
                 <Label htmlFor="address.label">Address label</Label>
                 <Input id="address.label" {...form.register("address.label")} />
-                {addressLabelError ? <p className="text-sm text-destructive">{addressLabelError.message}</p> : null}
+                {addressLabelError ? (
+                  <p className="text-sm text-destructive">{addressLabelError.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.line1">Address line 1</Label>
-                <Input id="address.line1" aria-required={fulfillmentType === "delivery"} {...form.register("address.line1")} />
-                {addressLine1Error ? <p className="text-sm text-destructive">{addressLine1Error.message}</p> : null}
+                <Input
+                  id="address.line1"
+                  aria-required={fulfillmentType === "delivery"}
+                  {...form.register("address.line1")}
+                />
+                {addressLine1Error ? (
+                  <p className="text-sm text-destructive">{addressLine1Error.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.line2">Address line 2</Label>
                 <Input id="address.line2" {...form.register("address.line2")} />
-                {addressLine2Error ? <p className="text-sm text-destructive">{addressLine2Error.message}</p> : null}
+                {addressLine2Error ? (
+                  <p className="text-sm text-destructive">{addressLine2Error.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.city">City</Label>
                 <Input id="address.city" {...form.register("address.city")} />
-                {addressCityError ? <p className="text-sm text-destructive">{addressCityError.message}</p> : null}
+                {addressCityError ? (
+                  <p className="text-sm text-destructive">{addressCityError.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.province">Province</Label>
                 <Input id="address.province" {...form.register("address.province")} />
-                {addressProvinceError ? <p className="text-sm text-destructive">{addressProvinceError.message}</p> : null}
+                {addressProvinceError ? (
+                  <p className="text-sm text-destructive">{addressProvinceError.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address.postalCode">Postal code</Label>
                 <Input id="address.postalCode" {...form.register("address.postalCode")} />
-                {addressPostalCodeError ? <p className="text-sm text-destructive">{addressPostalCodeError.message}</p> : null}
+                {addressPostalCodeError ? (
+                  <p className="text-sm text-destructive">{addressPostalCodeError.message}</p>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -162,7 +193,16 @@ export function CustomerCheckoutForm({ cartTotal }: { cartTotal: number }) {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" {...form.register("notes")} />
           </div>
-          {serverError ? <p className="text-sm text-destructive" aria-live="polite" aria-atomic="true" role="alert">{serverError}</p> : null}
+          {serverError ? (
+            <p
+              className="text-sm text-destructive"
+              aria-live="polite"
+              aria-atomic="true"
+              role="alert"
+            >
+              {serverError}
+            </p>
+          ) : null}
           <Button className="w-full" variant="uber-green" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? "Placing order..." : "Place order"}
           </Button>

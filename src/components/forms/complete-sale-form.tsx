@@ -12,7 +12,7 @@ import {
   getPaymentTotal,
   type CompleteSaleDraftValues,
 } from "@/lib/forms/complete-sale";
-import { paymentMethods, paymentProviders } from "@/lib/schemas/sales";
+import { paymentMethods, supportedPaymentProviders } from "@/lib/schemas/sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -198,7 +198,7 @@ export function CompleteSaleForm({ saleId, amountDue }: { saleId: string; amount
                       className="h-12 text-base capitalize"
                       {...form.register(`payments.${index}.provider`)}
                     >
-                      {paymentProviders.map((provider) => (
+                      {supportedPaymentProviders.map((provider) => (
                         <option key={provider} value={provider}>
                           {provider}
                         </option>

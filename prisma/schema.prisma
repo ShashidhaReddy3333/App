@@ -211,6 +211,7 @@ model User {
   verificationReviews    BusinessVerification[] @relation("VerificationReviewer")
   customerDisputes       PlatformDispute[]      @relation("CustomerDisputes")
   adminDisputes          PlatformDispute[]      @relation("AdminDisputes")
+  disputeEventsAuthored  PlatformDisputeEvent[] @relation("PlatformDisputeEventAuthor")
 }
 
 model Session {
@@ -1038,9 +1039,24 @@ model PlatformDispute {
   business         Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
   customer         User?     @relation("CustomerDisputes", fields: [customerId], references: [id], onDelete: SetNull)
   assignedAdmin    User?     @relation("AdminDisputes", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  events           PlatformDisputeEvent[]
 
   @@index([status, createdAt])
   @@index([businessId])
+}
+
+model PlatformDisputeEvent {
+  id           String          @id @default(cuid())
+  disputeId    String
+  authorUserId String?
+  eventType    String          @default("note")
+  visibility   String          @default("internal")
+  body         String
+  createdAt    DateTime        @default(now())
+  dispute      PlatformDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  authorUser   User?           @relation("PlatformDisputeEventAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([disputeId, createdAt])
 }
 
 // ============================================================

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,12 +20,15 @@ type Values = z.infer<typeof productSchema>;
 export function ProductForm({
   locationId,
   suppliers,
+  presetBarcode,
 }: {
   locationId: string;
   suppliers: Array<{ id: string; name: string; label: string }>;
+  presetBarcode?: string | null;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<Values>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -44,6 +47,27 @@ export function ProductForm({
       allowOversell: false,
     },
   });
+  const nameField = form.register("name");
+
+  useEffect(() => {
+    form.setValue("locationId", locationId, {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+  }, [form, locationId]);
+
+  useEffect(() => {
+    const nextBarcode = presetBarcode?.trim();
+    if (!nextBarcode) {
+      return;
+    }
+
+    form.setValue("barcode", nextBarcode, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    nameInputRef.current?.focus();
+  }, [form, presetBarcode]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
@@ -92,7 +116,14 @@ export function ProductForm({
           <input type="hidden" {...form.register("locationId")} />
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" {...form.register("name")} />
+            <Input
+              id="name"
+              {...nameField}
+              ref={(node) => {
+                nameField.ref(node);
+                nameInputRef.current = node;
+              }}
+            />
             {form.formState.errors.name ? (
               <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             ) : null}

@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { priceCheckout } from "@/lib/domain/pricing";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
+import { resolvePreferredLocationId } from "@/lib/location-preferences";
 import { roundMoney, toDecimal } from "@/lib/money";
 import {
   addCartItemSchema,
@@ -16,8 +17,8 @@ import {
   createIdempotencyRecord,
   reserveInventory,
 } from "@/lib/services/command-helpers";
-import { enqueueRoleNotifications } from "@/lib/services/notification-service";
-import { findIdempotentResult, getDefaultLocation } from "@/lib/services/platform-service";
+import { enqueueNotification, enqueueRoleNotifications } from "@/lib/services/notification-service";
+import { findIdempotentResult } from "@/lib/services/platform-service";
 
 function taxRateCategories(value: Prisma.JsonValue | null) {
   if (!Array.isArray(value)) {
@@ -26,7 +27,10 @@ function taxRateCategories(value: Prisma.JsonValue | null) {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-async function getStorefrontBusiness() {
+async function getStorefrontContext(options?: {
+  customerId?: string | null;
+  locationId?: string | null;
+}) {
   const business = await db.business.findFirst({
     where: { isActive: true },
     orderBy: { createdAt: "asc" },
@@ -34,46 +38,70 @@ async function getStorefrontBusiness() {
       locations: {
         where: { isActive: true },
         orderBy: { createdAt: "asc" },
-        take: 1,
       },
     },
   });
 
-  if (!business || !business.locations[0]) {
+  if (!business || business.locations.length === 0) {
+    throw notFoundError("No active storefront is available.");
+  }
+
+  const preferredStoreId = options?.customerId
+    ? ((
+        await db.customerProfile.findUnique({
+          where: { userId: options.customerId },
+          select: { preferredStoreId: true },
+        })
+      )?.preferredStoreId ?? null)
+    : null;
+
+  const selectedLocationId = resolvePreferredLocationId(
+    business.locations,
+    options?.locationId,
+    preferredStoreId
+  );
+  const location = business.locations.find((entry) => entry.id === selectedLocationId);
+
+  if (!location) {
     throw notFoundError("No active storefront is available.");
   }
 
   return {
     business,
-    location: business.locations[0],
+    location,
+    locations: business.locations,
   };
 }
 
-export async function getStorefrontData() {
-  const storefront = await db.business.findFirst({
-    where: { isActive: true },
-    orderBy: { createdAt: "asc" },
-    include: {
-      locations: {
-        where: { isActive: true },
-        orderBy: { createdAt: "asc" },
-        take: 1,
-      },
-    },
+async function setPreferredStore(
+  client: Prisma.TransactionClient | typeof db,
+  customerId: string,
+  locationId: string
+) {
+  await client.customerProfile.updateMany({
+    where: { userId: customerId },
+    data: { preferredStoreId: locationId },
   });
+}
 
-  if (!storefront || !storefront.locations[0]) {
+export async function getStorefrontData(options?: {
+  customerId?: string | null;
+  locationId?: string | null;
+}) {
+  const storefront = await getStorefrontContext(options).catch(() => null);
+
+  if (!storefront) {
     return {
       available: false as const,
       business: null,
       location: null,
+      locations: [],
       categories: [],
       products: [],
     };
   }
 
-  const business = storefront;
-  const location = storefront.locations[0];
+  const { business, location, locations } = storefront;
   const products = await db.product.findMany({
     where: {
       businessId: business.id,
@@ -93,6 +121,7 @@ export async function getStorefrontData() {
     available: true as const,
     business,
     location,
+    locations,
     categories,
     products: products.map((product) => ({
       ...product,
@@ -101,8 +130,11 @@ export async function getStorefrontData() {
   };
 }
 
-export async function getStorefrontProduct(productId: string) {
-  const { business, location } = await getStorefrontBusiness();
+export async function getStorefrontProduct(
+  productId: string,
+  options?: { customerId?: string | null; locationId?: string | null }
+) {
+  const { business, location, locations } = await getStorefrontContext(options);
   const product = await db.product.findFirst({
     where: {
       id: productId,
@@ -124,18 +156,23 @@ export async function getStorefrontProduct(productId: string) {
   return {
     business,
     location,
+    locations,
     product,
     availableQuantity: Number(product.inventoryBalances[0]?.availableQuantity ?? 0),
   };
 }
 
-async function getOrCreateActiveCart(customerId: string) {
-  const { business, location } = await getStorefrontBusiness();
+async function getOrCreateActiveCart(customerId: string, requestedLocationId?: string | null) {
+  const { business, location } = await getStorefrontContext({
+    customerId,
+    locationId: requestedLocationId,
+  });
   const existing = await db.cart.findFirst({
     where: {
       customerId,
       businessId: business.id,
       status: "active",
+      locationId: location.id,
     },
     include: {
       items: {
@@ -150,6 +187,8 @@ async function getOrCreateActiveCart(customerId: string) {
   if (existing) {
     return existing;
   }
+
+  await setPreferredStore(db, customerId, location.id);
 
   return db.cart.create({
     data: {
@@ -167,13 +206,13 @@ async function getOrCreateActiveCart(customerId: string) {
   });
 }
 
-export async function getCustomerCart(customerId: string) {
-  return getOrCreateActiveCart(customerId);
+export async function getCustomerCart(customerId: string, locationId?: string | null) {
+  return getOrCreateActiveCart(customerId, locationId);
 }
 
 export async function addItemToCustomerCart(customerId: string, input: unknown) {
   const values = addCartItemSchema.parse(input);
-  const cart = await getOrCreateActiveCart(customerId);
+  const cart = await getOrCreateActiveCart(customerId, values.locationId);
   const product = await db.product.findFirst({
     where: {
       id: values.productId,
@@ -183,6 +222,11 @@ export async function addItemToCustomerCart(customerId: string, input: unknown) 
   });
   if (!product) {
     throw notFoundError("Product not found.");
+  }
+  if (
+    !(await db.location.findFirst({ where: { id: cart.locationId, businessId: cart.businessId } }))
+  ) {
+    throw notFoundError("Store location not found.");
   }
   const lineQuantity = toDecimal(values.quantity);
   const unitPrice = product.sellingPrice;
@@ -211,12 +255,13 @@ export async function addItemToCustomerCart(customerId: string, input: unknown) 
     });
   }
 
-  return getCustomerCart(customerId);
+  await setPreferredStore(db, customerId, cart.locationId);
+  return getCustomerCart(customerId, cart.locationId);
 }
 
 export async function removeItemFromCustomerCart(customerId: string, input: unknown) {
   const values = removeCartItemSchema.parse(input);
-  const cart = await getOrCreateActiveCart(customerId);
+  const cart = await getOrCreateActiveCart(customerId, values.locationId);
   const item = await db.cartItem.findFirst({
     where: {
       id: values.itemId,
@@ -232,12 +277,15 @@ export async function removeItemFromCustomerCart(customerId: string, input: unkn
     where: { id: item.id },
   });
 
-  return getCustomerCart(customerId);
+  return getCustomerCart(customerId, cart.locationId);
 }
 
 export async function checkoutCustomerCart(customerId: string, input: unknown) {
   const values = customerCheckoutSchema.parse(input);
-  const storefront = await getStorefrontBusiness();
+  const storefront = await getStorefrontContext({
+    customerId,
+    locationId: values.locationId,
+  });
   const existing = await findIdempotentResult(
     storefront.business.id,
     "customer_checkout",
@@ -260,6 +308,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         where: {
           customerId,
           status: "active",
+          locationId: values.locationId,
         },
         include: {
           items: {
@@ -278,7 +327,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         where: { id: cart.businessId },
         include: { taxRates: true },
       });
-      await getDefaultLocation(cart.businessId);
+      await setPreferredStore(tx, customerId, cart.locationId);
 
       const pricing = priceCheckout(
         cart.items.map((item) => ({
@@ -383,7 +432,7 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
       await tx.orderFulfillment.create({
         data: {
           orderId: order.id,
-          status: values.fulfillmentType === "pickup" ? "ready" : "pending",
+          status: "pending",
           deliveryAddressId: addressId,
         },
       });
@@ -439,6 +488,14 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
         title: "New online order",
         message: `Order ${order.orderNumber} was placed through the storefront.`,
         channel: "in_app",
+      });
+
+      await enqueueNotification(tx, {
+        userId: customerId,
+        type: "order_confirmed",
+        title: "Order confirmed",
+        message: `Your order ${order.orderNumber} has been confirmed for ${order.fulfillmentType.replaceAll("_", " ")}.`,
+        channel: "email",
       });
 
       return tx.order.findUniqueOrThrow({

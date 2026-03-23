@@ -479,11 +479,12 @@ export async function completeSale(
 
 export async function listSales(
   businessId: string,
-  options?: { q?: string; page?: number; pageSize?: number }
+  options?: { q?: string; page?: number; pageSize?: number; locationId?: string }
 ) {
   const query = options?.q?.trim();
   const where = {
     businessId,
+    ...(options?.locationId ? { locationId: options.locationId } : {}),
     ...(query
       ? {
           receiptNumber: {
@@ -540,12 +541,21 @@ export async function listSales(
 
 export async function listRefunds(
   businessId: string,
-  options?: { page?: number; pageSize?: number }
+  options?: { page?: number; pageSize?: number; locationId?: string }
 ) {
   const page = Math.max(1, options?.page ?? 1);
   const pageSize = Math.max(1, options?.pageSize ?? 20);
   const skip = (page - 1) * pageSize;
-  const where = { businessId };
+  const where = {
+    businessId,
+    ...(options?.locationId
+      ? {
+          sale: {
+            locationId: options.locationId,
+          },
+        }
+      : {}),
+  };
 
   const [items, totalCount] = await Promise.all([
     db.refund.findMany({
@@ -576,7 +586,13 @@ export async function listRefunds(
 
 export async function listOnlineOrders(
   businessId: string,
-  options?: { q?: string; status?: OrderStatus; page?: number; pageSize?: number }
+  options?: {
+    q?: string;
+    status?: OrderStatus;
+    page?: number;
+    pageSize?: number;
+    locationId?: string;
+  }
 ) {
   const query = options?.q?.trim();
   const page = Math.max(1, options?.page ?? 1);
@@ -584,6 +600,11 @@ export async function listOnlineOrders(
   const skip = (page - 1) * pageSize;
   const where = {
     businessId,
+    ...(options?.locationId
+      ? {
+          locationId: options.locationId,
+        }
+      : {}),
     ...(options?.status
       ? {
           status: options.status,
@@ -914,7 +935,7 @@ export async function createRefund(
   return refund;
 }
 
-export async function getDashboardMetrics(businessId: string) {
+export async function getDashboardMetrics(businessId: string, locationId?: string) {
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const { start, end } = getBusinessDayRange(business.timezone);
 
@@ -931,6 +952,7 @@ export async function getDashboardMetrics(businessId: string) {
     db.sale.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         completedAt: { gte: start, lte: end },
         status: {
           in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
@@ -940,6 +962,7 @@ export async function getDashboardMetrics(businessId: string) {
     db.order.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         createdAt: { gte: start, lte: end },
         status: { not: "cancelled" },
       },
@@ -947,6 +970,7 @@ export async function getDashboardMetrics(businessId: string) {
     db.inventoryBalance.findMany({
       where: {
         location: { businessId },
+        ...(locationId ? { locationId } : {}),
         product: { isArchived: false },
       },
       include: { product: true },
@@ -954,6 +978,7 @@ export async function getDashboardMetrics(businessId: string) {
     db.sale.count({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         status: SaleStatus.pending_payment,
       },
     }),
@@ -963,6 +988,7 @@ export async function getDashboardMetrics(businessId: string) {
       where: {
         sale: {
           businessId,
+          ...(locationId ? { locationId } : {}),
           completedAt: { gte: start, lte: end },
           status: {
             in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
@@ -980,6 +1006,7 @@ export async function getDashboardMetrics(businessId: string) {
     db.purchaseOrder.count({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         status: {
           in: [
             PurchaseOrderStatus.draft,
@@ -1037,7 +1064,7 @@ export async function getDashboardMetrics(businessId: string) {
   };
 }
 
-export async function getReportsSnapshot(businessId: string) {
+export async function getReportsSnapshot(businessId: string, locationId?: string) {
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const { start, end, parts } = getBusinessDayRange(business.timezone);
   const monthStart = zonedDateTimeToUtc(business.timezone, parts.year, parts.month, 1, 0, 0, 0);
@@ -1054,6 +1081,7 @@ export async function getReportsSnapshot(businessId: string) {
     db.sale.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         completedAt: { gte: start, lte: end },
         status: {
           in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
@@ -1063,6 +1091,7 @@ export async function getReportsSnapshot(businessId: string) {
     db.sale.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         completedAt: { gte: monthStart },
         status: {
           in: [SaleStatus.completed, SaleStatus.refunded_partially, SaleStatus.refunded_fully],
@@ -1072,6 +1101,7 @@ export async function getReportsSnapshot(businessId: string) {
     db.order.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         createdAt: { gte: start, lte: end },
         status: { not: "cancelled" },
       },
@@ -1079,6 +1109,7 @@ export async function getReportsSnapshot(businessId: string) {
     db.order.findMany({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         createdAt: { gte: monthStart },
         status: { not: "cancelled" },
       },
@@ -1087,7 +1118,10 @@ export async function getReportsSnapshot(businessId: string) {
       by: ["method"],
       _sum: { amount: true },
       where: {
-        sale: { businessId },
+        sale: {
+          businessId,
+          ...(locationId ? { locationId } : {}),
+        },
         status: {
           in: [
             PaymentStatus.authorized,
@@ -1103,7 +1137,10 @@ export async function getReportsSnapshot(businessId: string) {
       by: ["method"],
       _sum: { amount: true },
       where: {
-        order: { businessId },
+        order: {
+          businessId,
+          ...(locationId ? { locationId } : {}),
+        },
         status: {
           in: [
             PaymentStatus.authorized,
@@ -1118,6 +1155,7 @@ export async function getReportsSnapshot(businessId: string) {
     db.purchaseOrder.count({
       where: {
         businessId,
+        ...(locationId ? { locationId } : {}),
         status: {
           in: [
             PurchaseOrderStatus.draft,

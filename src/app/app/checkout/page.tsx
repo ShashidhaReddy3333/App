@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/forms/checkout-form";
 import { CompleteSaleForm } from "@/components/forms/complete-sale-form";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/lib/auth/guards";
+import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
 import { decimalToNumber } from "@/lib/money";
+import { getBusinessLocationContext } from "@/lib/server/location-context";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
 import { getSaleDetail } from "@/lib/services/sales-query-service";
 import { toCheckoutProductOptions } from "@/lib/view-models/app";
@@ -21,8 +24,9 @@ export default async function CheckoutPage({
   searchParams: Promise<{ saleId?: string }>;
 }) {
   const session = await requirePermission("sales");
-  const catalog = await listCatalogData(session.user.businessId!);
   const params = await searchParams;
+  const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
+  const catalog = await listCatalogData(session.user.businessId!, { locationId: location.id });
   const pendingSale = params.saleId
     ? await getSaleDetail(session.user.businessId!, params.saleId).catch(() => null)
     : null;
@@ -33,12 +37,24 @@ export default async function CheckoutPage({
     <div className="space-y-6">
       <PageHeader
         title="Checkout"
-        description="Reserve stock, collect split payments, and complete the sale in one cashier flow."
+        description={`Reserve stock, collect split payments, and complete the sale in one cashier flow for ${location.name}.`}
         breadcrumbs={[{ label: "Checkout" }]}
+        actions={
+          <LocationSwitcher
+            label="Sell from"
+            cookieName={ACTIVE_BUSINESS_LOCATION_COOKIE}
+            locations={locations}
+            value={location.id}
+          />
+        }
       />
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <div className={activePendingSale ? "order-2 xl:order-1" : undefined}>
-          <CheckoutForm locationId={catalog.location.id} products={checkoutOptions} />
+          <CheckoutForm
+            key={catalog.location.id}
+            locationId={catalog.location.id}
+            products={checkoutOptions}
+          />
         </div>
         {activePendingSale ? (
           <div className="order-1 space-y-6 xl:sticky xl:top-24 xl:self-start">

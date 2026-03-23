@@ -4,10 +4,13 @@ import type { Route } from "next";
 
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { CustomerShell } from "@/components/customer-shell";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentSession } from "@/lib/auth/session";
+import { STOREFRONT_LOCATION_COOKIE } from "@/lib/location-preferences";
 import { getCanonicalPath } from "@/lib/public-metadata";
+import { getStorefrontLocationPreference } from "@/lib/server/location-context";
 import { getStorefrontData } from "@/lib/services/customer-commerce-query-service";
 
 export const metadata: Metadata = {
@@ -32,7 +35,11 @@ export default async function ShopPage({
 }) {
   const session = await getCurrentSession();
   const params = await searchParams;
-  const storefront = await getStorefrontData();
+  const requestedLocationId = await getStorefrontLocationPreference();
+  const storefront = await getStorefrontData({
+    customerId: session?.user.role === "customer" ? session.user.id : undefined,
+    locationId: requestedLocationId,
+  });
   const activeCategory = params.category?.trim() ?? "";
 
   const categoryItems = storefront.categories.map((category) => ({
@@ -53,6 +60,16 @@ export default async function ShopPage({
             ? `Shop from ${storefront.business.businessName} - pickup or delivery from ${storefront.location.name}.`
             : "The storefront is being prepared. Browse the marketplace or create a business to get started."}
         </p>
+        {storefront.available ? (
+          <div className="pt-4">
+            <LocationSwitcher
+              label="Pick a store"
+              cookieName={STOREFRONT_LOCATION_COOKIE}
+              locations={storefront.locations}
+              value={storefront.location.id}
+            />
+          </div>
+        ) : null}
         {!storefront.available ? (
           <div className="flex flex-wrap gap-3 pt-4">
             <Button asChild>
@@ -143,6 +160,7 @@ export default async function ShopPage({
                   </Button>
                   <AddToCartButton
                     productId={product.id}
+                    locationId={storefront.location.id}
                     disabled={product.availableQuantity <= 0}
                   />
                 </div>

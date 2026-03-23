@@ -100,6 +100,13 @@ const navItems = [
     group: "admin",
   },
   {
+    href: "/app/locations" as Route,
+    label: "Locations",
+    icon: Store,
+    permission: "settings",
+    group: "admin",
+  },
+  {
     href: "/app/ops" as Route,
     label: "Operations",
     icon: Activity,

@@ -101,7 +101,7 @@ describe("toAppError conversion", () => {
     const converted = toAppError(new Error("Something broke"));
     expect(converted.status).toBe(500);
     expect(converted.code).toBe("UNEXPECTED_ERROR");
-    expect(converted.message).toBe("Something broke");
+    expect(converted.message).toBe("An unexpected error occurred.");
   });
 
   it("converts an unknown value to a 500 UNEXPECTED_ERROR", () => {

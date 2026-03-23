@@ -5,8 +5,11 @@ import { ArrowLeft } from "lucide-react";
 
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { CustomerShell } from "@/components/customer-shell";
+import { LocationSwitcher } from "@/components/location-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentSession } from "@/lib/auth/session";
+import { STOREFRONT_LOCATION_COOKIE } from "@/lib/location-preferences";
+import { getStorefrontLocationPreference } from "@/lib/server/location-context";
 import { getStorefrontProduct } from "@/lib/services/customer-commerce-query-service";
 
 export async function generateMetadata({
@@ -35,7 +38,14 @@ export default async function ProductDetailPage({
 }) {
   const { productId } = await params;
   const session = await getCurrentSession();
-  const { product, availableQuantity } = await getStorefrontProduct(productId);
+  const requestedLocationId = await getStorefrontLocationPreference();
+  const { product, availableQuantity, location, locations } = await getStorefrontProduct(
+    productId,
+    {
+      customerId: session?.user.role === "customer" ? session.user.id : undefined,
+      locationId: requestedLocationId,
+    }
+  );
 
   const content = (
     <div className="space-y-6">
@@ -46,6 +56,13 @@ export default async function ProductDetailPage({
         <ArrowLeft className="size-4" />
         Back to shop
       </Link>
+
+      <LocationSwitcher
+        label="Browsing store"
+        cookieName={STOREFRONT_LOCATION_COOKIE}
+        locations={locations}
+        value={location.id}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="overflow-hidden rounded-xl bg-secondary">
@@ -113,6 +130,7 @@ export default async function ProductDetailPage({
 
           <AddToCartButton
             productId={product.id}
+            locationId={location.id}
             disabled={availableQuantity <= 0}
             className="w-full"
           />

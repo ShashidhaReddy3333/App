@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 
-export function RemoveCartItemButton({ itemId }: { itemId: string }) {
+export function RemoveCartItemButton({
+  itemId,
+  locationId,
+}: {
+  itemId: string;
+  locationId: string;
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -19,7 +25,7 @@ export function RemoveCartItemButton({ itemId }: { itemId: string }) {
       await requestJson<{ cartId: string }>("/api/customer/cart", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId }),
+        body: JSON.stringify({ itemId, locationId }),
       });
       toast.success("Item removed.");
       router.refresh();
