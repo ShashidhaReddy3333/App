@@ -33,7 +33,10 @@
       "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|WIP\\\\|unfinished\\\\|placeholder\" C:UsersOwnerDesktopSRJApp/src --include=*.ts --include=*.tsx)",
       "Bash(xargs ls:*)",
       "Bash(wc -l \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\"/*.ts)",
-      "Bash(find \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\" -name \"*.ts\" -exec wc -l {} +)"
+      "Bash(find \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\" -name \"*.ts\" -exec wc -l {} +)",
+      "Bash(find /c/Users/Owner/Desktop/SRJ/App/src -name *.test.* -o -name *.spec.*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(grep -o '\\\\\\\\.[^\\)]*')"
     ]
   }
 }
