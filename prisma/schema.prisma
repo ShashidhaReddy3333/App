@@ -654,6 +654,7 @@ model InventoryMovement {
   createdBy    User?                @relation("InventoryMovementActor", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([productId, locationId, createdAt])
+  @@index([referenceType, referenceId])
 }
 
 model Sale {

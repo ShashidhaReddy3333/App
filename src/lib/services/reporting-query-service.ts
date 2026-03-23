@@ -237,6 +237,10 @@ export async function getEnhancedDashboardMetrics(
         ...(locationId ? { locationId } : {}),
         customerId: { not: null },
         status: { not: OrderStatus.cancelled },
+        createdAt: {
+          gte: lastThirtyStart,
+          lt: tomorrowStart,
+        },
       },
       _sum: {
         totalAmount: true,

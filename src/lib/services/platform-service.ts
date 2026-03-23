@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { db, withSerializableRetry } from "@/lib/db";
 import { env } from "@/lib/env";
 import { conflictError, notFoundError } from "@/lib/errors";
 import { getRedisClient, isRedisAvailable } from "@/lib/queue/redis";
@@ -105,60 +105,55 @@ export async function updateBusinessLocation(
     isActive?: boolean;
   }
 ) {
-  return db.$transaction(
-    async (tx) => {
-      const location = await tx.location.findFirst({
-        where: { id: input.locationId, businessId },
-      });
+  return withSerializableRetry(async (tx) => {
+    const location = await tx.location.findFirst({
+      where: { id: input.locationId, businessId },
+    });
 
-      if (!location) {
-        throw notFoundError("Location not found for this business.");
-      }
-
-      if (input.isActive === false && location.isActive) {
-        const activeCount = await tx.location.count({
-          where: { businessId, isActive: true },
-        });
-
-        if (activeCount <= 1) {
-          throw conflictError("At least one active location is required.");
-        }
-      }
-
-      const updated = await tx.location.update({
-        where: { id: input.locationId },
-        data: {
-          name: input.name,
-          addressLine1: input.addressLine1,
-          addressLine2: input.addressLine2 || null,
-          city: input.city,
-          provinceOrState: input.provinceOrState,
-          postalCode: input.postalCode,
-          country: input.country,
-          timezone: input.timezone || null,
-          ...(typeof input.isActive === "boolean" ? { isActive: input.isActive } : {}),
-        },
-      });
-
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "location_updated",
-        resourceType: "location",
-        resourceId: updated.id,
-        metadata: {
-          locationName: updated.name,
-          isActive: updated.isActive,
-        } satisfies Prisma.InputJsonValue,
-      });
-
-      return updated;
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    if (!location) {
+      throw notFoundError("Location not found for this business.");
     }
-  );
+
+    if (input.isActive === false && location.isActive) {
+      const activeCount = await tx.location.count({
+        where: { businessId, isActive: true },
+      });
+
+      if (activeCount <= 1) {
+        throw conflictError("At least one active location is required.");
+      }
+    }
+
+    const updated = await tx.location.update({
+      where: { id: input.locationId },
+      data: {
+        name: input.name,
+        addressLine1: input.addressLine1,
+        addressLine2: input.addressLine2 || null,
+        city: input.city,
+        provinceOrState: input.provinceOrState,
+        postalCode: input.postalCode,
+        country: input.country,
+        timezone: input.timezone || null,
+        ...(typeof input.isActive === "boolean" ? { isActive: input.isActive } : {}),
+      },
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "location_updated",
+      resourceType: "location",
+      resourceId: updated.id,
+      metadata: {
+        locationName: updated.name,
+        isActive: updated.isActive,
+      } satisfies Prisma.InputJsonValue,
+    });
+
+    return updated;
+  });
 }
 
 export async function findIdempotentResult(businessId: string, operation: string, key: string) {

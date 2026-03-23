@@ -1,6 +1,5 @@
 import { InventoryMovementType, Prisma, type UserRole } from "@prisma/client";
 
-import { db } from "@/lib/db";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
 import { computeAvailableQuantity } from "@/lib/domain/inventory";
 import {
@@ -97,18 +96,6 @@ export async function ensureSupplierOwnership(
   }
 
   return supplier;
-}
-
-export async function findIdempotencyRecord(businessId: string, operation: string, key: string) {
-  return db.idempotencyKey.findUnique({
-    where: {
-      businessId_operation_key: {
-        businessId,
-        operation,
-        key,
-      },
-    },
-  });
 }
 
 export async function createIdempotencyRecord(
@@ -322,6 +309,79 @@ export async function releaseReservation(
       createdById: input.createdById,
     },
   });
+}
+
+/**
+ * Batch-release reserved inventory for multiple items at once.
+ * Groups items by (productId, locationId) and performs one update + one
+ * movement record per group, dramatically reducing query count for bulk
+ * operations like expired reservation cleanup.
+ */
+export async function batchReleaseReservations(
+  tx: Prisma.TransactionClient,
+  items: Array<{
+    productId: string;
+    locationId: string;
+    quantity: number;
+    referenceId: string;
+    createdById: string;
+    reason: string;
+  }>
+) {
+  // Group items by product+location to aggregate quantities
+  const grouped = new Map<
+    string,
+    { productId: string; locationId: string; totalQuantity: number; items: typeof items }
+  >();
+
+  for (const item of items) {
+    const key = `${item.productId}:${item.locationId}`;
+    const group = grouped.get(key);
+    if (group) {
+      group.totalQuantity += item.quantity;
+      group.items.push(item);
+    } else {
+      grouped.set(key, {
+        productId: item.productId,
+        locationId: item.locationId,
+        totalQuantity: item.quantity,
+        items: [item],
+      });
+    }
+  }
+
+  for (const [, group] of grouped) {
+    // Single update per product+location pair
+    await tx.inventoryBalance.update({
+      where: {
+        productId_locationId: {
+          productId: group.productId,
+          locationId: group.locationId,
+        },
+      },
+      data: {
+        reservedQuantity: { decrement: group.totalQuantity },
+        availableQuantity: { increment: group.totalQuantity },
+        versionNumber: { increment: 1 },
+      },
+    });
+
+    // One movement record per individual release (for audit trail)
+    for (const item of group.items) {
+      await tx.inventoryMovement.create({
+        data: {
+          productId: item.productId,
+          locationId: item.locationId,
+          movementType: InventoryMovementType.reservation_release,
+          quantityDelta: toDecimal(-item.quantity),
+          referenceType: "sale",
+          referenceId: item.referenceId,
+          reason: item.reason,
+          createdById: item.createdById,
+        },
+      });
+    }
+  }
 }
 
 export async function commitReservedInventory(

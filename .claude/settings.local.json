@@ -36,7 +36,18 @@
       "Bash(find \"C:\\\\Users\\\\Owner\\\\Desktop\\\\SRJ\\\\App/src/lib/services\" -name \"*.ts\" -exec wc -l {} +)",
       "Bash(find /c/Users/Owner/Desktop/SRJ/App/src -name *.test.* -o -name *.spec.*)",
       "Bash(python3 -m json.tool)",
-      "Bash(grep -o '\\\\\\\\.[^\\)]*')"
+      "Bash(grep -o '\\\\\\\\.[^\\)]*')",
+      "Bash(npx vitest:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -D - http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -D - http://localhost:3000/)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s -D - -o /dev/null http://localhost:3000/)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prisma:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

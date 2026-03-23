@@ -6,7 +6,7 @@ import {
   canTransitionOrderStatus,
   getFulfillmentStatusForOrderStatus,
 } from "@/lib/domain/orders";
-import { db } from "@/lib/db";
+import { db, withSerializableRetry } from "@/lib/db";
 import { conflictError, notFoundError } from "@/lib/errors";
 import { updateOrderStatusSchema } from "@/lib/schemas/orders";
 import { enqueueNotification } from "@/lib/services/notification-service";
@@ -251,18 +251,14 @@ export async function cancelCustomerOrder(customerId: string, orderId: string) {
 
   const paymentStatusOverride = await reverseStripePayment(order);
 
-  return db.$transaction(
-    async (tx) =>
-      cancelLoadedOrder(
-        tx,
-        order,
-        customerId,
-        "Customer cancelled order before fulfillment.",
-        paymentStatusOverride
-      ),
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }
+  return withSerializableRetry(async (tx) =>
+    cancelLoadedOrder(
+      tx,
+      order,
+      customerId,
+      "Customer cancelled order before fulfillment.",
+      paymentStatusOverride
+    )
   );
 }
 
@@ -289,18 +285,14 @@ export async function cancelBusinessOrder(
 
   const paymentStatusOverride = await reverseStripePayment(order);
 
-  return db.$transaction(
-    async (tx) =>
-      cancelLoadedOrder(
-        tx,
-        order,
-        actorUserId,
-        "Retail staff cancelled order before fulfillment.",
-        paymentStatusOverride
-      ),
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }
+  return withSerializableRetry(async (tx) =>
+    cancelLoadedOrder(
+      tx,
+      order,
+      actorUserId,
+      "Retail staff cancelled order before fulfillment.",
+      paymentStatusOverride
+    )
   );
 }
 
@@ -312,90 +304,85 @@ export async function updateBusinessOrderStatus(
 ) {
   const values = updateOrderStatusSchema.parse(input);
 
-  return db.$transaction(
-    async (tx) => {
-      const order = await tx.order.findFirst({
-        where: {
-          id: orderId,
-          businessId,
-        },
-        include: {
-          items: true,
-          fulfillment: true,
-          payments: true,
-        },
+  return withSerializableRetry(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: {
+        id: orderId,
+        businessId,
+      },
+      include: {
+        items: true,
+        fulfillment: true,
+        payments: true,
+      },
+    });
+
+    if (!order) {
+      throw notFoundError("Order not found.");
+    }
+
+    if (!canTransitionOrderStatus(order.status, values.status, order.fulfillmentType)) {
+      throw conflictError("This order cannot transition to the requested status.");
+    }
+
+    const nextFulfillmentStatus = getFulfillmentStatusForOrderStatus(
+      values.status,
+      order.fulfillmentType
+    );
+
+    if (order.fulfillment) {
+      await tx.orderFulfillment.update({
+        where: { orderId: order.id },
+        data: { status: nextFulfillmentStatus },
       });
-
-      if (!order) {
-        throw notFoundError("Order not found.");
-      }
-
-      if (!canTransitionOrderStatus(order.status, values.status, order.fulfillmentType)) {
-        throw conflictError("This order cannot transition to the requested status.");
-      }
-
-      const nextFulfillmentStatus = getFulfillmentStatusForOrderStatus(
-        values.status,
-        order.fulfillmentType
-      );
-
-      if (order.fulfillment) {
-        await tx.orderFulfillment.update({
-          where: { orderId: order.id },
-          data: { status: nextFulfillmentStatus },
-        });
-      } else {
-        await tx.orderFulfillment.create({
-          data: {
-            orderId: order.id,
-            status: nextFulfillmentStatus,
-          },
-        });
-      }
-
-      await tx.orderStatusHistory.create({
+    } else {
+      await tx.orderFulfillment.create({
         data: {
           orderId: order.id,
-          oldStatus: order.status,
-          newStatus: values.status,
-          changedByUserId: actorUserId,
-          notes: values.note?.trim() || null,
+          status: nextFulfillmentStatus,
         },
       });
-
-      const updatedOrder = await tx.order.update({
-        where: { id: order.id },
-        data: {
-          status: values.status,
-          ...(values.status === OrderStatus.completed ? { completedAt: new Date() } : {}),
-        },
-        include: {
-          items: true,
-          fulfillment: true,
-          payments: true,
-        },
-      });
-
-      await enqueueCustomerOrderNotification(tx, updatedOrder, values.status);
-
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "order_status_updated",
-        resourceType: "order",
-        resourceId: order.id,
-        metadata: {
-          orderNumber: order.orderNumber,
-          oldStatus: order.status,
-          newStatus: values.status,
-        },
-      });
-
-      return updatedOrder;
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
-  );
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        oldStatus: order.status,
+        newStatus: values.status,
+        changedByUserId: actorUserId,
+        notes: values.note?.trim() || null,
+      },
+    });
+
+    const updatedOrder = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: values.status,
+        ...(values.status === OrderStatus.completed ? { completedAt: new Date() } : {}),
+      },
+      include: {
+        items: true,
+        fulfillment: true,
+        payments: true,
+      },
+    });
+
+    await enqueueCustomerOrderNotification(tx, updatedOrder, values.status);
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "order_status_updated",
+      resourceType: "order",
+      resourceId: order.id,
+      metadata: {
+        orderNumber: order.orderNumber,
+        oldStatus: order.status,
+        newStatus: values.status,
+      },
+    });
+
+    return updatedOrder;
+  });
 }

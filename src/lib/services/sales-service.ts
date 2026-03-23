@@ -10,7 +10,7 @@ import {
 } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { db, withSerializableRetry } from "@/lib/db";
 import { priceCheckout } from "@/lib/domain/pricing";
 import { sumSuccessfulPayments } from "@/lib/domain/sales";
 import { conflictError, notFoundError, validationError } from "@/lib/errors";
@@ -19,10 +19,10 @@ import { checkoutSchema, completeSaleSchema, refundSchema } from "@/lib/schemas/
 import { findIdempotentResult } from "@/lib/services/platform-service";
 import {
   allocateReceiptNumber,
+  batchReleaseReservations,
   commitReservedInventory,
   createIdempotencyRecord,
   getOwnedLocation,
-  releaseReservation,
   reserveInventory,
   restockInventory,
 } from "@/lib/services/command-helpers";
@@ -56,241 +56,233 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient, b
     },
   });
 
-  for (const sale of expiredSales) {
-    for (const item of sale.items) {
-      await releaseReservation(tx, {
-        productId: item.productId,
-        locationId: sale.locationId,
-        quantity: Number(item.quantity),
-        referenceId: sale.id,
-        createdById: sale.cashierUserId,
-        reason: "reservation_expired",
-      });
-    }
+  if (expiredSales.length === 0) return 0;
 
-    await tx.sale.update({
-      where: { id: sale.id },
-      data: {
-        status: SaleStatus.cancelled,
-        reservationExpiresAt: null,
-      },
-    });
-  }
+  // Batch all inventory releases into grouped updates instead of N+1 per item
+  const allReleaseItems = expiredSales.flatMap((sale) =>
+    sale.items.map((item) => ({
+      productId: item.productId,
+      locationId: sale.locationId,
+      quantity: Number(item.quantity),
+      referenceId: sale.id,
+      createdById: sale.cashierUserId,
+      reason: "reservation_expired",
+    }))
+  );
+
+  await batchReleaseReservations(tx, allReleaseItems);
+
+  // Cancel all expired sales in a single updateMany
+  const saleIds = expiredSales.map((s) => s.id);
+  await tx.sale.updateMany({
+    where: { id: { in: saleIds } },
+    data: {
+      status: SaleStatus.cancelled,
+      reservationExpiresAt: null,
+    },
+  });
 
   return expiredSales.length;
 }
 
 export async function cleanupExpiredReservations(businessId?: string) {
-  return db.$transaction(
-    async (tx) => {
-      const businesses = businessId
-        ? [{ id: businessId }]
-        : await tx.business.findMany({
-            where: { isActive: true },
-            select: { id: true },
-          });
+  return withSerializableRetry(async (tx) => {
+    const businesses = businessId
+      ? [{ id: businessId }]
+      : await tx.business.findMany({
+          where: { isActive: true },
+          select: { id: true },
+        });
 
-      let salesCancelled = 0;
-      for (const business of businesses) {
-        salesCancelled += await releaseExpiredReservations(tx, business.id);
-      }
-
-      return {
-        businessesProcessed: businesses.length,
-        salesCancelled,
-      };
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    let salesCancelled = 0;
+    for (const business of businesses) {
+      salesCancelled += await releaseExpiredReservations(tx, business.id);
     }
-  );
+
+    return {
+      businessesProcessed: businesses.length,
+      salesCancelled,
+    };
+  });
 }
 
 export async function createCheckoutDraft(actorUserId: string, businessId: string, input: unknown) {
   const values = checkoutSchema.parse(input);
 
-  return db.$transaction(
-    async (tx) => {
-      await releaseExpiredReservations(tx, businessId);
+  return withSerializableRetry(async (tx) => {
+    await releaseExpiredReservations(tx, businessId);
 
-      const business = await tx.business.findUniqueOrThrow({
-        where: { id: businessId },
-        include: { taxRates: true },
+    const business = await tx.business.findUniqueOrThrow({
+      where: { id: businessId },
+      include: { taxRates: true },
+    });
+    await getOwnedLocation(tx, businessId, values.locationId);
+
+    const customerId = normalizeCustomerId(values.customerId);
+    const requestedLoyaltyPoints = Math.max(0, Math.floor(values.loyaltyPointsToRedeem ?? 0));
+    if (!customerId && requestedLoyaltyPoints > 0) {
+      throw validationError("Select a customer before applying loyalty points.", {
+        fieldErrors: {
+          customerId: ["Select a customer before applying loyalty points."],
+        },
       });
-      await getOwnedLocation(tx, businessId, values.locationId);
-
-      const customerId = normalizeCustomerId(values.customerId);
-      const requestedLoyaltyPoints = Math.max(0, Math.floor(values.loyaltyPointsToRedeem ?? 0));
-      if (!customerId && requestedLoyaltyPoints > 0) {
-        throw validationError("Select a customer before applying loyalty points.", {
+    }
+    if (requestedLoyaltyPoints > 0 && values.saleDiscount) {
+      throw validationError(
+        "Loyalty redemption cannot be combined with another sale-level discount.",
+        {
           fieldErrors: {
-            customerId: ["Select a customer before applying loyalty points."],
+            loyaltyPointsToRedeem: [
+              "Loyalty redemption cannot be combined with another sale-level discount.",
+            ],
           },
-        });
-      }
-      if (requestedLoyaltyPoints > 0 && values.saleDiscount) {
-        throw validationError(
-          "Loyalty redemption cannot be combined with another sale-level discount.",
-          {
-            fieldErrors: {
-              loyaltyPointsToRedeem: [
-                "Loyalty redemption cannot be combined with another sale-level discount.",
-              ],
-            },
-          }
-        );
-      }
+        }
+      );
+    }
 
-      const products = await tx.product.findMany({
+    const products = await tx.product.findMany({
+      where: {
+        id: { in: values.items.map((item) => item.productId) },
+        businessId,
+        isArchived: false,
+      },
+      include: {
+        inventoryBalances: {
+          where: { locationId: values.locationId },
+        },
+      },
+    });
+
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const checkoutItems = values.items.map((item) => {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw notFoundError("One or more products could not be found.");
+      }
+      return {
+        productId: product.id,
+        productName: product.name,
+        category: product.category,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+      };
+    });
+
+    const taxRateInputs = business.taxRates.map((rate) => ({
+      name: rate.name,
+      ratePercent: Number(rate.ratePercent),
+      appliesToCategories: taxRateCategories(rate.appliesToCategories),
+      compoundOrder: rate.compoundOrder,
+    }));
+
+    const basePricing = priceCheckout(checkoutItems, taxRateInputs, business.taxMode);
+
+    let loyaltyPointsRedeemed = 0;
+    if (customerId) {
+      const customer = await tx.user.findFirst({
         where: {
-          id: { in: values.items.map((item) => item.productId) },
-          businessId,
-          isArchived: false,
+          id: customerId,
+          role: "customer",
         },
         include: {
-          inventoryBalances: {
-            where: { locationId: values.locationId },
-          },
+          customerProfile: true,
         },
       });
 
-      const productMap = new Map(products.map((product) => [product.id, product]));
-      const checkoutItems = values.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw notFoundError("One or more products could not be found.");
-        }
-        return {
-          productId: product.id,
-          productName: product.name,
-          category: product.category,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount,
-        };
-      });
-
-      const taxRateInputs = business.taxRates.map((rate) => ({
-        name: rate.name,
-        ratePercent: Number(rate.ratePercent),
-        appliesToCategories: taxRateCategories(rate.appliesToCategories),
-        compoundOrder: rate.compoundOrder,
-      }));
-
-      const basePricing = priceCheckout(checkoutItems, taxRateInputs, business.taxMode);
-
-      let loyaltyPointsRedeemed = 0;
-      if (customerId) {
-        const customer = await tx.user.findFirst({
-          where: {
-            id: customerId,
-            role: "customer",
-          },
-          include: {
-            customerProfile: true,
+      if (!customer?.customerProfile) {
+        throw validationError("Customer not found.", {
+          fieldErrors: {
+            customerId: ["Customer not found."],
           },
         });
-
-        if (!customer?.customerProfile) {
-          throw validationError("Customer not found.", {
-            fieldErrors: {
-              customerId: ["Customer not found."],
-            },
-          });
-        }
-
-        const maxRedeemablePoints = Math.floor(
-          Math.max(basePricing.subtotalAmount - basePricing.discountAmount, 0) * 100
-        );
-        loyaltyPointsRedeemed = Math.min(
-          requestedLoyaltyPoints,
-          customer.customerProfile.loyaltyPoints,
-          maxRedeemablePoints
-        );
       }
 
-      const effectiveSaleDiscount =
-        loyaltyPointsRedeemed > 0
-          ? {
-              type: "fixed_amount" as const,
-              value: loyaltyPointsToCurrency(loyaltyPointsRedeemed),
-              scope: "sale" as const,
-              reason: "Loyalty points redemption",
-            }
-          : values.saleDiscount;
-
-      const pricing = priceCheckout(
-        checkoutItems,
-        taxRateInputs,
-        business.taxMode,
-        effectiveSaleDiscount
+      const maxRedeemablePoints = Math.floor(
+        Math.max(basePricing.subtotalAmount - basePricing.discountAmount, 0) * 100
       );
+      loyaltyPointsRedeemed = Math.min(
+        requestedLoyaltyPoints,
+        customer.customerProfile.loyaltyPoints,
+        maxRedeemablePoints
+      );
+    }
 
-      const sale = await tx.sale.create({
+    const effectiveSaleDiscount =
+      loyaltyPointsRedeemed > 0
+        ? {
+            type: "fixed_amount" as const,
+            value: loyaltyPointsToCurrency(loyaltyPointsRedeemed),
+            scope: "sale" as const,
+            reason: "Loyalty points redemption",
+          }
+        : values.saleDiscount;
+
+    const pricing = priceCheckout(
+      checkoutItems,
+      taxRateInputs,
+      business.taxMode,
+      effectiveSaleDiscount
+    );
+
+    const sale = await tx.sale.create({
+      data: {
+        businessId,
+        locationId: values.locationId,
+        cashierUserId: actorUserId,
+        customerId,
+        status: SaleStatus.pending_payment,
+        subtotalAmount: toDecimal(pricing.subtotalAmount),
+        discountAmount: toDecimal(pricing.discountAmount),
+        taxAmount: toDecimal(pricing.taxAmount),
+        totalAmount: toDecimal(pricing.totalAmount),
+        amountDue: toDecimal(pricing.totalAmount),
+        loyaltyPointsRedeemed,
+        saleDiscountType: effectiveSaleDiscount?.type ?? null,
+        saleDiscountValue: effectiveSaleDiscount ? toDecimal(effectiveSaleDiscount.value) : null,
+        saleDiscountReason: effectiveSaleDiscount?.reason ?? null,
+        reservationExpiresAt: new Date(
+          Date.now() + business.reservationDurationMinutes * 60 * 1000
+        ),
+      },
+    });
+
+    for (const line of pricing.items) {
+      const product = productMap.get(line.productId)!;
+      if (!product.inventoryBalances[0]) {
+        throw conflictError(`Inventory balance is missing for ${product.name}.`, "STALE_INVENTORY");
+      }
+
+      await tx.saleItem.create({
         data: {
-          businessId,
-          locationId: values.locationId,
-          cashierUserId: actorUserId,
-          customerId,
-          status: SaleStatus.pending_payment,
-          subtotalAmount: toDecimal(pricing.subtotalAmount),
-          discountAmount: toDecimal(pricing.discountAmount),
-          taxAmount: toDecimal(pricing.taxAmount),
-          totalAmount: toDecimal(pricing.totalAmount),
-          amountDue: toDecimal(pricing.totalAmount),
-          loyaltyPointsRedeemed,
-          saleDiscountType: effectiveSaleDiscount?.type ?? null,
-          saleDiscountValue: effectiveSaleDiscount ? toDecimal(effectiveSaleDiscount.value) : null,
-          saleDiscountReason: effectiveSaleDiscount?.reason ?? null,
-          reservationExpiresAt: new Date(
-            Date.now() + business.reservationDurationMinutes * 60 * 1000
-          ),
+          saleId: sale.id,
+          productId: line.productId,
+          quantity: toDecimal(line.quantity),
+          unitPrice: toDecimal(line.unitPrice),
+          subtotal: toDecimal(line.subtotal),
+          lineDiscountAmount: toDecimal(line.lineDiscount),
+          allocatedSaleDiscountAmount: toDecimal(line.allocatedSaleDiscount),
+          taxAmount: toDecimal(line.taxAmount),
+          taxComponents: line.taxComponents as Prisma.InputJsonValue,
+          lineTotal: toDecimal(line.lineTotal),
         },
       });
 
-      for (const line of pricing.items) {
-        const product = productMap.get(line.productId)!;
-        if (!product.inventoryBalances[0]) {
-          throw conflictError(
-            `Inventory balance is missing for ${product.name}.`,
-            "STALE_INVENTORY"
-          );
-        }
-
-        await tx.saleItem.create({
-          data: {
-            saleId: sale.id,
-            productId: line.productId,
-            quantity: toDecimal(line.quantity),
-            unitPrice: toDecimal(line.unitPrice),
-            subtotal: toDecimal(line.subtotal),
-            lineDiscountAmount: toDecimal(line.lineDiscount),
-            allocatedSaleDiscountAmount: toDecimal(line.allocatedSaleDiscount),
-            taxAmount: toDecimal(line.taxAmount),
-            taxComponents: line.taxComponents as Prisma.InputJsonValue,
-            lineTotal: toDecimal(line.lineTotal),
-          },
-        });
-
-        await reserveInventory(tx, {
-          productId: line.productId,
-          locationId: values.locationId,
-          quantity: line.quantity,
-          allowOversell: product.allowOversell,
-          referenceId: sale.id,
-          createdById: actorUserId,
-        });
-      }
-
-      return tx.sale.findUniqueOrThrow({
-        where: { id: sale.id },
-        include: { items: true },
+      await reserveInventory(tx, {
+        productId: line.productId,
+        locationId: values.locationId,
+        quantity: line.quantity,
+        allowOversell: product.allowOversell,
+        referenceId: sale.id,
+        createdById: actorUserId,
       });
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
-  );
+
+    return tx.sale.findUniqueOrThrow({
+      where: { id: sale.id },
+      include: { items: true },
+    });
+  });
 }
 
 export async function completeSale(
@@ -308,171 +300,166 @@ export async function completeSale(
     });
   }
 
-  const sale = await db.$transaction(
-    async (tx) => {
-      const record = await tx.sale.findFirstOrThrow({
-        where: { id: saleId, businessId },
-        include: {
-          items: true,
-          payments: true,
-          business: true,
-          customer: {
-            include: {
-              customerProfile: true,
-            },
+  const sale = await withSerializableRetry(async (tx) => {
+    const record = await tx.sale.findFirstOrThrow({
+      where: { id: saleId, businessId },
+      include: {
+        items: true,
+        payments: true,
+        business: true,
+        customer: {
+          include: {
+            customerProfile: true,
           },
         },
-      });
+      },
+    });
 
-      if (record.status === SaleStatus.completed) {
-        return tx.sale.findUniqueOrThrow({
-          where: { id: saleId },
-          include: { items: true, payments: true },
-        });
-      }
-
-      if (record.status !== SaleStatus.pending_payment) {
-        throw conflictError("Only pending-payment sales can be completed.");
-      }
-
-      if (!record.reservationExpiresAt || record.reservationExpiresAt < new Date()) {
-        await releaseExpiredReservations(tx, businessId);
-        throw conflictError(
-          "Cart reservation expired. Inventory was refreshed. Please review item availability before completing payment.",
-          "RESERVATION_EXPIRED"
-        );
-      }
-
-      for (const payment of values.payments) {
-        await tx.payment.create({
-          data: {
-            saleId,
-            method: payment.method,
-            provider: payment.provider ?? "manual",
-            amount: toDecimal(payment.amount),
-            status: payment.amount > 0 ? PaymentStatus.settled : PaymentStatus.failed,
-            externalReference: payment.externalReference || null,
-          },
-        });
-      }
-
-      const refreshed = await tx.sale.findUniqueOrThrow({
+    if (record.status === SaleStatus.completed) {
+      return tx.sale.findUniqueOrThrow({
         where: { id: saleId },
-        include: { items: true, payments: true, business: true },
+        include: { items: true, payments: true },
       });
+    }
 
-      const amountPaid = sumSuccessfulPayments(
-        refreshed.payments.map((payment) => ({
-          amount: Number(payment.amount),
-          status: payment.status,
-        }))
+    if (record.status !== SaleStatus.pending_payment) {
+      throw conflictError("Only pending-payment sales can be completed.");
+    }
+
+    if (!record.reservationExpiresAt || record.reservationExpiresAt < new Date()) {
+      await releaseExpiredReservations(tx, businessId);
+      throw conflictError(
+        "Cart reservation expired. Inventory was refreshed. Please review item availability before completing payment.",
+        "RESERVATION_EXPIRED"
       );
-      const amountDue = Math.max(roundMoney(Number(refreshed.totalAmount) - amountPaid), 0);
+    }
 
-      if (amountDue > 0) {
-        return tx.sale.update({
-          where: { id: saleId },
-          data: {
-            amountPaid: toDecimal(amountPaid),
-            amountDue: toDecimal(amountDue),
-          },
-          include: { items: true, payments: true },
-        });
-      }
+    for (const payment of values.payments) {
+      await tx.payment.create({
+        data: {
+          saleId,
+          method: payment.method,
+          provider: payment.provider ?? "manual",
+          amount: toDecimal(payment.amount),
+          status: payment.amount > 0 ? PaymentStatus.settled : PaymentStatus.failed,
+          externalReference: payment.externalReference || null,
+        },
+      });
+    }
 
-      if (record.customerId && record.loyaltyPointsRedeemed > 0) {
-        const customerProfile = record.customer?.customerProfile;
-        if (!customerProfile) {
-          throw conflictError(
-            "The selected customer no longer has a loyalty profile. Rebuild the cart and try again."
-          );
-        }
+    const refreshed = await tx.sale.findUniqueOrThrow({
+      where: { id: saleId },
+      include: { items: true, payments: true, business: true },
+    });
 
-        const updatedProfile = await tx.customerProfile.updateMany({
-          where: {
-            id: customerProfile.id,
-            loyaltyPoints: {
-              gte: record.loyaltyPointsRedeemed,
-            },
-          },
-          data: {
-            loyaltyPoints: {
-              decrement: record.loyaltyPointsRedeemed,
-            },
-          },
-        });
+    const amountPaid = sumSuccessfulPayments(
+      refreshed.payments.map((payment) => ({
+        amount: Number(payment.amount),
+        status: payment.status,
+      }))
+    );
+    const amountDue = Math.max(roundMoney(Number(refreshed.totalAmount) - amountPaid), 0);
 
-        if (updatedProfile.count !== 1) {
-          throw conflictError(
-            "The customer's loyalty balance changed before payment was completed. Rebuild the cart to continue."
-          );
-        }
-
-        await tx.loyaltyTransaction.create({
-          data: {
-            customerProfileId: customerProfile.id,
-            saleId: record.id,
-            pointsDelta: -record.loyaltyPointsRedeemed,
-            amountDelta: toDecimal(loyaltyPointsToCurrency(record.loyaltyPointsRedeemed)),
-            note: "Points redeemed at POS checkout.",
-          },
-        });
-      }
-
-      for (const item of refreshed.items) {
-        await commitReservedInventory(tx, {
-          productId: item.productId,
-          locationId: refreshed.locationId,
-          quantity: Number(item.quantity),
-          referenceId: saleId,
-          createdById: actorUserId,
-        });
-      }
-
-      const receiptNumber = await allocateReceiptNumber(tx, businessId);
-
-      const completedAt = new Date();
-      const { start } = getBusinessDayRange(refreshed.business.timezone, completedAt);
-
-      const completedSale = await tx.sale.update({
+    if (amountDue > 0) {
+      return tx.sale.update({
         where: { id: saleId },
         data: {
-          status: SaleStatus.completed,
           amountPaid: toDecimal(amountPaid),
-          amountDue: toDecimal(0),
-          completedAt,
-          businessTimezoneDate: start,
-          reservationExpiresAt: null,
-          receiptNumber,
+          amountDue: toDecimal(amountDue),
         },
         include: { items: true, payments: true },
       });
+    }
 
-      await createIdempotencyRecord(
-        tx,
-        businessId,
-        "complete_sale",
-        values.idempotencyKey,
-        "sale",
-        saleId
-      );
+    if (record.customerId && record.loyaltyPointsRedeemed > 0) {
+      const customerProfile = record.customer?.customerProfile;
+      if (!customerProfile) {
+        throw conflictError(
+          "The selected customer no longer has a loyalty profile. Rebuild the cart and try again."
+        );
+      }
 
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "sale_completed",
-        resourceType: "sale",
-        resourceId: saleId,
-        metadata: { receiptNumber: completedSale.receiptNumber },
+      const updatedProfile = await tx.customerProfile.updateMany({
+        where: {
+          id: customerProfile.id,
+          loyaltyPoints: {
+            gte: record.loyaltyPointsRedeemed,
+          },
+        },
+        data: {
+          loyaltyPoints: {
+            decrement: record.loyaltyPointsRedeemed,
+          },
+        },
       });
 
-      return completedSale;
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      if (updatedProfile.count !== 1) {
+        throw conflictError(
+          "The customer's loyalty balance changed before payment was completed. Rebuild the cart to continue."
+        );
+      }
+
+      await tx.loyaltyTransaction.create({
+        data: {
+          customerProfileId: customerProfile.id,
+          saleId: record.id,
+          pointsDelta: -record.loyaltyPointsRedeemed,
+          amountDelta: toDecimal(loyaltyPointsToCurrency(record.loyaltyPointsRedeemed)),
+          note: "Points redeemed at POS checkout.",
+        },
+      });
     }
-  );
+
+    for (const item of refreshed.items) {
+      await commitReservedInventory(tx, {
+        productId: item.productId,
+        locationId: refreshed.locationId,
+        quantity: Number(item.quantity),
+        referenceId: saleId,
+        createdById: actorUserId,
+      });
+    }
+
+    const receiptNumber = await allocateReceiptNumber(tx, businessId);
+
+    const completedAt = new Date();
+    const { start } = getBusinessDayRange(refreshed.business.timezone, completedAt);
+
+    const completedSale = await tx.sale.update({
+      where: { id: saleId },
+      data: {
+        status: SaleStatus.completed,
+        amountPaid: toDecimal(amountPaid),
+        amountDue: toDecimal(0),
+        completedAt,
+        businessTimezoneDate: start,
+        reservationExpiresAt: null,
+        receiptNumber,
+      },
+      include: { items: true, payments: true },
+    });
+
+    await createIdempotencyRecord(
+      tx,
+      businessId,
+      "complete_sale",
+      values.idempotencyKey,
+      "sale",
+      saleId
+    );
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "sale_completed",
+      resourceType: "sale",
+      resourceId: saleId,
+      metadata: { receiptNumber: completedSale.receiptNumber },
+    });
+
+    return completedSale;
+  });
 
   return sale;
 }
@@ -705,232 +692,227 @@ export async function createRefund(
     });
   }
 
-  const refund = await db.$transaction(
-    async (tx) => {
-      const sale = await tx.sale.findFirstOrThrow({
-        where: { id: saleId, businessId },
-        include: {
-          items: {
-            include: {
-              refundItems: true,
-            },
+  const refund = await withSerializableRetry(async (tx) => {
+    const sale = await tx.sale.findFirstOrThrow({
+      where: { id: saleId, businessId },
+      include: {
+        items: {
+          include: {
+            refundItems: true,
           },
-          payments: true,
         },
-      });
-      if (sale.status !== SaleStatus.completed && sale.status !== SaleStatus.refunded_partially) {
-        throw conflictError("Only completed or partially refunded sales can be refunded.");
+        payments: true,
+      },
+    });
+    if (sale.status !== SaleStatus.completed && sale.status !== SaleStatus.refunded_partially) {
+      throw conflictError("Only completed or partially refunded sales can be refunded.");
+    }
+
+    let newRefundAmount = 0;
+    for (const item of values.items) {
+      const saleItem = sale.items.find((entry) => entry.id === item.saleItemId);
+      if (!saleItem) {
+        throw notFoundError("Refund item not found on sale.");
       }
 
-      let newRefundAmount = 0;
-      for (const item of values.items) {
-        const saleItem = sale.items.find((entry) => entry.id === item.saleItemId);
-        if (!saleItem) {
-          throw notFoundError("Refund item not found on sale.");
-        }
-
-        const alreadyRefundedQuantity = saleItem.refundItems.reduce(
-          (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
-          0
-        );
-        const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
-        if (item.quantity > remainingQuantity) {
-          throw validationError("Refund quantity exceeds remaining refundable quantity.", {
-            fieldErrors: {
-              items: ["Refund quantity exceeds remaining refundable quantity."],
-            },
-          });
-        }
-
-        const perUnitAmount = roundMoney(Number(saleItem.lineTotal) / Number(saleItem.quantity));
-        const amountRefunded = roundMoney(perUnitAmount * item.quantity);
-        newRefundAmount = roundMoney(newRefundAmount + amountRefunded);
-      }
-
-      const existingRefunds = await tx.refund.aggregate({
-        where: {
-          saleId: sale.id,
-          status: { not: RefundStatus.cancelled },
-        },
-        _sum: {
-          refundTotalAmount: true,
-        },
-      });
-      const previousRefundTotal = existingRefunds._sum.refundTotalAmount?.toNumber() ?? 0;
-      const saleTotal = sale.totalAmount.toNumber();
-
-      if (previousRefundTotal + newRefundAmount > saleTotal) {
-        throw new Error(
-          `Refund exceeds sale total. Sale total: $${saleTotal.toFixed(2)}, already refunded: $${previousRefundTotal.toFixed(2)}, requested: $${newRefundAmount.toFixed(2)}`
-        );
-      }
-
-      const refundRecord = await tx.refund.create({
-        data: {
-          businessId,
-          saleId,
-          createdById: actorUserId,
-          status: RefundStatus.pending,
-          refundTotalAmount: toDecimal(0),
-          reasonCode: values.reasonCode,
-          note: values.note,
-        },
-      });
-
-      let refundTotalAmount = 0;
-      let currentRequestRefundedQuantity = 0;
-      for (const item of values.items) {
-        const saleItem = sale.items.find((entry) => entry.id === item.saleItemId);
-        if (!saleItem) {
-          throw notFoundError("Refund item not found on sale.");
-        }
-
-        const alreadyRefundedQuantity = saleItem.refundItems.reduce(
-          (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
-          0
-        );
-        const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
-        if (item.quantity > remainingQuantity) {
-          throw validationError("Refund quantity exceeds remaining refundable quantity.", {
-            fieldErrors: {
-              items: ["Refund quantity exceeds remaining refundable quantity."],
-            },
-          });
-        }
-
-        const perUnitAmount = roundMoney(Number(saleItem.lineTotal) / Number(saleItem.quantity));
-        const amountRefunded = roundMoney(perUnitAmount * item.quantity);
-        refundTotalAmount = roundMoney(refundTotalAmount + amountRefunded);
-        currentRequestRefundedQuantity += item.quantity;
-
-        await tx.refundItem.create({
-          data: {
-            refundId: refundRecord.id,
-            saleItemId: saleItem.id,
-            quantityRefunded: toDecimal(item.quantity),
-            amountRefunded: toDecimal(amountRefunded),
-            restockAction: item.restockAction as RestockAction,
-          },
-        });
-
-        if (item.restockAction === "restock_to_sellable") {
-          await restockInventory(tx, {
-            productId: saleItem.productId,
-            locationId: sale.locationId,
-            quantity: item.quantity,
-            referenceId: refundRecord.id,
-            createdById: actorUserId,
-            reason: values.reasonCode,
-          });
-        } else {
-          await tx.inventoryMovement.create({
-            data: {
-              productId: saleItem.productId,
-              locationId: sale.locationId,
-              movementType: InventoryMovementType.refund_no_restock,
-              quantityDelta: toDecimal(0),
-              referenceType: "refund",
-              referenceId: refundRecord.id,
-              reason: item.restockAction,
-              createdById: actorUserId,
-            },
-          });
-        }
-      }
-
-      let remaining = refundTotalAmount;
-      for (const payment of sale.payments) {
-        if (remaining <= 0) break;
-
-        const priorRefunded = await tx.refundPayment.aggregate({
-          where: { paymentId: payment.id },
-          _sum: { amountReversed: true },
-        });
-        const available = roundMoney(
-          Number(payment.amount) - Number(priorRefunded._sum.amountReversed ?? 0)
-        );
-        if (available <= 0) continue;
-        const applied = Math.min(available, remaining);
-
-        await tx.refundPayment.create({
-          data: {
-            refundId: refundRecord.id,
-            paymentId: payment.id,
-            amountReversed: toDecimal(applied),
-          },
-        });
-
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status:
-              applied === available ? PaymentStatus.refunded_full : PaymentStatus.refunded_partial,
-          },
-        });
-        remaining = roundMoney(remaining - applied);
-      }
-      if (remaining > 0) {
-        throw conflictError("Refund amount exceeds the refundable payment balance.");
-      }
-
-      const alreadyRefundedQuantity = sale.items.reduce(
-        (sum, item) =>
-          sum +
-          item.refundItems.reduce(
-            (inner, refundItem) => inner + Number(refundItem.quantityRefunded),
-            0
-          ),
+      const alreadyRefundedQuantity = saleItem.refundItems.reduce(
+        (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
         0
       );
-      const refundedQuantity = alreadyRefundedQuantity + currentRequestRefundedQuantity;
-      const totalQuantity = sale.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+      const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
+      if (item.quantity > remainingQuantity) {
+        throw validationError("Refund quantity exceeds remaining refundable quantity.", {
+          fieldErrors: {
+            items: ["Refund quantity exceeds remaining refundable quantity."],
+          },
+        });
+      }
 
-      await tx.refund.update({
-        where: { id: refundRecord.id },
+      const perUnitAmount = roundMoney(Number(saleItem.lineTotal) / Number(saleItem.quantity));
+      const amountRefunded = roundMoney(perUnitAmount * item.quantity);
+      newRefundAmount = roundMoney(newRefundAmount + amountRefunded);
+    }
+
+    const existingRefunds = await tx.refund.aggregate({
+      where: {
+        saleId: sale.id,
+        status: { not: RefundStatus.cancelled },
+      },
+      _sum: {
+        refundTotalAmount: true,
+      },
+    });
+    const previousRefundTotal = existingRefunds._sum.refundTotalAmount?.toNumber() ?? 0;
+    const saleTotal = sale.totalAmount.toNumber();
+
+    if (previousRefundTotal + newRefundAmount > saleTotal) {
+      throw new Error(
+        `Refund exceeds sale total. Sale total: $${saleTotal.toFixed(2)}, already refunded: $${previousRefundTotal.toFixed(2)}, requested: $${newRefundAmount.toFixed(2)}`
+      );
+    }
+
+    const refundRecord = await tx.refund.create({
+      data: {
+        businessId,
+        saleId,
+        createdById: actorUserId,
+        status: RefundStatus.pending,
+        refundTotalAmount: toDecimal(0),
+        reasonCode: values.reasonCode,
+        note: values.note,
+      },
+    });
+
+    let refundTotalAmount = 0;
+    let currentRequestRefundedQuantity = 0;
+    for (const item of values.items) {
+      const saleItem = sale.items.find((entry) => entry.id === item.saleItemId);
+      if (!saleItem) {
+        throw notFoundError("Refund item not found on sale.");
+      }
+
+      const alreadyRefundedQuantity = saleItem.refundItems.reduce(
+        (sum, refundItem) => sum + Number(refundItem.quantityRefunded),
+        0
+      );
+      const remainingQuantity = Number(saleItem.quantity) - alreadyRefundedQuantity;
+      if (item.quantity > remainingQuantity) {
+        throw validationError("Refund quantity exceeds remaining refundable quantity.", {
+          fieldErrors: {
+            items: ["Refund quantity exceeds remaining refundable quantity."],
+          },
+        });
+      }
+
+      const perUnitAmount = roundMoney(Number(saleItem.lineTotal) / Number(saleItem.quantity));
+      const amountRefunded = roundMoney(perUnitAmount * item.quantity);
+      refundTotalAmount = roundMoney(refundTotalAmount + amountRefunded);
+      currentRequestRefundedQuantity += item.quantity;
+
+      await tx.refundItem.create({
         data: {
-          status: RefundStatus.completed,
-          refundTotalAmount: toDecimal(refundTotalAmount),
+          refundId: refundRecord.id,
+          saleItemId: saleItem.id,
+          quantityRefunded: toDecimal(item.quantity),
+          amountRefunded: toDecimal(amountRefunded),
+          restockAction: item.restockAction as RestockAction,
         },
       });
 
-      await tx.sale.update({
-        where: { id: saleId },
+      if (item.restockAction === "restock_to_sellable") {
+        await restockInventory(tx, {
+          productId: saleItem.productId,
+          locationId: sale.locationId,
+          quantity: item.quantity,
+          referenceId: refundRecord.id,
+          createdById: actorUserId,
+          reason: values.reasonCode,
+        });
+      } else {
+        await tx.inventoryMovement.create({
+          data: {
+            productId: saleItem.productId,
+            locationId: sale.locationId,
+            movementType: InventoryMovementType.refund_no_restock,
+            quantityDelta: toDecimal(0),
+            referenceType: "refund",
+            referenceId: refundRecord.id,
+            reason: item.restockAction,
+            createdById: actorUserId,
+          },
+        });
+      }
+    }
+
+    let remaining = refundTotalAmount;
+    for (const payment of sale.payments) {
+      if (remaining <= 0) break;
+
+      const priorRefunded = await tx.refundPayment.aggregate({
+        where: { paymentId: payment.id },
+        _sum: { amountReversed: true },
+      });
+      const available = roundMoney(
+        Number(payment.amount) - Number(priorRefunded._sum.amountReversed ?? 0)
+      );
+      if (available <= 0) continue;
+      const applied = Math.min(available, remaining);
+
+      await tx.refundPayment.create({
+        data: {
+          refundId: refundRecord.id,
+          paymentId: payment.id,
+          amountReversed: toDecimal(applied),
+        },
+      });
+
+      await tx.payment.update({
+        where: { id: payment.id },
         data: {
           status:
-            refundedQuantity >= totalQuantity
-              ? SaleStatus.refunded_fully
-              : SaleStatus.refunded_partially,
+            applied === available ? PaymentStatus.refunded_full : PaymentStatus.refunded_partial,
         },
       });
-
-      await createIdempotencyRecord(
-        tx,
-        businessId,
-        "refund_payment",
-        values.idempotencyKey,
-        "refund",
-        refundRecord.id
-      );
-
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "refund_created",
-        resourceType: "refund",
-        resourceId: refundRecord.id,
-        metadata: { saleId, refundTotalAmount },
-      });
-
-      return tx.refund.findUniqueOrThrow({
-        where: { id: refundRecord.id },
-        include: { items: true, refundPayments: true },
-      });
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      remaining = roundMoney(remaining - applied);
     }
-  );
+    if (remaining > 0) {
+      throw conflictError("Refund amount exceeds the refundable payment balance.");
+    }
+
+    const alreadyRefundedQuantity = sale.items.reduce(
+      (sum, item) =>
+        sum +
+        item.refundItems.reduce(
+          (inner, refundItem) => inner + Number(refundItem.quantityRefunded),
+          0
+        ),
+      0
+    );
+    const refundedQuantity = alreadyRefundedQuantity + currentRequestRefundedQuantity;
+    const totalQuantity = sale.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+
+    await tx.refund.update({
+      where: { id: refundRecord.id },
+      data: {
+        status: RefundStatus.completed,
+        refundTotalAmount: toDecimal(refundTotalAmount),
+      },
+    });
+
+    await tx.sale.update({
+      where: { id: saleId },
+      data: {
+        status:
+          refundedQuantity >= totalQuantity
+            ? SaleStatus.refunded_fully
+            : SaleStatus.refunded_partially,
+      },
+    });
+
+    await createIdempotencyRecord(
+      tx,
+      businessId,
+      "refund_payment",
+      values.idempotencyKey,
+      "refund",
+      refundRecord.id
+    );
+
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "refund_created",
+      resourceType: "refund",
+      resourceId: refundRecord.id,
+      metadata: { saleId, refundTotalAmount },
+    });
+
+    return tx.refund.findUniqueOrThrow({
+      where: { id: refundRecord.id },
+      include: { items: true, refundPayments: true },
+    });
+  });
 
   return refund;
 }

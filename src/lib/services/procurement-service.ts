@@ -2,7 +2,7 @@ import { InventoryMovementType, Prisma, PurchaseOrderStatus } from "@prisma/clie
 import { z } from "zod";
 
 import { logAudit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { db, withSerializableRetry } from "@/lib/db";
 import { notFoundError, validationError } from "@/lib/errors";
 import { computeAvailableQuantity } from "@/lib/domain/inventory";
 import { toDecimal } from "@/lib/money";
@@ -450,71 +450,66 @@ export async function quickReceivePurchaseOrder(
     });
   }
 
-  return db.$transaction(
-    async (tx) => {
-      const purchaseOrder = await createPurchaseOrderRecord(tx, actorUserId, businessId, values);
+  return withSerializableRetry(async (tx) => {
+    const purchaseOrder = await createPurchaseOrderRecord(tx, actorUserId, businessId, values);
 
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "purchase_order_created",
-        resourceType: "purchase_order",
-        resourceId: purchaseOrder.id,
-        metadata: { poNumber: purchaseOrder.poNumber, mode: "quick_receive" },
-      });
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "purchase_order_created",
+      resourceType: "purchase_order",
+      resourceId: purchaseOrder.id,
+      metadata: { poNumber: purchaseOrder.poNumber, mode: "quick_receive" },
+    });
 
-      await enqueueRoleNotifications(tx, {
-        businessId,
-        roles: ["owner"],
-        type: "purchase_order_created",
-        title: "Purchase order created",
-        message: `Purchase order ${purchaseOrder.poNumber} was created for ${purchaseOrder.supplier.name}.`,
-        channel: "in_app",
-      });
+    await enqueueRoleNotifications(tx, {
+      businessId,
+      roles: ["owner"],
+      type: "purchase_order_created",
+      title: "Purchase order created",
+      message: `Purchase order ${purchaseOrder.poNumber} was created for ${purchaseOrder.supplier.name}.`,
+      channel: "in_app",
+    });
 
-      const received = await applyPurchaseOrderReceipt(tx, actorUserId, purchaseOrder, {
-        items: purchaseOrder.items.map((item) => ({
-          itemId: item.id,
-          receivedQuantity: Number(item.orderedQuantity),
-        })),
-        idempotencyKey: values.idempotencyKey,
-      });
+    const received = await applyPurchaseOrderReceipt(tx, actorUserId, purchaseOrder, {
+      items: purchaseOrder.items.map((item) => ({
+        itemId: item.id,
+        receivedQuantity: Number(item.orderedQuantity),
+      })),
+      idempotencyKey: values.idempotencyKey,
+    });
 
-      await createIdempotencyRecord(
-        tx,
-        businessId,
-        "purchase_order_quick_receive",
-        values.idempotencyKey,
-        "purchase_order",
-        received.id
-      );
+    await createIdempotencyRecord(
+      tx,
+      businessId,
+      "purchase_order_quick_receive",
+      values.idempotencyKey,
+      "purchase_order",
+      received.id
+    );
 
-      await logAudit({
-        tx,
-        businessId,
-        actorUserId,
-        action: "purchase_order_received",
-        resourceType: "purchase_order",
-        resourceId: received.id,
-        metadata: { poNumber: received.poNumber, mode: "quick_receive" },
-      });
+    await logAudit({
+      tx,
+      businessId,
+      actorUserId,
+      action: "purchase_order_received",
+      resourceType: "purchase_order",
+      resourceId: received.id,
+      metadata: { poNumber: received.poNumber, mode: "quick_receive" },
+    });
 
-      await enqueueRoleNotifications(tx, {
-        businessId,
-        roles: ["owner", "manager"],
-        type: "purchase_order_received",
-        title: "Purchase order received",
-        message: `Purchase order ${received.poNumber} was received into inventory.`,
-        channel: "in_app",
-      });
+    await enqueueRoleNotifications(tx, {
+      businessId,
+      roles: ["owner", "manager"],
+      type: "purchase_order_received",
+      title: "Purchase order received",
+      message: `Purchase order ${received.poNumber} was received into inventory.`,
+      channel: "in_app",
+    });
 
-      return received;
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }
-  );
+    return received;
+  });
 }
 
 export async function receivePurchaseOrder(

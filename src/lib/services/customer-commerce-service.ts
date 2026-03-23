@@ -1,7 +1,7 @@
 import { PaymentStatus, Prisma } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
-import { db } from "@/lib/db";
+import { db, withSerializableRetry } from "@/lib/db";
 import { priceCheckout } from "@/lib/domain/pricing";
 import { notFoundError, validationError } from "@/lib/errors";
 import { resolvePreferredLocationId } from "@/lib/location-preferences";
@@ -302,215 +302,210 @@ export async function checkoutCustomerCart(customerId: string, input: unknown) {
     });
   }
 
-  return db.$transaction(
-    async (tx) => {
-      const cart = await tx.cart.findFirst({
-        where: {
-          customerId,
-          status: "active",
-          locationId: values.locationId,
-        },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
+  return withSerializableRetry(async (tx) => {
+    const cart = await tx.cart.findFirst({
+      where: {
+        customerId,
+        status: "active",
+        locationId: values.locationId,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
           },
         },
-      });
+      },
+    });
 
-      if (!cart || cart.items.length === 0) {
-        throw validationError("Your cart is empty.");
-      }
-
-      const business = await tx.business.findUniqueOrThrow({
-        where: { id: cart.businessId },
-        include: { taxRates: true },
-      });
-      await setPreferredStore(tx, customerId, cart.locationId);
-
-      const pricing = priceCheckout(
-        cart.items.map((item) => ({
-          productId: item.productId,
-          productName: item.product.name,
-          category: item.product.category,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-        })),
-        business.taxRates.map((rate) => ({
-          name: rate.name,
-          ratePercent: Number(rate.ratePercent),
-          appliesToCategories: taxRateCategories(rate.appliesToCategories),
-          compoundOrder: rate.compoundOrder,
-        })),
-        business.taxMode
-      );
-
-      const order = await tx.order.create({
-        data: {
-          businessId: cart.businessId,
-          locationId: cart.locationId,
-          orderNumber: await allocateOrderNumber(tx, cart.businessId),
-          orderType: "online",
-          customerId,
-          createdByUserId: customerId,
-          status: "confirmed",
-          subtotalAmount: toDecimal(pricing.subtotalAmount),
-          taxAmount: toDecimal(pricing.taxAmount),
-          discountAmount: toDecimal(pricing.discountAmount),
-          totalAmount: toDecimal(pricing.totalAmount),
-          paymentStatus: PaymentStatus.settled,
-          fulfillmentType: values.fulfillmentType,
-          notes: values.notes || null,
-        },
-      });
-
-      for (const line of pricing.items) {
-        const product = cart.items.find((item) => item.productId === line.productId)?.product;
-        if (!product) {
-          throw notFoundError("Product not found in cart.");
-        }
-
-        await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            productId: line.productId,
-            quantity: toDecimal(line.quantity),
-            unitPrice: toDecimal(line.unitPrice),
-            discountAmount: toDecimal(line.lineDiscount + line.allocatedSaleDiscount),
-            taxAmount: toDecimal(line.taxAmount),
-            totalAmount: toDecimal(line.lineTotal),
-          },
-        });
-
-        await reserveInventory(tx, {
-          productId: line.productId,
-          locationId: cart.locationId,
-          quantity: line.quantity,
-          allowOversell: product.allowOversell,
-          referenceId: order.id,
-          createdById: customerId,
-          referenceType: "order",
-          reason: "online_checkout_reservation",
-        });
-        await commitReservedInventory(tx, {
-          productId: line.productId,
-          locationId: cart.locationId,
-          quantity: line.quantity,
-          referenceId: order.id,
-          createdById: customerId,
-          referenceType: "order",
-          reason: "online_order_completed",
-        });
-      }
-
-      let addressId: string | null = null;
-      if (values.fulfillmentType === "delivery") {
-        if (!values.address) {
-          throw validationError("Delivery address is required for delivery orders.", {
-            fieldErrors: {
-              address: ["Delivery address is required for delivery orders."],
-            },
-          });
-        }
-
-        const address = await tx.address.create({
-          data: {
-            userId: customerId,
-            label: values.address.label,
-            line1: values.address.line1,
-            line2: values.address.line2 || null,
-            city: values.address.city,
-            province: values.address.province,
-            postalCode: values.address.postalCode,
-            country: values.address.country,
-          },
-        });
-        addressId = address.id;
-      }
-
-      await tx.orderFulfillment.create({
-        data: {
-          orderId: order.id,
-          status: "pending",
-          deliveryAddressId: addressId,
-        },
-      });
-
-      await tx.orderPayment.create({
-        data: {
-          orderId: order.id,
-          method: values.paymentMethod,
-          provider: values.paymentProvider ?? "manual",
-          amount: toDecimal(pricing.totalAmount),
-          status: PaymentStatus.settled,
-        },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: order.id,
-          oldStatus: null,
-          newStatus: "confirmed",
-          changedByUserId: customerId,
-          notes: "Customer checkout completed.",
-        },
-      });
-
-      await createIdempotencyRecord(
-        tx,
-        cart.businessId,
-        "customer_checkout",
-        values.idempotencyKey,
-        "order",
-        order.id
-      );
-
-      await tx.cart.update({
-        where: { id: cart.id },
-        data: { status: "checked_out" },
-      });
-
-      await logAudit({
-        tx,
-        businessId: cart.businessId,
-        actorUserId: customerId,
-        action: "customer_order_created",
-        resourceType: "order",
-        resourceId: order.id,
-        metadata: { orderNumber: order.orderNumber },
-      });
-
-      await enqueueRoleNotifications(tx, {
-        businessId: cart.businessId,
-        roles: ["owner", "manager"],
-        type: "customer_order_created",
-        title: "New online order",
-        message: `Order ${order.orderNumber} was placed through the storefront.`,
-        channel: "in_app",
-      });
-
-      await enqueueNotification(tx, {
-        userId: customerId,
-        type: "order_confirmed",
-        title: "Order confirmed",
-        message: `Your order ${order.orderNumber} has been confirmed for ${order.fulfillmentType.replaceAll("_", " ")}.`,
-        channel: "email",
-      });
-
-      return tx.order.findUniqueOrThrow({
-        where: { id: order.id },
-        include: {
-          items: { include: { product: true } },
-          fulfillment: { include: { deliveryAddress: true } },
-          payments: true,
-        },
-      });
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    if (!cart || cart.items.length === 0) {
+      throw validationError("Your cart is empty.");
     }
-  );
+
+    const business = await tx.business.findUniqueOrThrow({
+      where: { id: cart.businessId },
+      include: { taxRates: true },
+    });
+    await setPreferredStore(tx, customerId, cart.locationId);
+
+    const pricing = priceCheckout(
+      cart.items.map((item) => ({
+        productId: item.productId,
+        productName: item.product.name,
+        category: item.product.category,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+      })),
+      business.taxRates.map((rate) => ({
+        name: rate.name,
+        ratePercent: Number(rate.ratePercent),
+        appliesToCategories: taxRateCategories(rate.appliesToCategories),
+        compoundOrder: rate.compoundOrder,
+      })),
+      business.taxMode
+    );
+
+    const order = await tx.order.create({
+      data: {
+        businessId: cart.businessId,
+        locationId: cart.locationId,
+        orderNumber: await allocateOrderNumber(tx, cart.businessId),
+        orderType: "online",
+        customerId,
+        createdByUserId: customerId,
+        status: "confirmed",
+        subtotalAmount: toDecimal(pricing.subtotalAmount),
+        taxAmount: toDecimal(pricing.taxAmount),
+        discountAmount: toDecimal(pricing.discountAmount),
+        totalAmount: toDecimal(pricing.totalAmount),
+        paymentStatus: PaymentStatus.settled,
+        fulfillmentType: values.fulfillmentType,
+        notes: values.notes || null,
+      },
+    });
+
+    for (const line of pricing.items) {
+      const product = cart.items.find((item) => item.productId === line.productId)?.product;
+      if (!product) {
+        throw notFoundError("Product not found in cart.");
+      }
+
+      await tx.orderItem.create({
+        data: {
+          orderId: order.id,
+          productId: line.productId,
+          quantity: toDecimal(line.quantity),
+          unitPrice: toDecimal(line.unitPrice),
+          discountAmount: toDecimal(line.lineDiscount + line.allocatedSaleDiscount),
+          taxAmount: toDecimal(line.taxAmount),
+          totalAmount: toDecimal(line.lineTotal),
+        },
+      });
+
+      await reserveInventory(tx, {
+        productId: line.productId,
+        locationId: cart.locationId,
+        quantity: line.quantity,
+        allowOversell: product.allowOversell,
+        referenceId: order.id,
+        createdById: customerId,
+        referenceType: "order",
+        reason: "online_checkout_reservation",
+      });
+      await commitReservedInventory(tx, {
+        productId: line.productId,
+        locationId: cart.locationId,
+        quantity: line.quantity,
+        referenceId: order.id,
+        createdById: customerId,
+        referenceType: "order",
+        reason: "online_order_completed",
+      });
+    }
+
+    let addressId: string | null = null;
+    if (values.fulfillmentType === "delivery") {
+      if (!values.address) {
+        throw validationError("Delivery address is required for delivery orders.", {
+          fieldErrors: {
+            address: ["Delivery address is required for delivery orders."],
+          },
+        });
+      }
+
+      const address = await tx.address.create({
+        data: {
+          userId: customerId,
+          label: values.address.label,
+          line1: values.address.line1,
+          line2: values.address.line2 || null,
+          city: values.address.city,
+          province: values.address.province,
+          postalCode: values.address.postalCode,
+          country: values.address.country,
+        },
+      });
+      addressId = address.id;
+    }
+
+    await tx.orderFulfillment.create({
+      data: {
+        orderId: order.id,
+        status: "pending",
+        deliveryAddressId: addressId,
+      },
+    });
+
+    await tx.orderPayment.create({
+      data: {
+        orderId: order.id,
+        method: values.paymentMethod,
+        provider: values.paymentProvider ?? "manual",
+        amount: toDecimal(pricing.totalAmount),
+        status: PaymentStatus.settled,
+      },
+    });
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        oldStatus: null,
+        newStatus: "confirmed",
+        changedByUserId: customerId,
+        notes: "Customer checkout completed.",
+      },
+    });
+
+    await createIdempotencyRecord(
+      tx,
+      cart.businessId,
+      "customer_checkout",
+      values.idempotencyKey,
+      "order",
+      order.id
+    );
+
+    await tx.cart.update({
+      where: { id: cart.id },
+      data: { status: "checked_out" },
+    });
+
+    await logAudit({
+      tx,
+      businessId: cart.businessId,
+      actorUserId: customerId,
+      action: "customer_order_created",
+      resourceType: "order",
+      resourceId: order.id,
+      metadata: { orderNumber: order.orderNumber },
+    });
+
+    await enqueueRoleNotifications(tx, {
+      businessId: cart.businessId,
+      roles: ["owner", "manager"],
+      type: "customer_order_created",
+      title: "New online order",
+      message: `Order ${order.orderNumber} was placed through the storefront.`,
+      channel: "in_app",
+    });
+
+    await enqueueNotification(tx, {
+      userId: customerId,
+      type: "order_confirmed",
+      title: "Order confirmed",
+      message: `Your order ${order.orderNumber} has been confirmed for ${order.fulfillmentType.replaceAll("_", " ")}.`,
+      channel: "email",
+    });
+
+    return tx.order.findUniqueOrThrow({
+      where: { id: order.id },
+      include: {
+        items: { include: { product: true } },
+        fulfillment: { include: { deliveryAddress: true } },
+        payments: true,
+      },
+    });
+  });
 }
 
 export async function listCustomerOrders(

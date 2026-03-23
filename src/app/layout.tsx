@@ -59,11 +59,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <MonitoringClient />
         <Toaster richColors position="top-right" />
         <CookieConsent />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }); }`,
-          }}
-        />
       </body>
     </html>
   );

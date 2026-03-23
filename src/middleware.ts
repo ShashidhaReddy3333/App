@@ -18,6 +18,10 @@ function buildContentSecurityPolicy() {
   const isDev = process.env.NODE_ENV === "development";
   const sentryDsn = getOptionalSentryDsn();
   const sentryOrigin = isProductionRuntime() && sentryDsn ? new URL(sentryDsn).origin : "";
+
+  // 'unsafe-inline' is required because Next.js App Router injects inline
+  // scripts for hydration that cannot yet receive nonces automatically.
+  // Nonce-based CSP can replace this once Next.js adds full nonce support.
   const scriptSources = ["'self'", "'unsafe-inline'"];
 
   if (isDev) {
@@ -73,12 +77,14 @@ function buildOrigin(request: NextRequest) {
 }
 
 function withResponseHeaders(response: NextResponse, requestId: string, portal: string | null) {
+  const csp = buildContentSecurityPolicy();
+
   response.headers.set("x-request-id", requestId);
   response.headers.set("x-portal", portal ?? "main");
   response.headers.set("x-content-type-options", "nosniff");
   response.headers.set("x-frame-options", "DENY");
   response.headers.set("referrer-policy", "strict-origin-when-cross-origin");
-  response.headers.set("content-security-policy", buildContentSecurityPolicy());
+  response.headers.set("content-security-policy", csp);
   response.headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set("cross-origin-opener-policy", "same-origin");
 
@@ -87,10 +93,7 @@ function withResponseHeaders(response: NextResponse, requestId: string, portal: 
       "strict-transport-security",
       "max-age=31536000; includeSubDomains; preload"
     );
-    response.headers.set(
-      "content-security-policy",
-      `${buildContentSecurityPolicy()}; upgrade-insecure-requests`
-    );
+    response.headers.set("content-security-policy", `${csp}; upgrade-insecure-requests`);
   }
 
   return response;

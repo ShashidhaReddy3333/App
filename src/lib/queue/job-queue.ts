@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 export type JobStatus = "pending" | "running" | "completed" | "failed";
@@ -56,32 +57,33 @@ export async function enqueue<T extends Record<string, unknown>>(
 }
 
 /**
- * Dequeue pending jobs of the given types (up to a limit).
+ * Atomically dequeue pending jobs using FOR UPDATE SKIP LOCKED to prevent
+ * duplicate processing when multiple workers run concurrently.
  */
 export async function dequeue(types: JobType[], limit = 10): Promise<Job[]> {
   const now = new Date();
 
-  const jobs = await db.jobQueue.findMany({
-    where: {
-      type: { in: types },
-      status: "pending",
-      scheduledAt: { lte: now },
-    },
-    orderBy: { scheduledAt: "asc" },
-    take: limit,
-  });
+  // Use raw SQL with FOR UPDATE SKIP LOCKED for atomic claim.
+  // This prevents two concurrent workers from grabbing the same jobs.
+  const jobs = await db.$queryRaw<Job[]>`
+    UPDATE "JobQueue"
+    SET status = 'running', "startedAt" = ${now}
+    WHERE id IN (
+      SELECT id FROM "JobQueue"
+      WHERE type IN (${Prisma.join(types)})
+        AND status = 'pending'
+        AND "scheduledAt" <= ${now}
+      ORDER BY "scheduledAt" ASC
+      LIMIT ${limit}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING
+      id, type, payload, status, attempts, "maxAttempts",
+      "scheduledAt", "startedAt", "completedAt", "failedAt",
+      error, "createdAt"
+  `;
 
-  if (jobs.length === 0) return [];
-
-  const ids = jobs.map((j) => j.id);
-
-  // Mark as running
-  await db.jobQueue.updateMany({
-    where: { id: { in: ids } },
-    data: { status: "running", startedAt: now },
-  });
-
-  return jobs as unknown as Job[];
+  return jobs;
 }
 
 /**
@@ -133,20 +135,24 @@ export async function markFailed(jobId: string, error: string): Promise<void> {
 
 /**
  * Acquire a distributed lock using the JobLock table.
+ * Uses atomic INSERT ... ON CONFLICT to prevent race conditions.
  */
 export async function acquireLock(lockKey: string, ttlSeconds = 60): Promise<boolean> {
   const ownerId = crypto.randomUUID();
+  const id = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
   try {
-    // Clean up expired locks first
-    await db.jobLock.deleteMany({
-      where: { lockKey, expiresAt: { lt: new Date() } },
-    });
-
-    await db.jobLock.create({
-      data: { id: crypto.randomUUID(), lockKey, ownerId, expiresAt },
-    });
+    // Atomic: delete expired lock for this key and insert new one.
+    // If another worker holds a non-expired lock, the unique constraint
+    // on lockKey causes the insert to fail (caught below).
+    await db.$executeRaw`
+      DELETE FROM "JobLock" WHERE "lockKey" = ${lockKey} AND "expiresAt" < NOW();
+    `;
+    await db.$executeRaw`
+      INSERT INTO "JobLock" (id, "lockKey", "ownerId", "expiresAt")
+      VALUES (${id}, ${lockKey}, ${ownerId}, ${expiresAt})
+    `;
 
     return true;
   } catch {

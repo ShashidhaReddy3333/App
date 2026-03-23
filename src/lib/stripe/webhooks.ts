@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, Prisma } from "@prisma/client";
 import { stripe } from "./client";
 import { STRIPE_CONFIG } from "./config";
 import { db } from "@/lib/db";
@@ -35,16 +35,26 @@ export async function processWebhookEvent(event: Stripe.Event): Promise<boolean>
       // Previously failed — allow retry by continuing
     }
   } else {
-    // Record the event first
-    await db.stripeWebhookEvent.create({
-      data: {
-        id: crypto.randomUUID(),
-        stripeEventId: event.id,
-        type: event.type,
-        livemode: event.livemode,
-        payload: JSON.parse(JSON.stringify(event)),
-      },
-    });
+    // Record the event first. Use try/catch for P2002 (unique constraint)
+    // to handle the race where two concurrent webhook deliveries both pass
+    // the findUnique check above.
+    try {
+      await db.stripeWebhookEvent.create({
+        data: {
+          id: crypto.randomUUID(),
+          stripeEventId: event.id,
+          type: event.type,
+          livemode: event.livemode,
+          payload: JSON.parse(JSON.stringify(event)),
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        // Another worker already recorded this event — treat as duplicate
+        return false;
+      }
+      throw err;
+    }
   }
 
   try {
