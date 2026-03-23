@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { getOptionalSentryDsn, isProductionRuntime } from "@/lib/env";
+import {
+  getPortalAbsoluteUrl,
+  getPortalLegacyRedirectForMainHost,
+  isPortalAllowedApiPath,
+  isPortalAllowedPath,
+  normalizePortal,
+  resolvePortalLegacyRedirect,
+  resolvePortalLegacyRewrite,
+  resolvePortalPublicRewrite,
+} from "@/lib/portal";
 import { getRequestOrigin, isAllowedRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
 
 function buildContentSecurityPolicy() {
@@ -33,58 +43,6 @@ function buildContentSecurityPolicy() {
   ].join("; ");
 }
 
-const SUBDOMAIN_CONFIG: Record<
-  string,
-  {
-    allowedPrefixes: string[];
-    defaultPath: string;
-  }
-> = {
-  shop: {
-    allowedPrefixes: [
-      "/shop",
-      "/customer",
-      "/cart",
-      "/orders",
-      "/sign-in",
-      "/sign-up",
-      "/customer/sign-up",
-      "/forgot-password",
-      "/reset-password",
-      "/api",
-      "/marketplace",
-    ],
-    defaultPath: "/shop",
-  },
-  retail: {
-    allowedPrefixes: [
-      "/app",
-      "/sign-in",
-      "/sign-up",
-      "/forgot-password",
-      "/reset-password",
-      "/api",
-    ],
-    defaultPath: "/app/dashboard",
-  },
-  supply: {
-    allowedPrefixes: [
-      "/supplier",
-      "/sign-in",
-      "/sign-up",
-      "/supplier/sign-up",
-      "/forgot-password",
-      "/reset-password",
-      "/api",
-    ],
-    defaultPath: "/supplier/dashboard",
-  },
-  admin: {
-    allowedPrefixes: ["/admin", "/sign-in", "/api"],
-    defaultPath: "/admin",
-  },
-};
-
 function getSubdomain(host: string): string | null {
   const [hostname = ""] = host.split(":");
   const parts = hostname.split(".");
@@ -95,12 +53,88 @@ function getSubdomain(host: string): string | null {
   }
 
   if (parts.length >= 3 || (parts.length === 2 && parts.at(1) === "localhost")) {
-    if (subdomain in SUBDOMAIN_CONFIG) {
+    if (
+      subdomain === "shop" ||
+      subdomain === "retail" ||
+      subdomain === "supply" ||
+      subdomain === "admin"
+    ) {
       return subdomain;
     }
   }
 
   return null;
+}
+
+function buildOrigin(request: NextRequest) {
+  const protocol = request.nextUrl.protocol;
+  const host = request.headers.get("host") ?? request.nextUrl.host;
+  return `${protocol}//${host}`;
+}
+
+function withResponseHeaders(response: NextResponse, requestId: string, portal: string | null) {
+  response.headers.set("x-request-id", requestId);
+  response.headers.set("x-portal", portal ?? "main");
+  response.headers.set("x-content-type-options", "nosniff");
+  response.headers.set("x-frame-options", "DENY");
+  response.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+  response.headers.set("content-security-policy", buildContentSecurityPolicy());
+  response.headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("cross-origin-opener-policy", "same-origin");
+
+  if (isProductionRuntime()) {
+    response.headers.set(
+      "strict-transport-security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
+    response.headers.set(
+      "content-security-policy",
+      `${buildContentSecurityPolicy()}; upgrade-insecure-requests`
+    );
+  }
+
+  return response;
+}
+
+function rewriteRequest(
+  request: NextRequest,
+  requestHeaders: Headers,
+  pathname: string,
+  requestId: string,
+  portal: string | null
+) {
+  const response = NextResponse.rewrite(new URL(pathname, request.url), {
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  return withResponseHeaders(response, requestId, portal);
+}
+
+function continueRequest(requestHeaders: Headers, requestId: string, portal: string | null) {
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  return withResponseHeaders(response, requestId, portal);
+}
+
+function redirectRequest(
+  target: string,
+  request: NextRequest,
+  requestId: string,
+  portal: string | null
+) {
+  const response = NextResponse.redirect(new URL(target, request.url));
+  return withResponseHeaders(response, requestId, portal);
+}
+
+function redirectAbsoluteRequest(target: string, requestId: string, portal: string | null) {
+  const response = NextResponse.redirect(target);
+  return withResponseHeaders(response, requestId, portal);
 }
 
 export function middleware(request: NextRequest) {
@@ -110,21 +144,48 @@ export function middleware(request: NextRequest) {
 
   const host = request.headers.get("host") ?? "";
   const subdomain = getSubdomain(host);
+  const portal = normalizePortal(subdomain);
   const pathname = request.nextUrl.pathname;
+  const origin = buildOrigin(request);
 
-  const config = subdomain ? SUBDOMAIN_CONFIG[subdomain] : undefined;
-  if (subdomain && config) {
-    requestHeaders.set("x-portal", subdomain);
+  requestHeaders.set("x-portal", portal);
+  requestHeaders.set("x-pathname", pathname);
+  requestHeaders.set("x-portal-origin", origin);
 
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL(config.defaultPath, request.url));
+  const samePortalLegacyRedirect =
+    portal !== "main" ? resolvePortalLegacyRedirect(portal, pathname) : null;
+  if (samePortalLegacyRedirect) {
+    return redirectRequest(samePortalLegacyRedirect, request, requestId, subdomain);
+  }
+
+  const mainHostRedirect = getPortalLegacyRedirectForMainHost(pathname);
+  if (mainHostRedirect) {
+    if (portal === "main" || mainHostRedirect.portal !== portal) {
+      return redirectAbsoluteRequest(
+        getPortalAbsoluteUrl(mainHostRedirect.portal, mainHostRedirect.path, origin),
+        requestId,
+        subdomain
+      );
+    }
+  }
+
+  if (portal !== "main") {
+    const publicRewrite = resolvePortalPublicRewrite(portal, pathname);
+    if (publicRewrite) {
+      return rewriteRequest(request, requestHeaders, publicRewrite, requestId, subdomain);
     }
 
-    const isAllowed = config.allowedPrefixes.some(
-      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
-    );
-    if (!isAllowed) {
-      return NextResponse.redirect(new URL(config.defaultPath, request.url));
+    const legacyRewrite = resolvePortalLegacyRewrite(portal, pathname);
+    if (legacyRewrite) {
+      return rewriteRequest(request, requestHeaders, legacyRewrite, requestId, subdomain);
+    }
+
+    if (pathname.startsWith("/api")) {
+      if (!isPortalAllowedApiPath(portal, pathname)) {
+        return redirectRequest("/", request, requestId, subdomain);
+      }
+    } else if (!pathname.startsWith("/_surfaces") && !isPortalAllowedPath(portal, pathname)) {
+      return redirectRequest("/", request, requestId, subdomain);
     }
   }
 
@@ -151,35 +212,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  requestHeaders.set("x-pathname", pathname);
-
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-
-  response.headers.set("x-request-id", requestId);
-  response.headers.set("x-portal", subdomain ?? "main");
-  response.headers.set("x-content-type-options", "nosniff");
-  response.headers.set("x-frame-options", "DENY");
-  response.headers.set("referrer-policy", "strict-origin-when-cross-origin");
-  response.headers.set("content-security-policy", buildContentSecurityPolicy());
-  response.headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
-  response.headers.set("cross-origin-opener-policy", "same-origin");
-
-  if (isProductionRuntime()) {
-    response.headers.set(
-      "strict-transport-security",
-      "max-age=31536000; includeSubDomains; preload"
-    );
-    response.headers.set(
-      "content-security-policy",
-      `${buildContentSecurityPolicy()}; upgrade-insecure-requests`
-    );
-  }
-
-  return response;
+  return continueRequest(requestHeaders, requestId, subdomain);
 }
 
 export const config = {

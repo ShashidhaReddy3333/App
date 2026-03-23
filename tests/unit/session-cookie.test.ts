@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { shouldUseSecureSessionCookie } from "@/lib/auth/session-cookie";
+import { getSessionCookieDomain, shouldUseSecureSessionCookie } from "@/lib/auth/session-cookie";
 
 describe("session cookie security", () => {
   afterEach(() => {
@@ -18,5 +18,9 @@ describe("session cookie security", () => {
     vi.stubEnv("NODE_ENV", "development");
 
     expect(shouldUseSecureSessionCookie()).toBe(false);
+  });
+
+  it("keeps the session cookie host-only across portals", () => {
+    expect(getSessionCookieDomain()).toBeUndefined();
   });
 });

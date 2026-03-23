@@ -25,6 +25,78 @@
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
+body[data-portal="shop"] {
+  --background: 32 100% 98%;
+  --foreground: 214 40% 16%;
+  --primary: 20 92% 48%;
+  --primary-strong: 18 95% 42%;
+  --secondary: 168 63% 30%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 32 65% 95%;
+  --muted-foreground: 214 16% 38%;
+  --accent: 24 100% 94%;
+  --border: 24 45% 84%;
+  --input: 24 45% 84%;
+  --ring: 20 92% 48%;
+  --surface-lowest: 0 0% 100%;
+  --surface-low: 36 100% 97%;
+  --surface-high: 28 100% 93%;
+}
+
+body[data-portal="retail"] {
+  --background: 210 42% 98%;
+  --foreground: 220 41% 12%;
+  --primary: 210 85% 36%;
+  --primary-strong: 214 88% 30%;
+  --secondary: 193 84% 28%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 210 38% 95%;
+  --muted-foreground: 214 16% 36%;
+  --accent: 212 65% 92%;
+  --border: 211 33% 82%;
+  --input: 211 33% 82%;
+  --ring: 210 85% 36%;
+  --surface-lowest: 0 0% 100%;
+  --surface-low: 212 40% 96%;
+  --surface-high: 209 46% 92%;
+}
+
+body[data-portal="supply"] {
+  --background: 42 45% 98%;
+  --foreground: 214 34% 14%;
+  --primary: 31 90% 42%;
+  --primary-strong: 26 92% 36%;
+  --secondary: 202 61% 28%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 42 38% 94%;
+  --muted-foreground: 213 12% 36%;
+  --accent: 38 65% 91%;
+  --border: 35 28% 80%;
+  --input: 35 28% 80%;
+  --ring: 31 90% 42%;
+  --surface-lowest: 0 0% 100%;
+  --surface-low: 42 36% 96%;
+  --surface-high: 38 42% 91%;
+}
+
+body[data-portal="admin"] {
+  --background: 222 34% 97%;
+  --foreground: 225 39% 11%;
+  --primary: 266 76% 42%;
+  --primary-strong: 262 78% 36%;
+  --secondary: 222 36% 28%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 228 22% 94%;
+  --muted-foreground: 228 12% 36%;
+  --accent: 262 64% 92%;
+  --border: 228 20% 82%;
+  --input: 228 20% 82%;
+  --ring: 266 76% 42%;
+  --surface-lowest: 0 0% 100%;
+  --surface-low: 228 30% 96%;
+  --surface-high: 228 34% 92%;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

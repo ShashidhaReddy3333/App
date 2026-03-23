@@ -72,14 +72,17 @@ export function SignUpForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null);
     try {
-      await requestJson<{ businessId: string }>("/api/auth/sign-up", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
+      const payload = await requestJson<{ businessId: string; redirectTo: string }>(
+        "/api/auth/sign-up",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        }
+      );
 
       toast.success("Business created.");
-      window.location.replace("/app/dashboard");
+      window.location.replace(payload.redirectTo);
     } catch (error) {
       if (error instanceof ApiClientError) {
         applyFormIssues(form, error.issues);

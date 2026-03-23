@@ -1,15 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signInToPortal } from "./portal-url";
 
 async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await signInToPortal(page, "retail", email, password);
 }
 
 async function signInAndOpenDashboard(page: Page, email: string, password: string) {
   await signIn(page, email, password);
-  await expect(page).toHaveURL(/\/app\/dashboard/);
+  await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
@@ -31,7 +29,10 @@ test("cashier can reserve a cart and complete a split-payment sale", async ({ pa
   await expect(page).toHaveURL(/saleId=/);
   await expect(page.getByRole("heading", { name: "Pending cart" })).toBeVisible();
 
-  const totalDueValue = await page.getByText("Total due").locator("xpath=following-sibling::*[1]").textContent();
+  const totalDueValue = await page
+    .getByText("Total due")
+    .locator("xpath=following-sibling::*[1]")
+    .textContent();
   const totalDue = parseCurrency(totalDueValue ?? "");
   const firstPaymentAmount = Number((totalDue / 2).toFixed(2));
   const secondPaymentAmount = Number((totalDue - firstPaymentAmount).toFixed(2));
@@ -45,14 +46,14 @@ test("cashier can reserve a cart and complete a split-payment sale", async ({ pa
 
   await page.getByRole("button", { name: "Complete sale" }).click();
   await expect(page.getByText("Sale completed.")).toBeVisible();
-  if (!page.url().match(/\/app\/sales\//)) {
+  if (!page.url().match(/\/sales\//)) {
     const saleId = new URL(page.url()).searchParams.get("saleId");
     if (!saleId) {
       throw new Error("Expected saleId query parameter after completing sale.");
     }
-    await page.goto(`/app/sales/${saleId}`);
+    await page.goto(`/sales/${saleId}`);
   }
-  await expect(page).toHaveURL(/\/app\/sales\//);
+  await expect(page).toHaveURL(/\/sales\//);
   await expect(page.getByRole("heading", { name: "Receipt" })).toBeVisible();
   await expect(page.getByText("Payments")).toBeVisible();
   await expect(page.getByText("credit card")).toBeVisible();

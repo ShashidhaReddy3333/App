@@ -9,7 +9,10 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const user = await registerSupplierUser(payload);
     await createSession(user.id);
-    return apiSuccess({ userId: user.id, redirectTo: "/supplier/dashboard" }, { status: 201, message: "Supplier account created." });
+    return apiSuccess(
+      { userId: user.id, redirectTo: "/dashboard" },
+      { status: 201, message: "Supplier account created." }
+    );
   } catch (error) {
     return apiError(error);
   }

@@ -13,12 +13,12 @@ const dbState = vi.hoisted(() => {
   const transaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
     callback({
       user: {
-        findUnique: txUserFindUnique
+        findUnique: txUserFindUnique,
       },
       staffInviteToken: {
         updateMany: txStaffInviteUpdateMany,
-        create: txStaffInviteCreate
-      }
+        create: txStaffInviteCreate,
+      },
     })
   );
 
@@ -32,49 +32,49 @@ const dbState = vi.hoisted(() => {
     txStaffInviteCreate,
     staffInviteCount,
     staffInviteUpdate,
-    transaction
+    transaction,
   };
 });
 
 const mailerState = vi.hoisted(() => ({
   sendPasswordResetEmail: vi.fn(),
-  sendStaffInviteEmail: vi.fn()
+  sendStaffInviteEmail: vi.fn(),
 }));
 
 const auditState = vi.hoisted(() => ({
-  logAudit: vi.fn()
+  logAudit: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: dbState.userFindUnique
+      findUnique: dbState.userFindUnique,
     },
     passwordResetToken: {
       create: dbState.passwordResetCreate,
       delete: dbState.passwordResetDelete,
-      count: dbState.passwordResetCount
+      count: dbState.passwordResetCount,
     },
     staffInviteToken: {
       update: dbState.staffInviteUpdate,
-      count: dbState.staffInviteCount
+      count: dbState.staffInviteCount,
     },
-    $transaction: dbState.transaction
-  }
+    $transaction: dbState.transaction,
+  },
 }));
 
 vi.mock("@/lib/auth/mailer", () => ({
   sendPasswordResetEmail: mailerState.sendPasswordResetEmail,
-  sendStaffInviteEmail: mailerState.sendStaffInviteEmail
+  sendStaffInviteEmail: mailerState.sendStaffInviteEmail,
 }));
 
 vi.mock("@/lib/audit", () => ({
-  logAudit: auditState.logAudit
+  logAudit: auditState.logAudit,
 }));
 
 vi.mock("@/lib/auth/token", () => ({
   createOpaqueToken: vi.fn(() => "opaque-token"),
-  hashToken: vi.fn((value: string) => `hash:${value}`)
+  hashToken: vi.fn((value: string) => `hash:${value}`),
 }));
 
 describe("auth service email delivery", () => {
@@ -85,7 +85,11 @@ describe("auth service email delivery", () => {
   });
 
   it("sends password reset email in non-demo mode and hides the raw token", async () => {
-    dbState.userFindUnique.mockResolvedValueOnce({ id: "user_1", businessId: "biz_1" });
+    dbState.userFindUnique.mockResolvedValueOnce({
+      id: "user_1",
+      businessId: "biz_1",
+      role: "owner",
+    });
     dbState.passwordResetCount.mockResolvedValueOnce(0);
     dbState.passwordResetCreate.mockResolvedValueOnce({ id: "prt_1" });
     mailerState.sendPasswordResetEmail.mockResolvedValueOnce(undefined);
@@ -94,13 +98,21 @@ describe("auth service email delivery", () => {
     const result = await beginPasswordReset({ email: "owner@example.com" }, null);
 
     expect(result).toEqual({ ok: true, devToken: null });
-    expect(mailerState.sendPasswordResetEmail).toHaveBeenCalledWith("owner@example.com", "opaque-token");
+    expect(mailerState.sendPasswordResetEmail).toHaveBeenCalledWith(
+      "owner@example.com",
+      "opaque-token",
+      "owner"
+    );
     expect(dbState.passwordResetDelete).not.toHaveBeenCalled();
   });
 
   it("returns a demo reset token instead of sending email in demo mode", async () => {
     process.env.DEMO_MODE = "true";
-    dbState.userFindUnique.mockResolvedValueOnce({ id: "user_1", businessId: "biz_1" });
+    dbState.userFindUnique.mockResolvedValueOnce({
+      id: "user_1",
+      businessId: "biz_1",
+      role: "owner",
+    });
     dbState.passwordResetCount.mockResolvedValueOnce(0);
     dbState.passwordResetCreate.mockResolvedValueOnce({ id: "prt_1" });
 
@@ -112,16 +124,22 @@ describe("auth service email delivery", () => {
   });
 
   it("cleans up a password reset token if email delivery fails", async () => {
-    dbState.userFindUnique.mockResolvedValueOnce({ id: "user_1", businessId: "biz_1" });
+    dbState.userFindUnique.mockResolvedValueOnce({
+      id: "user_1",
+      businessId: "biz_1",
+      role: "owner",
+    });
     dbState.passwordResetCount.mockResolvedValueOnce(0);
     dbState.passwordResetCreate.mockResolvedValueOnce({ id: "prt_1" });
     mailerState.sendPasswordResetEmail.mockRejectedValueOnce(new Error("send failed"));
 
     const { beginPasswordReset } = await import("@/lib/services/auth-service");
 
-    await expect(beginPasswordReset({ email: "owner@example.com" }, null)).rejects.toThrow("send failed");
+    await expect(beginPasswordReset({ email: "owner@example.com" }, null)).rejects.toThrow(
+      "send failed"
+    );
     expect(dbState.passwordResetDelete).toHaveBeenCalledWith({
-      where: { id: "prt_1" }
+      where: { id: "prt_1" },
     });
   });
 
@@ -134,13 +152,20 @@ describe("auth service email delivery", () => {
     mailerState.sendStaffInviteEmail.mockResolvedValueOnce(undefined);
 
     const { inviteStaff } = await import("@/lib/services/auth-service");
-    const result = await inviteStaff("owner_1", { email: "cashier@example.com", role: "cashier" }, null);
+    const result = await inviteStaff(
+      "owner_1",
+      { email: "cashier@example.com", role: "cashier" },
+      null
+    );
 
     expect(result).toEqual({
       invite: { id: "inv_1" },
-      token: null
+      token: null,
     });
-    expect(mailerState.sendStaffInviteEmail).toHaveBeenCalledWith("cashier@example.com", "opaque-token");
+    expect(mailerState.sendStaffInviteEmail).toHaveBeenCalledWith(
+      "cashier@example.com",
+      "opaque-token"
+    );
     expect(dbState.staffInviteUpdate).not.toHaveBeenCalled();
   });
 
@@ -153,11 +178,15 @@ describe("auth service email delivery", () => {
     dbState.txStaffInviteCreate.mockResolvedValueOnce({ id: "inv_1" });
 
     const { inviteStaff } = await import("@/lib/services/auth-service");
-    const result = await inviteStaff("owner_1", { email: "cashier@example.com", role: "cashier" }, null);
+    const result = await inviteStaff(
+      "owner_1",
+      { email: "cashier@example.com", role: "cashier" },
+      null
+    );
 
     expect(result).toEqual({
       invite: { id: "inv_1" },
-      token: "opaque-token"
+      token: "opaque-token",
     });
     expect(mailerState.sendStaffInviteEmail).not.toHaveBeenCalled();
   });
@@ -172,10 +201,12 @@ describe("auth service email delivery", () => {
 
     const { inviteStaff } = await import("@/lib/services/auth-service");
 
-    await expect(inviteStaff("owner_1", { email: "cashier@example.com", role: "cashier" }, null)).rejects.toThrow("send failed");
+    await expect(
+      inviteStaff("owner_1", { email: "cashier@example.com", role: "cashier" }, null)
+    ).rejects.toThrow("send failed");
     expect(dbState.staffInviteUpdate).toHaveBeenCalledWith({
       where: { id: "inv_1" },
-      data: { revokedAt: expect.any(Date) }
+      data: { revokedAt: expect.any(Date) },
     });
   });
 });

@@ -2,7 +2,9 @@ import { Home } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 
-export function PageHeader({
+import { getCurrentPortal, getPortalWorkspaceHomePath } from "@/lib/portal";
+
+export async function PageHeader({
   title,
   description,
   actions,
@@ -13,12 +15,14 @@ export function PageHeader({
   actions?: React.ReactNode;
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }) {
+  const homeHref = getPortalWorkspaceHomePath(await getCurrentPortal()) as Route;
+
   return (
     <div className="space-y-4">
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <nav className="flex items-center gap-1 text-[0.72rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
           <Link
-            href={"/app/dashboard" as Route}
+            href={homeHref}
             className="flex items-center gap-1 transition-colors hover:text-foreground"
           >
             <Home className="size-3.5" />

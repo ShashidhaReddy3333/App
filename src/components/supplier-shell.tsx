@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navItems = [
-  { href: "/supplier/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard },
-  { href: "/supplier/catalog" as Route, label: "Wholesale Catalog", icon: Package },
-  { href: "/supplier/orders" as Route, label: "Retailer Orders", icon: ClipboardList },
+  { href: "/dashboard" as Route, label: "Dashboard", icon: LayoutDashboard },
+  { href: "/catalog" as Route, label: "Wholesale Catalog", icon: Package },
+  { href: "/orders" as Route, label: "Retailer Orders", icon: ClipboardList },
 ] as const;
 
 export function SupplierShell({

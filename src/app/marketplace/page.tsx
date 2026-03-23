@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Pagination } from "@/components/pagination";
 import { getSafeMarketplaceImageUrl } from "@/lib/marketplace-image";
 import { getCanonicalPath } from "@/lib/public-metadata";
+import { getCurrentRequestOrigin, getPortalAbsoluteUrl } from "@/lib/portal";
 import { listBusinessCategories, listBusinesses } from "@/lib/services/marketplace-service";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default async function MarketplacePage({
   searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }) {
   const params = await searchParams;
+  const origin = await getCurrentRequestOrigin();
   const query = params.q?.trim() ?? "";
   const category = params.category?.trim() ?? "";
   const page = Math.max(1, Number(params.page) || 1);
@@ -99,12 +101,12 @@ export default async function MarketplacePage({
                 >
                   Clear filters
                 </Link>
-                <Link
-                  href="/sign-up"
+                <a
+                  href={getPortalAbsoluteUrl("retail", "/sign-up", origin)}
                   className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   Create business
-                </Link>
+                </a>
               </div>
             </CardContent>
           </Card>

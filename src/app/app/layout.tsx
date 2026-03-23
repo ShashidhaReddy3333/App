@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
 import { requireAppSession } from "@/lib/auth/guards";
+import { getCurrentPortal } from "@/lib/portal";
 
 export default async function ProtectedAppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAppSession();
@@ -12,7 +13,10 @@ export default async function ProtectedAppLayout({ children }: { children: React
   // Redirect new businesses (owner role, onboarding not completed) to onboarding
   const headerStore = await headers();
   const pathname = headerStore.get("x-pathname") ?? "";
-  const isOnboardingPage = pathname.startsWith("/app/onboarding");
+  const portal = await getCurrentPortal();
+  const onboardingPath = portal === "retail" ? "/onboarding" : "/app/onboarding";
+  const isOnboardingPage =
+    pathname.startsWith("/onboarding") || pathname.startsWith("/app/onboarding");
 
   if (
     session.user.role === "owner" &&
@@ -20,7 +24,7 @@ export default async function ProtectedAppLayout({ children }: { children: React
     !session.user.business.onboardingCompletedAt &&
     !isOnboardingPage
   ) {
-    redirect("/app/onboarding" as Route);
+    redirect(onboardingPath as Route);
   }
 
   const showVerificationBanner = !session.user.emailVerifiedAt;

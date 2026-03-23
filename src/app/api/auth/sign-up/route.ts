@@ -9,7 +9,10 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const result = await registerOwner(payload);
     await createSession(result.user.id);
-    return apiSuccess({ businessId: result.business.id }, { status: 201, message: "Business created." });
+    return apiSuccess(
+      { businessId: result.business.id, redirectTo: "/dashboard" },
+      { status: 201, message: "Business created." }
+    );
   } catch (error) {
     return apiError(error);
   }

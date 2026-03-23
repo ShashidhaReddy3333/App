@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildPasswordResetLink, buildStaffInviteLink, sendPasswordResetEmail } from "@/lib/auth/mailer";
+import {
+  buildPasswordResetLink,
+  buildStaffInviteLink,
+  sendPasswordResetEmail,
+} from "@/lib/auth/mailer";
 
 describe("auth mailer", () => {
   const originalEnv = { ...process.env };
@@ -17,31 +21,33 @@ describe("auth mailer", () => {
     process.env = { ...originalEnv };
   });
 
-  it("builds a password reset link from APP_URL", () => {
-    expect(buildPasswordResetLink("owner@example.com", "token-123")).toBe(
-      "https://app.example.com/reset-password?email=owner%40example.com&token=token-123"
+  it("builds a password reset link for the correct role portal", () => {
+    expect(buildPasswordResetLink("owner@example.com", "token-123", "owner")).toBe(
+      "https://retail.app.example.com/reset-password?email=owner%40example.com&token=token-123"
     );
   });
 
-  it("builds an invite link from APP_URL", () => {
-    expect(buildStaffInviteLink("invite-token")).toBe("https://app.example.com/accept-invite?token=invite-token");
+  it("builds an invite link for the retail portal", () => {
+    expect(buildStaffInviteLink("invite-token")).toBe(
+      "https://retail.app.example.com/accept-invite?token=invite-token"
+    );
   });
 
   it("sends reset emails through Resend", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      ok: true
+      ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await sendPasswordResetEmail("owner@example.com", "token-123");
+    await sendPasswordResetEmail("owner@example.com", "token-123", "owner");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.resend.com/emails",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
-          Authorization: "Bearer resend_test_key"
-        })
+          Authorization: "Bearer resend_test_key",
+        }),
       })
     );
 
@@ -51,6 +57,8 @@ describe("auth mailer", () => {
     expect(body.from).toBe("Business Management App <noreply@example.com>");
     expect(body.to).toEqual(["owner@example.com"]);
     expect(body.reply_to).toBe("help@example.com");
-    expect(body.html).toContain("https://app.example.com/reset-password?email=owner%40example.com&token=token-123");
+    expect(body.html).toContain(
+      "https://retail.app.example.com/reset-password?email=owner%40example.com&token=token-123"
+    );
   });
 });

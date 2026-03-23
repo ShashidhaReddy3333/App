@@ -4,6 +4,7 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { validateCsrfToken } from "@/lib/csrf";
 import { forbiddenError, unauthorizedError } from "@/lib/errors";
+import { getCurrentPortal, isRoleAllowedInPortal } from "@/lib/portal";
 import { getRequestOrigin, isAllowedRequestOrigin, isSafeMethod } from "@/lib/security/csrf";
 
 let hasWarnedAboutMissingRequest = false;
@@ -69,6 +70,11 @@ export async function requireApiAccess(permission?: Permission, options?: Requir
     throw unauthorizedError();
   }
 
+  const portal = await getCurrentPortal();
+  if (portal !== "main" && !isRoleAllowedInPortal(portal, session.user.role)) {
+    throw forbiddenError("This account cannot access the current portal.");
+  }
+
   if (options?.roles && !options.roles.includes(session.user.role)) {
     throw forbiddenError();
   }
@@ -93,6 +99,10 @@ export async function requirePlatformAdminAccess(request?: Request) {
   const session = await getCurrentSession();
   if (!session) {
     throw unauthorizedError();
+  }
+  const portal = await getCurrentPortal();
+  if (portal !== "main" && !isRoleAllowedInPortal(portal, session.user.role)) {
+    throw forbiddenError("This account cannot access the current portal.");
   }
   if (session.user.role !== "platform_admin") {
     throw forbiddenError();

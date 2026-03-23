@@ -1,22 +1,56 @@
 import type { Metadata } from "next";
+
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ResetPasswordForm } from "@/components/forms/reset-password-form";
+import { getCurrentPortal } from "@/lib/portal";
 
-export const metadata: Metadata = {
-  title: "Reset Password | Human Pulse",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const portal = await getCurrentPortal();
+
+  return {
+    title:
+      portal === "shop"
+        ? "Reset Customer Password | Human Pulse"
+        : portal === "supply"
+          ? "Reset Supplier Password | Human Pulse"
+          : "Reset Retail Password | Human Pulse",
+  };
+}
 
 export default async function ResetPasswordPage({
-  searchParams
+  searchParams,
 }: {
   searchParams: Promise<{ email?: string; token?: string }>;
 }) {
+  const portal = await getCurrentPortal();
   const params = await searchParams;
+
   return (
-    <AuthShell title="Reset password" description="Use the reset token issued from the forgot password flow.">
+    <AuthShell
+      eyebrow={
+        portal === "shop"
+          ? "Customer portal"
+          : portal === "supply"
+            ? "Supplier portal"
+            : portal === "main"
+              ? "Portal access"
+              : "Retail portal"
+      }
+      title="Reset password"
+      description="Use your one-time token to reset the password for the current Human Pulse portal."
+      homeHref="/"
+      homeLabel="Human Pulse"
+      homeTagline={
+        portal === "shop"
+          ? "Customer Portal"
+          : portal === "supply"
+            ? "Supplier Portal"
+            : portal === "main"
+              ? "Connected Commerce"
+              : "Retail Portal"
+      }
+    >
       <ResetPasswordForm email={params.email ?? ""} token={params.token ?? ""} />
     </AuthShell>
   );
 }
-
-

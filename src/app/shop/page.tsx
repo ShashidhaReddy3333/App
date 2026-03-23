@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getCurrentSession } from "@/lib/auth/session";
 import { STOREFRONT_LOCATION_COOKIE } from "@/lib/location-preferences";
 import { getCanonicalPath } from "@/lib/public-metadata";
+import { getCurrentRequestOrigin, getPortalAbsoluteUrl } from "@/lib/portal";
 import { getStorefrontLocationPreference } from "@/lib/server/location-context";
 import { getStorefrontData } from "@/lib/services/customer-commerce-query-service";
 
@@ -34,6 +35,7 @@ export default async function ShopPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const session = await getCurrentSession();
+  const origin = await getCurrentRequestOrigin();
   const params = await searchParams;
   const requestedLocationId = await getStorefrontLocationPreference();
   const storefront = await getStorefrontData({
@@ -76,13 +78,13 @@ export default async function ShopPage({
               <Link href={"/marketplace" as Route}>Browse marketplace</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/sign-up">Create business</Link>
+              <a href={getPortalAbsoluteUrl("retail", "/sign-up", origin)}>Create business</a>
             </Button>
           </div>
         ) : !session || session.user.role !== "customer" ? (
           <div className="flex flex-wrap gap-3 pt-4">
             <Button asChild>
-              <Link href={"/customer/sign-up" as Route}>Create customer account</Link>
+              <Link href="/sign-up">Create customer account</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/sign-in">Sign in</Link>
@@ -186,7 +188,7 @@ export default async function ShopPage({
                 <Link href={"/marketplace" as Route}>Open marketplace</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/sign-up">Create business</Link>
+                <a href={getPortalAbsoluteUrl("retail", "/sign-up", origin)}>Create business</a>
               </Button>
             </div>
           </CardContent>

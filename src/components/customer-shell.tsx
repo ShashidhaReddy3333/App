@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navItems = [
+  { href: "/" as Route, label: "Home", icon: Store },
   { href: "/shop" as Route, label: "Shop", icon: Store },
   { href: "/cart" as Route, label: "Cart", icon: ShoppingCart },
   { href: "/orders" as Route, label: "My Orders", icon: Package },

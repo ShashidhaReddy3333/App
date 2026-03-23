@@ -1,10 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signInToPortal } from "./portal-url";
 
 async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await signInToPortal(page, "shop", email, password);
 }
 
 test("customer can browse the storefront, checkout, and view the order", async ({ page }) => {

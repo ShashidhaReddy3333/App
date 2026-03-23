@@ -36,7 +36,7 @@ export function AddToCartButton({
         error instanceof ApiClientError ? error.message : "Unable to add product to cart.";
       toast.error(message);
       if (error instanceof ApiClientError && error.code === "UNAUTHORIZED") {
-        window.location.assign("/customer/sign-up");
+        window.location.assign("/sign-up");
       }
     } finally {
       setSubmitting(false);

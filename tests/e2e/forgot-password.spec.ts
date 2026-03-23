@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { getPortalUrl } from "./portal-url";
 
 test("forgot password exposes the demo token in demo mode", async ({ page }) => {
-  await page.goto("/forgot-password");
+  await page.goto(getPortalUrl("retail", "/forgot-password"));
   await page.getByLabel("Email").fill("owner@demo.local");
   await page.getByRole("button", { name: "Send reset link" }).click();
 

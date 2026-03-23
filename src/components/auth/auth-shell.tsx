@@ -1,32 +1,49 @@
-import Link from "next/link";
-
 export function AuthShell({
   title,
   description,
   eyebrow,
+  homeHref = "/",
+  homeLabel = "Human Pulse",
+  homeTagline = "Connected Commerce",
+  highlights = [
+    {
+      title: "Purpose-built portals",
+      description:
+        "Customer, retailer, and supplier journeys stay isolated while the backend stays shared.",
+    },
+    {
+      title: "Shared commerce data",
+      description:
+        "Catalog, orders, fulfillment, and operational status stay aligned across the ecosystem.",
+    },
+  ],
   children,
 }: {
   title: string;
   description: string;
   eyebrow?: string;
+  homeHref?: string;
+  homeLabel?: string;
+  homeTagline?: string;
+  highlights?: Array<{ title: string; description: string }>;
   children: React.ReactNode;
 }) {
   return (
     <main className="min-h-screen bg-background">
       <header className="px-4 py-5 sm:px-6 lg:px-10">
-        <Link href="/" className="inline-flex items-center gap-3">
+        <a href={homeHref} className="inline-flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-strong)))] text-sm font-bold text-white shadow-panel">
             HP
           </span>
           <div>
             <div className="text-lg font-semibold tracking-[-0.02em] text-foreground">
-              Human Pulse
+              {homeLabel}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Commerce OS
+              {homeTagline}
             </div>
           </div>
-        </Link>
+        </a>
       </header>
 
       <div className="page-shell grid flex-1 gap-8 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-12">
@@ -39,20 +56,14 @@ export function AuthShell({
             <p className="max-w-xl text-base leading-7 text-muted-foreground">{description}</p>
           </div>
           <div className="surface-shell max-w-xl rounded-[28px] p-6">
-            <div className="section-label">Why teams use Human Pulse</div>
+            <div className="section-label">Why Human Pulse</div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="data-row">
-                <div className="text-sm font-semibold text-foreground">Retail operations</div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  POS, inventory, staff access, and procurement in one workflow.
-                </p>
-              </div>
-              <div className="data-row">
-                <div className="text-sm font-semibold text-foreground">Shared commerce data</div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Orders, catalog, and fulfillment stay aligned across portals.
-                </p>
-              </div>
+              {highlights.map((highlight) => (
+                <div key={highlight.title} className="data-row">
+                  <div className="text-sm font-semibold text-foreground">{highlight.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{highlight.description}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>

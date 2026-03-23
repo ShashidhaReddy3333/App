@@ -1,7 +1,11 @@
 import { BusinessType, TaxMode, UserRole, UserStatus } from "@prisma/client";
 
 import { logAudit } from "@/lib/audit";
-import { sendEmailVerificationEmail, sendPasswordResetEmail, sendStaffInviteEmail } from "@/lib/auth/mailer";
+import {
+  sendEmailVerificationEmail,
+  sendPasswordResetEmail,
+  sendStaffInviteEmail,
+} from "@/lib/auth/mailer";
 import { createOpaqueToken, hashToken } from "@/lib/auth/token";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -14,7 +18,7 @@ import {
   resetPasswordSchema,
   signInSchema,
   signUpSchema,
-  supplierSignUpSchema
+  supplierSignUpSchema,
 } from "@/lib/schemas/auth";
 
 const LOGIN_WINDOW_MINUTES = 15;
@@ -32,9 +36,9 @@ async function assertLoginNotBlocked(email: string, ipAddress: string | null) {
     where: {
       email_ipAddress: {
         email,
-        ipAddress: throttleIpAddress
-      }
-    }
+        ipAddress: throttleIpAddress,
+      },
+    },
   });
 
   if (throttle?.blockedUntil && throttle.blockedUntil > new Date()) {
@@ -48,35 +52,40 @@ async function registerFailedLogin(email: string, ipAddress: string | null) {
     where: {
       email_ipAddress: {
         email,
-        ipAddress: throttleIpAddress
-      }
-    }
+        ipAddress: throttleIpAddress,
+      },
+    },
   });
 
   const now = new Date();
-  const stale = existing?.lastFailedAt ? now.getTime() - existing.lastFailedAt.getTime() > LOGIN_WINDOW_MINUTES * 60 * 1000 : true;
+  const stale = existing?.lastFailedAt
+    ? now.getTime() - existing.lastFailedAt.getTime() > LOGIN_WINDOW_MINUTES * 60 * 1000
+    : true;
   const failedCount = stale ? 1 : (existing?.failedCount ?? 0) + 1;
-  const blockedUntil = failedCount >= LOGIN_ATTEMPT_LIMIT ? new Date(now.getTime() + LOGIN_WINDOW_MINUTES * 60 * 1000) : null;
+  const blockedUntil =
+    failedCount >= LOGIN_ATTEMPT_LIMIT
+      ? new Date(now.getTime() + LOGIN_WINDOW_MINUTES * 60 * 1000)
+      : null;
 
   await db.authThrottle.upsert({
     where: {
       email_ipAddress: {
         email,
-        ipAddress: throttleIpAddress
-      }
+        ipAddress: throttleIpAddress,
+      },
     },
     create: {
       email,
       ipAddress: throttleIpAddress,
       failedCount,
       lastFailedAt: now,
-      blockedUntil
+      blockedUntil,
     },
     update: {
       failedCount,
       lastFailedAt: now,
-      blockedUntil
-    }
+      blockedUntil,
+    },
   });
 }
 
@@ -85,8 +94,8 @@ async function clearLoginFailures(email: string, ipAddress: string | null) {
   await db.authThrottle.deleteMany({
     where: {
       email,
-      ipAddress: throttleIpAddress
-    }
+      ipAddress: throttleIpAddress,
+    },
   });
 }
 
@@ -95,8 +104,8 @@ async function assertPasswordResetNotThrottled(userId: string) {
   const recentCount = await db.passwordResetToken.count({
     where: {
       userId,
-      createdAt: { gte: windowStart }
-    }
+      createdAt: { gte: windowStart },
+    },
   });
 
   if (recentCount >= PASSWORD_RESET_LIMIT) {
@@ -110,12 +119,14 @@ async function assertInviteNotThrottled(businessId: string, email: string) {
     where: {
       businessId,
       email,
-      createdAt: { gte: windowStart }
-    }
+      createdAt: { gte: windowStart },
+    },
   });
 
   if (recentCount >= STAFF_INVITE_LIMIT) {
-    throw conflictError("Too many invites were sent to this address recently. Please try again later.");
+    throw conflictError(
+      "Too many invites were sent to this address recently. Please try again later."
+    );
   }
 }
 
@@ -125,8 +136,8 @@ export async function generateVerificationToken(userId: string) {
     data: {
       userId,
       tokenHash: hashToken(rawToken),
-      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000)
-    }
+      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000),
+    },
   });
   return rawToken;
 }
@@ -134,7 +145,7 @@ export async function generateVerificationToken(userId: string) {
 export async function verifyEmail(email: string, token: string) {
   const normalizedEmail = email.toLowerCase();
   const user = await db.user.findUnique({
-    where: { email: normalizedEmail }
+    where: { email: normalizedEmail },
   });
 
   if (!user) {
@@ -151,27 +162,27 @@ export async function verifyEmail(email: string, token: string) {
       userId: user.id,
       tokenHash,
       usedAt: null,
-      expiresAt: { gt: new Date() }
-    }
+      expiresAt: { gt: new Date() },
+    },
   });
 
   if (!verificationToken) {
     throw validationError("Verification link is invalid or expired.", {
       fieldErrors: {
-        token: ["Verification link is invalid or expired."]
-      }
+        token: ["Verification link is invalid or expired."],
+      },
     });
   }
 
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
-      data: { emailVerifiedAt: new Date() }
+      data: { emailVerifiedAt: new Date() },
     });
 
     await tx.emailVerificationToken.update({
       where: { id: verificationToken.id },
-      data: { usedAt: new Date() }
+      data: { usedAt: new Date() },
     });
   });
 
@@ -180,7 +191,7 @@ export async function verifyEmail(email: string, token: string) {
 
 export async function resendVerificationEmail(userId: string) {
   const user = await db.user.findUnique({
-    where: { id: userId }
+    where: { id: userId },
   });
 
   if (!user) {
@@ -195,9 +206,9 @@ export async function resendVerificationEmail(userId: string) {
   const recentToken = await db.emailVerificationToken.findFirst({
     where: {
       userId,
-      createdAt: { gte: new Date(Date.now() - RESEND_VERIFICATION_COOLDOWN_SECONDS * 1000) }
+      createdAt: { gte: new Date(Date.now() - RESEND_VERIFICATION_COOLDOWN_SECONDS * 1000) },
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
   });
 
   if (recentToken) {
@@ -207,25 +218,25 @@ export async function resendVerificationEmail(userId: string) {
   const rawToken = await generateVerificationToken(userId);
 
   if (env.DEMO_MODE !== "true") {
-    await sendEmailVerificationEmail(user.email, rawToken);
+    await sendEmailVerificationEmail(user.email, rawToken, user.role);
   }
 
   return { ok: true, alreadyVerified: false };
 }
 
-async function sendVerificationForNewUser(userId: string, email: string) {
+async function sendVerificationForNewUser(userId: string, email: string, role: UserRole) {
   if (env.DEMO_MODE === "true") {
     // In demo mode, auto-verify for convenience
     await db.user.update({
       where: { id: userId },
-      data: { emailVerifiedAt: new Date() }
+      data: { emailVerifiedAt: new Date() },
     });
     return;
   }
 
   const rawToken = await generateVerificationToken(userId);
   try {
-    await sendEmailVerificationEmail(email, rawToken);
+    await sendEmailVerificationEmail(email, rawToken, role);
   } catch {
     // If email sending fails, still allow sign-up but user can resend later
   }
@@ -234,8 +245,8 @@ async function sendVerificationForNewUser(userId: string, email: string) {
 function duplicateEmailError() {
   return validationError("An account with this email already exists.", {
     fieldErrors: {
-      email: ["An account with this email already exists."]
-    }
+      email: ["An account with this email already exists."],
+    },
   });
 }
 
@@ -243,7 +254,7 @@ export async function registerOwner(input: unknown) {
   const values = signUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
   const existingUser = await db.user.findUnique({
-    where: { email: normalizedEmail }
+    where: { email: normalizedEmail },
   });
 
   if (existingUser) {
@@ -261,9 +272,9 @@ export async function registerOwner(input: unknown) {
         status: UserStatus.active,
         role: UserRole.owner,
         notificationPreference: {
-          create: {}
-        }
-      }
+          create: {},
+        },
+      },
     });
 
     const business = await tx.business.create({
@@ -277,8 +288,8 @@ export async function registerOwner(input: unknown) {
         taxMode: values.taxMode as TaxMode,
         users: {
           connect: {
-            id: user.id
-          }
+            id: user.id,
+          },
         },
         locations: {
           create: {
@@ -288,18 +299,18 @@ export async function registerOwner(input: unknown) {
             provinceOrState: values.provinceOrState,
             postalCode: values.postalCode,
             country: values.primaryCountry,
-            timezone: values.timezone
-          }
-        }
+            timezone: values.timezone,
+          },
+        },
       },
       include: {
-        locations: true
-      }
+        locations: true,
+      },
     });
 
     await tx.user.update({
       where: { id: user.id },
-      data: { businessId: business.id }
+      data: { businessId: business.id },
     });
 
     if (values.defaultTaxName && typeof values.defaultTaxRate === "number") {
@@ -309,8 +320,8 @@ export async function registerOwner(input: unknown) {
           name: values.defaultTaxName,
           ratePercent: values.defaultTaxRate,
           isDefault: true,
-          isInclusive: values.taxMode === "inclusive_tax"
-        }
+          isInclusive: values.taxMode === "inclusive_tax",
+        },
       });
     }
 
@@ -321,13 +332,13 @@ export async function registerOwner(input: unknown) {
       action: "business_created",
       resourceType: "business",
       resourceId: business.id,
-      metadata: { businessName: business.businessName }
+      metadata: { businessName: business.businessName },
     });
 
     return { user, business };
   });
 
-  await sendVerificationForNewUser(result.user.id, normalizedEmail);
+  await sendVerificationForNewUser(result.user.id, normalizedEmail, result.user.role);
 
   return result;
 }
@@ -336,7 +347,7 @@ export async function registerCustomer(input: unknown) {
   const values = customerSignUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
   const existingUser = await db.user.findUnique({
-    where: { email: normalizedEmail }
+    where: { email: normalizedEmail },
   });
 
   if (existingUser) {
@@ -352,15 +363,15 @@ export async function registerCustomer(input: unknown) {
       status: UserStatus.active,
       role: UserRole.customer,
       customerProfile: {
-        create: {}
+        create: {},
       },
       notificationPreference: {
-        create: {}
-      }
-    }
+        create: {},
+      },
+    },
   });
 
-  await sendVerificationForNewUser(user.id, normalizedEmail);
+  await sendVerificationForNewUser(user.id, normalizedEmail, user.role);
 
   return user;
 }
@@ -369,7 +380,7 @@ export async function registerSupplierUser(input: unknown) {
   const values = supplierSignUpSchema.parse(input);
   const normalizedEmail = values.email.toLowerCase();
   const existingUser = await db.user.findUnique({
-    where: { email: normalizedEmail }
+    where: { email: normalizedEmail },
   });
 
   if (existingUser) {
@@ -378,7 +389,7 @@ export async function registerSupplierUser(input: unknown) {
 
   const business = await db.business.findFirst({
     where: { isActive: true },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
   });
 
   if (!business) {
@@ -395,8 +406,8 @@ export async function registerSupplierUser(input: unknown) {
         contactName: values.fullName,
         email: normalizedEmail,
         phone: values.phone || null,
-        notes: values.notes || null
-      }
+        notes: values.notes || null,
+      },
     });
 
     const createdUser = await tx.user.create({
@@ -409,9 +420,9 @@ export async function registerSupplierUser(input: unknown) {
         status: UserStatus.active,
         role: UserRole.supplier,
         notificationPreference: {
-          create: {}
-        }
-      }
+          create: {},
+        },
+      },
     });
 
     await logAudit({
@@ -421,13 +432,13 @@ export async function registerSupplierUser(input: unknown) {
       action: "supplier_portal_onboarded",
       resourceType: "supplier",
       resourceId: supplier.id,
-      metadata: { supplierName: supplier.name }
+      metadata: { supplierName: supplier.name },
     });
 
     return createdUser;
   });
 
-  await sendVerificationForNewUser(user.id, normalizedEmail);
+  await sendVerificationForNewUser(user.id, normalizedEmail, user.role);
 
   return user;
 }
@@ -439,7 +450,7 @@ export async function authenticateUser(input: unknown, ipAddress: string | null)
 
   const user = await db.user.findUnique({
     where: { email },
-    include: { business: true }
+    include: { business: true },
   });
 
   if (!user || !user.passwordHash) {
@@ -447,13 +458,15 @@ export async function authenticateUser(input: unknown, ipAddress: string | null)
     throw validationError("Invalid email or password.", {
       fieldErrors: {
         email: ["Invalid email or password."],
-        password: ["Invalid email or password."]
-      }
+        password: ["Invalid email or password."],
+      },
     });
   }
 
   if (user.status === UserStatus.invited) {
-    throw conflictError("Your account invitation is pending. Please accept the invite email to activate your account.");
+    throw conflictError(
+      "Your account invitation is pending. Please accept the invite email to activate your account."
+    );
   }
 
   const isValidPassword = await verifyPassword(values.password, user.passwordHash);
@@ -462,15 +475,15 @@ export async function authenticateUser(input: unknown, ipAddress: string | null)
     throw validationError("Invalid email or password.", {
       fieldErrors: {
         email: ["Invalid email or password."],
-        password: ["Invalid email or password."]
-      }
+        password: ["Invalid email or password."],
+      },
     });
   }
 
   await clearLoginFailures(email, ipAddress);
   await db.user.update({
     where: { id: user.id },
-    data: { lastLoginAt: new Date() }
+    data: { lastLoginAt: new Date() },
   });
 
   return user;
@@ -492,16 +505,16 @@ export async function beginPasswordReset(input: unknown, ipAddress: string | nul
     data: {
       userId: user.id,
       tokenHash: hashToken(rawToken),
-      expiresAt: new Date(Date.now() + 1000 * 60 * 30)
-    }
+      expiresAt: new Date(Date.now() + 1000 * 60 * 30),
+    },
   });
 
   if (env.DEMO_MODE !== "true") {
     try {
-      await sendPasswordResetEmail(email, rawToken);
+      await sendPasswordResetEmail(email, rawToken, user.role);
     } catch (error) {
       await db.passwordResetToken.delete({
-        where: { id: resetToken.id }
+        where: { id: resetToken.id },
       });
       throw error;
     }
@@ -515,20 +528,20 @@ export async function beginPasswordReset(input: unknown, ipAddress: string | nul
       resourceType: "password_reset",
       resourceId: user.id,
       metadata: {},
-      ipAddress
+      ipAddress,
     });
   }
 
   return {
     ok: true,
-    devToken: env.DEMO_MODE === "true" ? rawToken : null
+    devToken: env.DEMO_MODE === "true" ? rawToken : null,
   };
 }
 
 export async function completePasswordReset(input: unknown) {
   const values = resetPasswordSchema.parse(input);
   const user = await db.user.findUnique({
-    where: { email: values.email.toLowerCase() }
+    where: { email: values.email.toLowerCase() },
   });
 
   if (!user) {
@@ -541,15 +554,15 @@ export async function completePasswordReset(input: unknown) {
       userId: user.id,
       tokenHash,
       usedAt: null,
-      expiresAt: { gt: new Date() }
-    }
+      expiresAt: { gt: new Date() },
+    },
   });
 
   if (!resetToken) {
     throw validationError("Reset token is invalid or expired.", {
       fieldErrors: {
-        token: ["Reset token is invalid or expired."]
-      }
+        token: ["Reset token is invalid or expired."],
+      },
     });
   }
 
@@ -557,17 +570,17 @@ export async function completePasswordReset(input: unknown) {
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
-      data: { passwordHash }
+      data: { passwordHash },
     });
 
     await tx.passwordResetToken.update({
       where: { id: resetToken.id },
-      data: { usedAt: new Date() }
+      data: { usedAt: new Date() },
     });
 
     await tx.session.updateMany({
       where: { userId: user.id, revokedAt: null },
-      data: { revokedAt: new Date() }
+      data: { revokedAt: new Date() },
     });
 
     if (user.businessId) {
@@ -578,7 +591,7 @@ export async function completePasswordReset(input: unknown) {
         action: "password_reset",
         resourceType: "user",
         resourceId: user.id,
-        metadata: {}
+        metadata: {},
       });
     }
   });
@@ -589,7 +602,7 @@ export async function completePasswordReset(input: unknown) {
 export async function inviteStaff(actorUserId: string, input: unknown, ipAddress: string | null) {
   const values = inviteStaffSchema.parse(input);
   const actor = await db.user.findUnique({
-    where: { id: actorUserId }
+    where: { id: actorUserId },
   });
 
   if (!actor?.businessId) {
@@ -603,13 +616,13 @@ export async function inviteStaff(actorUserId: string, input: unknown, ipAddress
 
   const invite = await db.$transaction(async (tx) => {
     const existingUser = await tx.user.findUnique({
-      where: { email: normalizedEmail }
+      where: { email: normalizedEmail },
     });
     if (existingUser) {
       throw validationError("A user with this email already exists.", {
         fieldErrors: {
-          email: ["A user with this email already exists."]
-        }
+          email: ["A user with this email already exists."],
+        },
       });
     }
 
@@ -619,9 +632,9 @@ export async function inviteStaff(actorUserId: string, input: unknown, ipAddress
         email: normalizedEmail,
         acceptedAt: null,
         revokedAt: null,
-        expiresAt: { gt: new Date() }
+        expiresAt: { gt: new Date() },
       },
-      data: { revokedAt: new Date() }
+      data: { revokedAt: new Date() },
     });
 
     const invite = await tx.staffInviteToken.create({
@@ -631,8 +644,8 @@ export async function inviteStaff(actorUserId: string, input: unknown, ipAddress
         role: values.role,
         tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-        invitedByUserId: actorUserId
-      }
+        invitedByUserId: actorUserId,
+      },
     });
 
     return invite;
@@ -644,7 +657,7 @@ export async function inviteStaff(actorUserId: string, input: unknown, ipAddress
     } catch (error) {
       await db.staffInviteToken.update({
         where: { id: invite.id },
-        data: { revokedAt: new Date() }
+        data: { revokedAt: new Date() },
       });
       throw error;
     }
@@ -657,12 +670,12 @@ export async function inviteStaff(actorUserId: string, input: unknown, ipAddress
     resourceType: "staff_invite",
     resourceId: invite.id,
     metadata: { email: normalizedEmail, role: values.role },
-    ipAddress
+    ipAddress,
   });
 
   return {
     invite,
-    token: env.DEMO_MODE === "true" ? token : null
+    token: env.DEMO_MODE === "true" ? token : null,
   };
 }
 
@@ -673,20 +686,20 @@ export async function acceptInvite(token: string, fullName: string, password: st
       tokenHash,
       acceptedAt: null,
       revokedAt: null,
-      expiresAt: { gt: new Date() }
-    }
+      expiresAt: { gt: new Date() },
+    },
   });
 
   if (!invite) {
     throw validationError("Invite token is invalid or expired.", {
       fieldErrors: {
-        token: ["Invite token is invalid or expired."]
-      }
+        token: ["Invite token is invalid or expired."],
+      },
     });
   }
 
   const existingUser = await db.user.findUnique({
-    where: { email: invite.email }
+    where: { email: invite.email },
   });
   if (existingUser) {
     throw validationError("A user with this email already exists.");
@@ -703,14 +716,14 @@ export async function acceptInvite(token: string, fullName: string, password: st
         role: invite.role,
         status: UserStatus.active,
         notificationPreference: {
-          create: {}
-        }
-      }
+          create: {},
+        },
+      },
     });
 
     await tx.staffInviteToken.update({
       where: { id: invite.id },
-      data: { acceptedAt: new Date() }
+      data: { acceptedAt: new Date() },
     });
 
     await logAudit({
@@ -720,7 +733,7 @@ export async function acceptInvite(token: string, fullName: string, password: st
       action: "invite_accepted",
       resourceType: "staff_invite",
       resourceId: invite.id,
-      metadata: { email: invite.email }
+      metadata: { email: invite.email },
     });
 
     return user;
