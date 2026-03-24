@@ -1,5 +1,6 @@
 import { withRateLimit } from "@/lib/api-rate-limit";
 import { requireApiAccess } from "@/lib/auth/api-guard";
+import { forbiddenError } from "@/lib/errors";
 import { apiError, apiSuccess } from "@/lib/http";
 import { createProduct } from "@/lib/services/catalog-command-service";
 import { listCatalogData } from "@/lib/services/catalog-query-service";
@@ -19,6 +20,9 @@ export async function GET() {
 const postHandler = async (request: Request) => {
   try {
     const { session, businessId } = await requireApiAccess("products", { request });
+    if (!session.user.emailVerifiedAt) {
+      throw forbiddenError("Please verify your email address before creating products.");
+    }
     const payload = await request.json();
     const product = await createProduct(session.user.id, businessId, payload);
     return apiSuccess({ product }, { status: 201, message: "Product created." });

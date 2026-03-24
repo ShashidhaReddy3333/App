@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OnboardingStepper } from "@/components/onboarding-stepper";
+import { csrfFetch } from "@/lib/client/csrf";
 
 const STEP_LABELS = ["Welcome", "Quick Setup", "You're Ready"];
 
@@ -85,7 +86,7 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/onboarding/complete", {
+      const res = await csrfFetch("/api/onboarding/complete", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
       });

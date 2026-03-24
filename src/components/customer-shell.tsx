@@ -1,31 +1,36 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Package, ShoppingCart, Store } from "lucide-react";
+import { Home, Package, ShoppingCart, Store, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
 import { SignOutButton } from "@/components/sign-out-button";
+import { getCurrentSession } from "@/lib/auth/session";
 
 const navItems = [
-  { href: "/" as Route, label: "Home", icon: Store },
+  { href: "/" as Route, label: "Home", icon: Home },
   { href: "/shop" as Route, label: "Shop", icon: Store },
   { href: "/cart" as Route, label: "Cart", icon: ShoppingCart },
   { href: "/orders" as Route, label: "My Orders", icon: Package },
 ] as const;
 
-export function CustomerShell({
+export async function CustomerShell({
   customerName,
   children,
 }: {
   customerName: string;
   children: React.ReactNode;
 }) {
+  const session = await getCurrentSession();
+  const showVerificationBanner = session && !session.user.emailVerifiedAt;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border/30 bg-[hsl(var(--surface-lowest))]/85 backdrop-blur-[12px]">
         <div className="page-shell flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-strong)))] text-white shadow-panel">
-              <Store className="size-5" />
+              <User className="size-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -58,6 +63,7 @@ export function CustomerShell({
           </nav>
         </div>
       </header>
+      {showVerificationBanner && <EmailVerificationBanner />}
       <main id="main-content" className="page-shell py-8">
         {children}
       </main>

@@ -178,39 +178,41 @@ export function SignUpForm({ authPath = "/api/auth/retail/sign-up" }: { authPath
                 </p>
               </div>
               <div className="rounded-[24px] border border-border/30 bg-[hsl(var(--surface-lowest))]/90 p-4 md:col-span-2">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-3">
                   <div className="space-y-1">
                     <div className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                       Retail setup preview
                     </div>
                     <div className="text-base font-semibold">What launches with this account</div>
-                    <p className="max-w-xl text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       We&apos;ll use these defaults to prepare your first dashboard, storefront tax
                       behavior, and retail operations workspace.
                     </p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 grid-cols-3">
                     <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground truncate">
                         Store
                       </div>
-                      <div className="mt-1 font-medium">
+                      <div className="mt-1 font-medium truncate">
                         {form.watch("businessName") || "Your store name"}
                       </div>
                     </div>
                     <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground truncate">
                         Tax behavior
                       </div>
-                      <div className="mt-1 font-medium">
+                      <div className="mt-1 font-medium truncate">
                         {form.watch("taxMode").replaceAll("_", " ")}
                       </div>
                     </div>
                     <div className="rounded-2xl border border-border/25 bg-[hsl(var(--surface-low))] px-3 py-2.5 text-sm">
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground truncate">
                         Currency
                       </div>
-                      <div className="mt-1 font-medium">{form.watch("currency") || "CAD"}</div>
+                      <div className="mt-1 font-medium truncate">
+                        {form.watch("currency") || "CAD"}
+                      </div>
                     </div>
                   </div>
                 </div>

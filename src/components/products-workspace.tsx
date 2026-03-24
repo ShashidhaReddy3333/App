@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Barcode, SearchSlash } from "lucide-react";
+import { Barcode, MailWarning, SearchSlash } from "lucide-react";
 
 import { InventoryAdjustmentForm } from "@/components/forms/inventory-adjustment-form";
 import { InventoryTransferForm } from "@/components/forms/inventory-transfer-form";
@@ -32,6 +32,7 @@ export function ProductsWorkspace({
   rows,
   supplierOptions,
   productOptions,
+  emailVerified = true,
 }: {
   locationId: string;
   locationName: string;
@@ -39,6 +40,7 @@ export function ProductsWorkspace({
   rows: ProductRow[];
   supplierOptions: Array<{ id: string; name: string; label: string }>;
   productOptions: Array<{ id: string; name: string; label: string }>;
+  emailVerified?: boolean;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
@@ -201,11 +203,28 @@ export function ProductsWorkspace({
       </div>
 
       <div className="space-y-6 animate-fade-in-up stagger-2">
-        <ProductForm
-          locationId={locationId}
-          suppliers={supplierOptions}
-          presetBarcode={prefilledBarcode}
-        />
+        {!emailVerified ? (
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="flex items-start gap-3 p-5">
+              <MailWarning className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-amber-900">
+                  Email verification required
+                </div>
+                <p className="text-sm text-amber-800">
+                  Please verify your email address before creating products. Check your inbox for
+                  the verification link.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <ProductForm
+            locationId={locationId}
+            suppliers={supplierOptions}
+            presetBarcode={prefilledBarcode}
+          />
+        )}
         <InventoryAdjustmentForm
           key={`adjustment-${locationId}`}
           locationId={locationId}

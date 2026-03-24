@@ -37,6 +37,7 @@ export default async function ProductsPage() {
         rows={rows}
         supplierOptions={supplierOptions}
         productOptions={productOptions}
+        emailVerified={!!session.user.emailVerifiedAt}
       />
     </div>
   );
