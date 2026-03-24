@@ -63,7 +63,15 @@
       "Bash(DATABASE_URL=\"postgresql://postgres.ybsnsdxxfpgpnjjylvvt:BVzLqb%3F_4mMGbgR@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres:BVzLqb%3F_4mMGbgR@db.ybsnsdxxfpgpnjjylvvt.supabase.co:5432/postgres\" npx prisma migrate deploy)",
       "Bash(cat \"/c/Users/Owner/Desktop/SRJ/App/src/app/portal/retail/\\(workspace\\)/layout.tsx\")",
       "Bash(cat \"/c/Users/Owner/Desktop/SRJ/App/src/app/portal/retail/\\(workspace\\)/products/page.tsx\")",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__click",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__close_page"
     ]
   }
 }
