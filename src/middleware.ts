@@ -106,7 +106,9 @@ function rewriteRequest(
   requestId: string,
   portal: string | null
 ) {
-  const response = NextResponse.rewrite(new URL(pathname, request.url), {
+  const targetUrl = new URL(pathname, request.url);
+  targetUrl.search = request.nextUrl.search;
+  const response = NextResponse.rewrite(targetUrl, {
     request: {
       headers: requestHeaders,
     },
