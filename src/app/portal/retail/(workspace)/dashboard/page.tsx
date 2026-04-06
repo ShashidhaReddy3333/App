@@ -6,7 +6,10 @@ import { PageHeader } from "@/components/page-header";
 import { requireAppSession } from "@/lib/auth/guards";
 import { ACTIVE_BUSINESS_LOCATION_COOKIE } from "@/lib/location-preferences";
 import { getBusinessLocationContext } from "@/lib/server/location-context";
-import { getDashboardMetrics } from "@/lib/services/reporting-query-service";
+import {
+  getDashboardMetrics,
+  getEnhancedDashboardMetrics,
+} from "@/lib/services/reporting-query-service";
 import { toDashboardCards } from "@/lib/view-models/app";
 
 const cardIcons = [DollarSign, ShoppingBag, Globe, AlertTriangle, Clock, Truck, Boxes];
@@ -14,8 +17,21 @@ const cardIcons = [DollarSign, ShoppingBag, Globe, AlertTriangle, Clock, Truck, 
 export default async function DashboardPage() {
   const session = await requireAppSession();
   const { location, locations } = await getBusinessLocationContext(session.user.businessId!);
-  const metrics = await getDashboardMetrics(session.user.businessId!, location.id);
+  const [metrics, enhanced] = await Promise.all([
+    getDashboardMetrics(session.user.businessId!, location.id),
+    getEnhancedDashboardMetrics(session.user.businessId!, location.id),
+  ]);
   const summaryCards = toDashboardCards(metrics);
+  const last7Revenue = enhanced.dailyRevenue.slice(-7);
+  const previous7Revenue = enhanced.dailyRevenue.slice(-14, -7);
+  const last7Total = last7Revenue.reduce((sum, p) => sum + p.revenue, 0);
+  const prev7Total = previous7Revenue.reduce((sum, p) => sum + p.revenue, 0);
+  const trendPercentage =
+    prev7Total > 0
+      ? Math.round(((last7Total - prev7Total) / prev7Total) * 100)
+      : last7Total > 0
+        ? 100
+        : 0;
 
   return (
     <div className="space-y-6">
@@ -51,7 +67,19 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-semibold tracking-[-0.04em]">{card.value}</div>
-                {/* TODO: Replace with real 7-day trend data from reporting service */}
+                {index === 0 && (
+                  <p
+                    className={`mt-1 text-xs font-medium ${trendPercentage >= 0 ? "text-emerald-600" : "text-red-500"}`}
+                  >
+                    {trendPercentage >= 0 ? "+" : ""}
+                    {trendPercentage}% vs prior 7 days
+                  </p>
+                )}
+                {index === 3 && enhanced.outOfStockCount > 0 && (
+                  <p className="mt-1 text-xs font-medium text-red-500">
+                    {enhanced.outOfStockCount} out of stock
+                  </p>
+                )}
               </CardContent>
             </Card>
           );

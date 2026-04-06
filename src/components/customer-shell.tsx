@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
 import { SignOutButton } from "@/components/sign-out-button";
 import { getCurrentSession } from "@/lib/auth/session";
+import { getCartItemCount } from "@/lib/services/customer-commerce-service";
 
 const navItems = [
   { href: "/" as Route, label: "Home", icon: Home },
@@ -23,6 +24,7 @@ export async function CustomerShell({
 }) {
   const session = await getCurrentSession();
   const showVerificationBanner = session && !session.user.emailVerifiedAt;
+  const cartCount = session ? await getCartItemCount(session.user.id) : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,7 +55,11 @@ export async function CustomerShell({
                 >
                   <Icon className="size-4" />
                   <span className="hidden sm:inline">{item.label}</span>
-                  {/* TODO: Show actual cart item count badge */}
+                  {item.href === "/cart" && cartCount > 0 && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[0.65rem] font-bold leading-none text-primary-foreground">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

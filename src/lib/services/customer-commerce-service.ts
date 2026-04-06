@@ -210,6 +210,16 @@ export async function getCustomerCart(customerId: string, locationId?: string | 
   return getOrCreateActiveCart(customerId, locationId);
 }
 
+export async function getCartItemCount(customerId: string): Promise<number> {
+  const cart = await db.cart.findFirst({
+    where: { customerId, status: "active" },
+    select: { id: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!cart) return 0;
+  return db.cartItem.count({ where: { cartId: cart.id } });
+}
+
 export async function addItemToCustomerCart(customerId: string, input: unknown) {
   const values = addCartItemSchema.parse(input);
   const cart = await getOrCreateActiveCart(customerId, values.locationId);

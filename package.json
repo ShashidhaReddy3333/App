@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/clean-next.mjs && next build",
+    "build:analyze": "ANALYZE=true node scripts/clean-next.mjs && ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "node scripts/clean-next.mjs && next typegen && tsc --noEmit",
@@ -75,6 +76,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.2",
     "@playwright/test": "^1.51.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
@@ -84,6 +86,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.21.0",
     "eslint-config-next": "^15.3.0",
